@@ -1,0 +1,42 @@
+{% extends 'core/home.html' %}
+{% load static %}
+
+{% block content %}
+<main class="contenido">
+    <div class="botones">
+        <a href="{% url 'registro_cliente' %}">
+            <button class="btn verde">➕ Registrar Nuevo Cliente</button>
+        </a>
+        
+        <button class="btn naranja">🔁 Renovar Cliente</button>
+
+        <a href="{% url 'asistencia_cliente' %}">
+            <button class="btn amarillo">✔️ Asistencia Cliente</button>
+        </a>
+    </div>
+
+    <table class="tabla-clientes">
+        <thead>
+            <tr>
+                <th>Nombre Completo</th>
+                <th>RUT</th>
+                <th>Hora de Ingreso</th>
+                <th>Tipo de Plan</th>
+                <th>Vencimiento De Plan</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in datos_clientes %}
+            <tr>
+                <td>{{ item.cliente.nombre }} {{ item.cliente.apellido }}</td>
+                <td>{{ item.cliente.rut }}</td>
+                <td>{{ item.hora_ingreso }}</td>
+                <td>{{ item.tipo_plan }}</td>
+                <td>{{ item.vencimiento_plan }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        
+    </table>
+</main>
+{% endblock %}

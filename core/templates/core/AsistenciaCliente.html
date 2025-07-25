@@ -1,0 +1,74 @@
+{% extends 'core/home.html' %}
+
+{% block content %}
+<main class="contenido asistencia">
+    <div class="form-container"> 
+        <form method="POST" class="formulario">
+            {% csrf_token %}
+            <h2>Registro de Asistencia</h2>
+            <label for="rut" >Ingrese RUT</label>
+            <input type="text" name="rut" id="rut" required>
+          {#  <button type="submit" class="btn verde" style="margin-top: 15px;">Registrar</button>#}
+        </form>
+    </div>
+
+        {% if mostrar_modal %}
+        <div class="modal">
+            <div class="modal-content">
+                <button onclick="cerrarModal()">✖</button>
+                <h2>✅ Registro de Asistencia</h2>
+                <p>Bienvenido <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong></p>
+                <p>El plan vence el <strong>{{ vencimiento_plan|date:"d" }} de {{ vencimiento_plan|date:"F" }}</strong></p>
+                <p>Le quedan <strong>{{ dias_restantes }}</strong> días de mensualidad</p>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if rut_invalido %}
+        <div class="modal modal-error">
+        <div class="modal-content">
+            <button onclick="cerrarModal()">✖</button>
+            <h2 style="color:#dc3545;">❌ Error</h2>
+            <p>El RUT ingresado no fue encontrado</p>
+            <p>Por favor, verifica e intenta nuevamente</p>
+        </div>
+        </div>
+        {% endif %}
+
+        {% if asistencia_ya_registrada %}
+        <div class="modal modal-warning">
+            <div class="modal-content">
+                <button onclick="cerrarModal()">✖</button>
+                <h2 style="color:#ffc107;">⚠️ Atención</h2>
+                <p>El RUT ya está ingresado hoy.</p>
+            </div>
+        </div>
+        {% endif %}
+
+</main>
+
+<script>
+    function cerrarModal() {
+        const modal = document.querySelector('.modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+    
+    document.addEventListener("DOMContentLoaded", function() {
+        const modal = document.querySelector('.modal');
+        if (modal) {
+            const isError = modal.classList.contains('modal-error');
+            const isWarning = modal.classList.contains('modal-warning');
+            let delay = 15000; 
+    
+            if (isError) delay = 10000;
+            else if (isWarning) delay = 12000;
+    
+            setTimeout(() => {
+                cerrarModal();
+            }, delay);
+        }
+    });
+    </script>
+{% endblock %}

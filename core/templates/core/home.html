@@ -1,0 +1,47 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Bunker Gym</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'core/css/styles.css' %}">
+</head>
+<body>
+    <header class="header">
+        <img src="{% static 'core/img/BunkerIMG.jpg' %}" alt="Logo Bunker Gym" class="logo">
+        {% if request.session.admin_id %}
+            <button class="cerrar-sesion" onclick="location.href='{% url 'logout' %}'">Cerrar Sesión</button>
+        {% endif %}
+    </header>
+
+    {% if not request.session.admin_id %}
+    <main class="form-container">
+        <form method="post" class='formulario'>
+            {% csrf_token %}
+            <h2>Inicio Sesión</h2>
+            <input type="text" name="rut" placeholder="RUT" >
+            <input type="password" name="password" placeholder="Contraseña" >
+            <button type="submit" class="boton-login">🔐 Ingresar</button>
+            {% if error %}
+            <div class="alerta-error">
+                ⚠️ {{ error }}
+            </div>
+        {% endif %}
+        </form>
+    </main>
+    {% endif %}
+
+    {% block content %}
+    {% endblock %}
+</body>   
+<script>
+    
+    setTimeout(function() {
+        var mensaje = document.getElementById('mensaje-error');
+        if (mensaje) {
+            mensaje.style.display = 'none';
+        }
+    }, 5000);
+</script>
+</html>

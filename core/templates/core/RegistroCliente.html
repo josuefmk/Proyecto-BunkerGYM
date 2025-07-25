@@ -1,0 +1,44 @@
+{% extends 'core/home.html' %}
+{% load static %}
+
+{% block content %}
+<main class="contenido">
+    <div class="form-container">
+        <form class="formulario" method="POST" novalidate>
+            {% csrf_token %}
+            <h2>Creación De Cliente</h2>
+
+            {% for field in form %}
+                <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
+                {{ field }}
+                {% for error in field.errors %}
+                    <p class="error">{{ error }}</p>
+                {% endfor %}
+            {% endfor %}
+
+            <button type="submit" class="btn crear">Crear Cliente</button>
+        </form>
+    </div>
+</main>
+
+<style>
+    .error {
+        color: red;
+        font-size: 0.9em;
+        margin-top: 3px;
+        margin-bottom: 8px;
+    }
+</style>
+
+<script>
+    // Eliminar puntos automáticamente del campo RUT
+    document.addEventListener("DOMContentLoaded", function() {
+        const rutInput = document.getElementById("id_rut");
+        if (rutInput) {
+            rutInput.addEventListener("input", function() {
+                this.value = this.value.replace(/\./g, '');
+            });
+        }
+    });
+</script>
+{% endblock %}
