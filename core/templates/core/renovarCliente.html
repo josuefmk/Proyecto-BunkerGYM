@@ -3,11 +3,28 @@
 
 {% block content %}
 
+<div class="centrar-buscador">
     <form method="post" class="busqueda-container">
         {% csrf_token %}
-        <input type="text" name="rut" placeholder="Buscar Cliente por RUT" value="{{ rut_buscado }}" required>
-        <button type="submit">🔍</button>
+        
+
+        <div class="busqueda-fila">
+            <input type="text" id="rutInput" name="rut" placeholder="Buscar Cliente por RUT" value="{{ rut_buscado }}">
+            <button type="submit" class="btn-global">🔍 Buscar</button>
+        </div>
+
+        {% if rut_buscado %}
+            <div class="mostrar-todos">
+                <a href="{% url 'renovarCliente' %}" class="btn-global">
+                    🧹 Limpiar Filtro
+                </a>
+            </div>
+        {% endif %}
+        
+        <div id="errorMensaje" class="error-text"></div>
     </form>
+</div>
+
 
     {% if clientes %}
         <table class="tabla-renovar">
@@ -108,6 +125,20 @@ function confirmarRenovacion(rut) {
 }
 function cerrarModal() {
     document.getElementById('modal-confirmar').style.display = 'none';
+}
+function validarFormulario(event) {
+    const rut = document.getElementById('rutInput').value.trim();
+    const mensajeError = document.getElementById('errorMensaje');
+
+    if (rut === "") {
+        event.preventDefault();
+        mensajeError.textContent = "Por favor ingrese un RUT.";
+        mensajeError.style.display = "block";
+        return false;
+    }
+
+    mensajeError.style.display = "none"; 
+    return true;
 }
 </script>
 

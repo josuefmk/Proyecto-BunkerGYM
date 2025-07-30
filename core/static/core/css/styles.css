@@ -186,7 +186,11 @@ body {
     align-items: center;
     padding: 50px 0;
 }
-
+.error-msg {
+    color: red;
+    font-size: 14px;
+    margin-top: 4px;
+}
 .formulario {
     background-color: #f0f0f0;
     padding: 30px 40px;
@@ -312,28 +316,52 @@ body {
     height: 60vh; 
 }
 
-.busqueda-container {
+
+.centrar-buscador {
     display: flex;
     justify-content: center;
-    margin-bottom: 20px;
-    margin-top: 20px;
+    align-items: center;
+    min-height: 13vh;
 }
 
-.busqueda-container input {
+.busqueda-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 320px; 
+}
+
+
+.busqueda-fila {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+}
+
+.busqueda-fila input {
+    flex: 1;
     padding: 8px;
-    border-radius: 8px;
     border: 1px solid #ccc;
-    width: 300px;
-    margin-right: 10px;
+    border-radius: 8px;
+    font-size: 14px;
 }
 
-.busqueda-container button {
-    padding: 8px 12px;
-    border: none;
-    background-color: #000;
-    color: white;
-    border-radius: 8px;
-    cursor: pointer;
+.mostrar-todos {
+    display: flex;
+    justify-content: center;
+}
+
+
+
+
+.error-text {
+    font-size: 13px;
+    color: #d9534f;
+    background-color: #fdecea;
+    padding: 6px 10px;
+    border: 1px solid #f5c2c0;
+    border-radius: 6px;
+    display: none;
 }
 
 .tabla-renovar {
