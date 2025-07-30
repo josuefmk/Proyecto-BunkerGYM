@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from .models import Cliente, Asistencia, Admin, PlanPersonalizado,Producto, Venta
-from .forms import ClienteForm
+from .forms import ClienteForm,ProductoForm
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import pytz
@@ -232,26 +232,25 @@ def productos(request):
 
     return render(request, 'core/productos.html', {'productos': productos})
 
+from django.contrib import messages
+
+
 @admin_required
 def agregar_producto(request):
     if request.method == 'POST':
-        nombre = request.POST.get('nombre')
-        descripcion = request.POST.get('descripcion')
-        precio_compra = request.POST.get('precio_compra')
-        precio_venta = request.POST.get('precio_venta')
-        stock = request.POST.get('stock')
+        form = ProductoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Producto agregado correctamente.')
+            return redirect('productos')
+        else:
+            messages.error(request, 'Corrige los errores del formulario.')
+    else:
+        form = ProductoForm()
 
-        Producto.objects.create(
-            nombre=nombre,
-            descripcion=descripcion,
-            precio_compra=precio_compra,
-            precio_venta=precio_venta,
-            stock=stock
-        )
-        messages.success(request, 'Producto agregado correctamente.')
-        return redirect('productos') 
+    return render(request, 'core/agregar_producto.html', {'form': form})
 
-    return render(request, 'core/agregar_producto.html')
+
 def registrar_venta(request):
     if request.method == 'POST':
         producto_id = request.POST.get('producto_id')
@@ -277,15 +276,29 @@ def editar_producto(request, producto_id):
     producto = get_object_or_404(Producto, id=producto_id)
 
     if request.method == 'POST':
-        producto.nombre = request.POST.get('nombre')
-        producto.descripcion = request.POST.get('descripcion')
-        producto.precio_compra = request.POST.get('precio_compra')
-        producto.precio_venta = request.POST.get('precio_venta')
-        producto.stock_inicial = request.POST.get('stock_inicial')  
-        producto.stock = request.POST.get('stock')
-        producto.save()
-        messages.success(request, "✅ Producto modificado exitosamente.")
-        return redirect('productos')
+        nombre = request.POST.get('nombre')
+        descripcion = request.POST.get('descripcion')
+        precio_compra = request.POST.get('precio_compra')
+        precio_venta = request.POST.get('precio_venta')
+        stock_inicial = request.POST.get('stock_inicial')  
+        stock = request.POST.get('stock')
+
+
+        if not nombre or not precio_compra or not precio_venta or not stock_inicial or not stock:
+            messages.error(request, "⚠️ Todos los campos obligatorios deben estar completos.")
+        else:
+            try:
+                producto.nombre = nombre
+                producto.descripcion = descripcion
+                producto.precio_compra = precio_compra
+                producto.precio_venta = precio_venta
+                producto.stock_inicial = stock_inicial  
+                producto.stock = stock
+                producto.save()
+                messages.success(request, "✅ Producto modificado exitosamente.")
+                return redirect('productos')
+            except Exception as e:
+                messages.error(request, f"❌ Error al modificar el producto: {str(e)}")
 
     return render(request, 'core/editar_producto.html', {'producto': producto})
 

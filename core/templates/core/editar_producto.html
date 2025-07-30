@@ -2,7 +2,13 @@
 {% load static %}
 
 {% block content %}
-
+{% if messages %}
+  <div class="mi-mensaje-contenedor">
+    {% for message in messages %}
+      <div class="mi-mensaje mi-mensaje-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+{% endif %}
 <h1 class="titulo-vista-producto">✏️ Modificar Producto</h1>
 
 <div class="form-container">
@@ -10,30 +16,45 @@
         {% csrf_token %}
 
         <label>Nombre:</label>
-        <input type="text" name="nombre" value="{{ producto.nombre }}" required>
+        <input type="text" name="nombre" value="{{ producto.nombre }}" >
 
         <label>Descripción:</label>
         <textarea name="descripcion">{{ producto.descripcion }}</textarea>
 
+        <label>Precio Compra:</label>
+        <input type="number" name="precio_compra" step="0.01" value="{{ producto.precio_compra }}" >
 
-<label>Precio Compra:</label>
-<input type="number" name="precio_compra" step="0.01" value="{{ producto.precio_compra }}" required>
-
-<label>Precio Venta:</label>
-<input type="number" name="precio_venta" step="0.01" value="{{ producto.precio_venta }}" required>
-
-
+        <label>Precio Venta:</label>
+        <input type="number" name="precio_venta" step="0.01" value="{{ producto.precio_venta }}" >
 
         <label>Stock Inicial:</label>
-        <input type="number" name="stock_inicial" value="{{ producto.stock_inicial }}" required>
+        <input type="number" name="stock_inicial" value="{{ producto.stock_inicial }}" >
 
         <label>Stock Actual:</label>
-        <input type="number" name="stock" value="{{ producto.stock }}" required>
+        <input type="number" name="stock" value="{{ producto.stock }}" >
 
      <button type="submit" class="btn-global" style=" margin-top: 15px;  margin-bottom: 10px;">💾 Guardar Cambios</button>
 <a href="{% url 'productos' %}" class="btn-global">🔙 Volver</a>
 
     </form>
 </div>
-
+<style>
+.mi-mensaje-contenedor {
+    margin-bottom: 15px;
+}
+.mi-mensaje {
+    padding: 12px;
+    border-radius: 6px;
+    font-weight: 500;
+    margin-bottom: 12px;
+}
+.mi-mensaje-success {
+    background-color: #d4edda;
+    color: #155724;
+}
+.mi-mensaje-error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+</style>
 {% endblock %}

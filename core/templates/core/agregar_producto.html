@@ -2,27 +2,33 @@
 {% load static %}
 
 {% block content %}
+
+
+
 <div class="form-container">
-    <form method="POST" class="formulario">
+    <form method="POST" class="formulario" novalidate>
         {% csrf_token %}
         <h2>Agregar Producto</h2>
 
-        <label for="nombre">Nombre:</label>
-        <input type="text" name="nombre" required>
+        {% for field in form %}
+            <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
+            {{ field }}
+            {% for error in field.errors %}
+                <p class="error">{{ error }}</p>
+            {% endfor %}
+        {% endfor %}
 
-        <label for="descripcion">Descripción:</label>
-        <input type="text" name="descripcion">
-
-        <label for="precio_compra">Precio de Compra:</label>
-        <input type="number" step="0.01" name="precio_compra" required>
-
-        <label for="precio_venta">Precio de Venta:</label>
-        <input type="number" step="0.01" name="precio_venta" required>
-
-        <label for="stock">Stock Inicial:</label>
-        <input type="number" name="stock" min="0" required>
         <button type="submit" class="btn-global" style=" margin-top: 15px; ">Guardar Producto</button>
         <a href="{% url 'productos' %}" class="btn-global">🔙 Volver</a>
     </form>
 </div>
+<style>
+    .error {
+        color: red;
+        font-size: 0.9em;
+        margin-top: 3px;
+        margin-bottom: 8px;
+    }
+</style>
 {% endblock %}
+

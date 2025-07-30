@@ -1,5 +1,5 @@
 from django import forms
-from .models import Cliente, Mensualidad, PlanPersonalizado
+from .models import Cliente, Producto, PlanPersonalizado
 import re
 
 class ClienteForm(forms.ModelForm):
@@ -35,7 +35,8 @@ class ClienteForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'Ej: 12345678-9'
             }),
-            'mensualidad': forms.Select(attrs={'class': 'form-control'}),
+            'mensualidad': forms.Select(attrs={'class': 'form-control'
+            }),
             'plan_personalizado': forms.Select(attrs={'class': 'form-control'}),
             'metodo_pago': forms.Select(attrs={'class': 'form-control'}),
         }
@@ -49,3 +50,7 @@ class ClienteForm(forms.ModelForm):
             raise forms.ValidationError("Formato inválido. Use 12345678-9")
 
         return rut
+class ProductoForm(forms.ModelForm):
+    class Meta:
+        model = Producto
+        fields = ['nombre', 'descripcion', 'precio_compra', 'precio_venta', 'stock']
