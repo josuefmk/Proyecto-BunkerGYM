@@ -17,6 +17,7 @@
             {% endfor %}
 
           <button type="submit" class="btn-global" style=" margin-top: 15px;">Crear Cliente</button>
+            <a href="{% url 'index' %}" class="btn-global">🔙 Volver</a>
         </form>
     </div>
 </main>
@@ -31,7 +32,7 @@
 </style>
 
 <script>
-    // Eliminar puntos automáticamente del campo RUT
+
     document.addEventListener("DOMContentLoaded", function() {
         const rutInput = document.getElementById("id_rut");
         if (rutInput) {
