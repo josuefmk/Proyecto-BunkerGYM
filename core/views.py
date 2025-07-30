@@ -1,10 +1,15 @@
 from django.shortcuts import render, redirect
 from django.utils import timezone
-from .models import Cliente, Asistencia, Admin
+from .models import Cliente, Asistencia, Admin, PlanPersonalizado,Producto, Venta
 from .forms import ClienteForm
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+import pytz
+from django.shortcuts import get_object_or_404
+from django.urls import reverse
+from django.http import HttpResponseRedirect
 
+from django.contrib import messages
 # ===========================
 # LOGIN PERSONALIZADO (con Admin)
 # ===========================
@@ -18,7 +23,7 @@ def login_admin(request):
             return redirect('index')
         else:
             request.session['login_error'] = 'Credenciales inválidas'
-            return redirect('login')  # PRG Pattern
+            return redirect('login')  
     else:
         error = request.session.pop('login_error', None)
         return render(request, 'core/home.html', {'error': error})
@@ -29,9 +34,7 @@ def logout_admin(request):
     return redirect('login')
 
 
-# ===========================
-# DECORADOR PARA PROTEGER VISTAS SOLO ADMIN
-# ===========================
+
 def admin_required(view_func):
     def wrapper(request, *args, **kwargs):
         admin_id = request.session.get('admin_id')
@@ -45,27 +48,10 @@ def admin_required(view_func):
     return wrapper
 
 
-# ===========================
-# VISTAS PROTEGIDAS
-# ===========================
+
 @admin_required
 def index(request):
-    hoy = timezone.now().date()
-    asistencias_hoy = Asistencia.objects.filter(fecha__date=hoy).select_related('cliente')
-    datos_clientes = []
-
-    for asistencia in asistencias_hoy:
-        cliente = asistencia.cliente
-        datos_clientes.append({
-            'cliente': cliente,
-            'hora_ingreso': asistencia.fecha.strftime('%H:%M:%S'),
-            'tipo_plan': cliente.mensualidad.tipo if cliente.mensualidad else (
-                cliente.plan_personalizado.nombre_plan if cliente.plan_personalizado else '—'
-            ),
-            'vencimiento_plan': f"{cliente.dias_restantes()} días restantes" if cliente.fecha_inicio_plan else '—',
-        })
-
-    return render(request, 'core/index.html', {'datos_clientes': datos_clientes})
+    return render(request, 'core/index.html')
 
 
 @admin_required
@@ -74,7 +60,7 @@ def registro_cliente(request):
         form = ClienteForm(request.POST)
         if form.is_valid():
             form.save()
-            return redirect('index')  # PRG aplicado aquí también
+            return redirect('index')  
     else:
         form = ClienteForm()
     return render(request, 'core/registroCliente.html', {'form': form})
@@ -87,21 +73,16 @@ def asistencia_cliente(request):
         cliente = Cliente.objects.filter(rut=rut).first()
 
         if cliente:
-            hoy = timezone.now().date()
+            hoy = timezone.localdate()
             ya_registrado = Asistencia.objects.filter(cliente=cliente, fecha__date=hoy).exists()
 
             if ya_registrado:
                 request.session['asistencia_ya_registrada'] = True
                 return redirect('asistencia_cliente')
-
             Asistencia.objects.create(cliente=cliente)
 
-            if cliente.fecha_inicio_plan:
-                vencimiento = cliente.fecha_inicio_plan + relativedelta(months=1)
-                dias_restantes = (vencimiento - hoy).days
-            else:
-                vencimiento = None
-                dias_restantes = None
+            vencimiento = cliente.calcular_vencimiento()
+            dias_restantes = cliente.dias_restantes()
 
             request.session['mostrar_modal'] = True
             request.session['cliente_id'] = cliente.id
@@ -113,7 +94,7 @@ def asistencia_cliente(request):
             request.session['rut_invalido'] = True
             return redirect('asistencia_cliente')
 
-    # GET
+  
     mostrar_modal = request.session.pop('mostrar_modal', False)
     asistencia_ya_registrada = request.session.pop('asistencia_ya_registrada', False)
     rut_invalido = request.session.pop('rut_invalido', False)
@@ -136,6 +117,190 @@ def asistencia_cliente(request):
 
     return render(request, 'core/AsistenciaCliente.html', context)
 
+
+
+
+@admin_required
+def listaCliente(request):
+    hoy = timezone.localdate()
+    asistencias_hoy = Asistencia.objects.filter(fecha__date=hoy).select_related('cliente').order_by('-fecha')
+
+    datos_clientes = []
+
+
+    zona_chile = pytz.timezone('America/Santiago')
+
+    for asistencia in asistencias_hoy:
+        cliente = asistencia.cliente
+
+      
+        fecha_chilena = asistencia.fecha.astimezone(zona_chile)
+
+        datos_clientes.append({
+            'cliente': cliente,
+            'hora_ingreso': fecha_chilena.strftime('%H:%M:%S'),
+            'tipo_plan': cliente.mensualidad.tipo if cliente.mensualidad else (
+                cliente.plan_personalizado.nombre_plan if cliente.plan_personalizado else '—'
+            ),
+            'vencimiento_plan': f"{cliente.dias_restantes()} días restantes" if cliente.fecha_inicio_plan else '—',
+        })
+
+    return render(request, 'core/listaCliente.html', {'datos_clientes': datos_clientes})
+
+
+@admin_required
+def renovarCliente(request):
+    mensaje = ''
+    rut_buscado = request.POST.get('rut') or request.GET.get('rut', '')
+    cliente_renovado = None
+
+    if request.method == 'POST':
+        if 'renovar_rut' in request.POST:
+            rut_renovar = request.POST.get('renovar_rut')
+            cliente_renovado = Cliente.objects.filter(rut=rut_renovar).first()
+            if cliente_renovado:
+                cliente_renovado.fecha_inicio_plan = timezone.now().date()
+                cliente_renovado.save()
+                mensaje = f"El plan de {cliente_renovado.nombre} ha sido renovado correctamente."
+        elif 'rut' in request.POST:
+            rut_buscado = request.POST.get('rut')
+
+    if rut_buscado:
+        clientes = Cliente.objects.filter(rut__icontains=rut_buscado)
+    else:
+        clientes = Cliente.objects.all()
+
+    return render(request, 'core/renovarCliente.html', {
+        'clientes': clientes,
+        'mensaje': mensaje,
+        'rut_buscado': rut_buscado,
+        'planes_personalizados': PlanPersonalizado.objects.all(),
+         'tipos_mensualidad': ['Estudiante', 'Normal']
+        
+    })
+
+
+@admin_required
+def cambiar_tipo_plan_mensual(request):
+    if request.method == 'POST':
+        rut = request.POST.get('rut_cliente')
+        nuevo_plan = request.POST.get('nuevo_plan')
+        cliente = Cliente.objects.filter(rut=rut).first()
+        if cliente:
+            from .models import Mensualidad
+            mensualidad = Mensualidad.objects.filter(tipo=nuevo_plan).first()
+            if mensualidad:
+                cliente.mensualidad = mensualidad
+                cliente.save()
+        # Redirige con el RUT como parámetro GET
+        return HttpResponseRedirect(reverse('renovarCliente') + f'?rut={rut}')
+    return redirect('renovarCliente')
+
+
+@admin_required
+def cambiar_plan_personalizado(request):
+    if request.method == 'POST':
+        rut = request.POST.get('rut_cliente')
+        nuevo_plan = request.POST.get('nuevo_plan')
+        cliente = Cliente.objects.filter(rut=rut).first()
+        if cliente:
+            from .models import PlanPersonalizado
+            plan = PlanPersonalizado.objects.filter(id=nuevo_plan).first()
+            if plan:
+                cliente.plan_personalizado = plan
+                cliente.save()
+        return HttpResponseRedirect(reverse('renovarCliente') + f'?rut={rut}')
+    return redirect('renovarCliente')
+
+
+def productos(request):
+    productos = Producto.objects.all()
+
+    if request.method == 'POST':
+        producto_id = request.POST.get('producto_id')
+        cantidad = int(request.POST.get('cantidad'))
+
+        producto = Producto.objects.get(id=producto_id)
+
+        if cantidad > producto.stock:
+            messages.error(request, "No hay suficiente stock.")
+        else:
+            Venta.objects.create(producto=producto, cantidad=cantidad)
+            messages.success(request, "Venta registrada exitosamente.")
+
+        return redirect('productos')  
+
+    return render(request, 'core/productos.html', {'productos': productos})
+
+@admin_required
+def agregar_producto(request):
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre')
+        descripcion = request.POST.get('descripcion')
+        precio_compra = request.POST.get('precio_compra')
+        precio_venta = request.POST.get('precio_venta')
+        stock = request.POST.get('stock')
+
+        Producto.objects.create(
+            nombre=nombre,
+            descripcion=descripcion,
+            precio_compra=precio_compra,
+            precio_venta=precio_venta,
+            stock=stock
+        )
+        messages.success(request, 'Producto agregado correctamente.')
+        return redirect('productos') 
+
+    return render(request, 'core/agregar_producto.html')
+def registrar_venta(request):
+    if request.method == 'POST':
+        producto_id = request.POST.get('producto_id')
+        cantidad = int(request.POST.get('cantidad'))
+
+        producto = Producto.objects.get(id=producto_id)
+
+        if producto.stock <= 0:
+            messages.error(request, f"❌ No quedan unidades del producto '{producto.nombre}'.")
+            return redirect('productos')  #
+
+        if cantidad > producto.stock:
+            messages.error(request, f"❌ Solo quedan {producto.stock} unidades de '{producto.nombre}'.")
+            return redirect('productos')
+
+        producto.stock -= cantidad
+        producto.save()
+        messages.success(request, f"✅ Venta registrada para '{producto.nombre}', stock actualizado.")
+        return redirect('productos')
+    
+@admin_required   
+def editar_producto(request, producto_id):
+    producto = get_object_or_404(Producto, id=producto_id)
+
+    if request.method == 'POST':
+        producto.nombre = request.POST.get('nombre')
+        producto.descripcion = request.POST.get('descripcion')
+        producto.precio_compra = request.POST.get('precio_compra')
+        producto.precio_venta = request.POST.get('precio_venta')
+        producto.stock_inicial = request.POST.get('stock_inicial')  
+        producto.stock = request.POST.get('stock')
+        producto.save()
+        messages.success(request, "✅ Producto modificado exitosamente.")
+        return redirect('productos')
+
+    return render(request, 'core/editar_producto.html', {'producto': producto})
+
+
+@admin_required
+def eliminar_producto(request, producto_id):
+    producto = get_object_or_404(Producto, id=producto_id)
+
+    if request.method == 'POST':
+        producto.delete()
+        messages.success(request, "🗑️ Producto eliminado correctamente.")
+    else:
+        messages.error(request, "Método no permitido.")
+
+    return redirect('productos')
 
 # ===========================
 # REDIRECCIÓN INICIAL

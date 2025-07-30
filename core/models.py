@@ -83,3 +83,76 @@ class Asistencia(models.Model):
 
     def __str__(self):
         return f"{self.cliente.nombre} - {self.fecha.date()}"
+
+
+
+
+
+
+class Producto(models.Model):
+    nombre = models.CharField(max_length=100)
+    descripcion = models.TextField(blank=True)
+    precio_compra = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_venta = models.DecimalField(max_digits=10, decimal_places=2)
+    stock = models.PositiveIntegerField(default=0)
+    stock_inicial = models.PositiveIntegerField(null=True, blank=True) 
+
+    def save(self, *args, **kwargs):
+        if self.stock_inicial is None:
+            self.stock_inicial = self.stock  
+        super().save(*args, **kwargs)
+
+    def valor_total_stock(self):
+        return self.stock * self.precio_compra
+
+    def estimado_ganancia(self):
+        return self.stock * (self.precio_venta - self.precio_compra)
+
+    def cantidad_vendida(self):
+        if self.stock_inicial is not None:
+            return self.stock_inicial - self.stock
+        return 0
+
+    def ganancia_real(self):
+        return self.cantidad_vendida() * (self.precio_venta - self.precio_compra)
+
+    def __str__(self):
+        return f"{self.nombre} (Stock: {self.stock})"
+    
+class Venta(models.Model):
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
+    cantidad = models.PositiveIntegerField()
+    fecha_venta = models.DateTimeField(auto_now_add=True)
+
+    def total_venta(self):
+        return self.cantidad * self.producto.precio_venta
+
+    def ganancia(self):
+        return self.cantidad * (self.producto.precio_venta - self.producto.precio_compra)
+
+    def save(self, *args, **kwargs):
+     
+        if self.pk is None:  
+            if self.cantidad > self.producto.stock:
+                raise ValueError("No hay suficiente stock para realizar la venta.")
+            self.producto.stock -= self.cantidad
+            self.producto.save()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Venta de {self.cantidad} x {self.producto.nombre}"
+
+
+class IngresoProducto(models.Model):
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
+    cantidad = models.PositiveIntegerField()
+    fecha_ingreso = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if self.pk is None:
+            self.producto.stock += self.cantidad
+            self.producto.save()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Ingreso de {self.cantidad} x {self.producto.nombre}"

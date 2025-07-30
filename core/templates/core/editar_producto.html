@@ -1,0 +1,39 @@
+{% extends 'core/home.html' %}
+{% load static %}
+
+{% block content %}
+
+<h1 class="titulo-vista-producto">✏️ Modificar Producto</h1>
+
+<div class="form-container">
+    <form method="POST" class="formulario">
+        {% csrf_token %}
+
+        <label>Nombre:</label>
+        <input type="text" name="nombre" value="{{ producto.nombre }}" required>
+
+        <label>Descripción:</label>
+        <textarea name="descripcion">{{ producto.descripcion }}</textarea>
+
+
+<label>Precio Compra:</label>
+<input type="number" name="precio_compra" step="0.01" value="{{ producto.precio_compra|floatformat:"2"|cut:"," }}" required>
+
+<label>Precio Venta:</label>
+<input type="number" name="precio_venta" step="0.01" value="{{ producto.precio_venta|floatformat:"2"|cut:"," }}" required>
+
+
+
+        <label>Stock Inicial:</label>
+        <input type="number" name="stock_inicial" value="{{ producto.stock_inicial }}" required>
+
+        <label>Stock Actual:</label>
+        <input type="number" name="stock" value="{{ producto.stock }}" required>
+
+     <button type="submit" class="btn-global" style=" margin-top: 15px;  margin-bottom: 10px;">💾 Guardar Cambios</button>
+<a href="{% url 'productos' %}" class="btn-global">🔙 Volver</a>
+
+    </form>
+</div>
+
+{% endblock %}

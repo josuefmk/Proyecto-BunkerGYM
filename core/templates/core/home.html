@@ -8,12 +8,20 @@
     <link rel="stylesheet" type="text/css" href="{% static 'core/css/styles.css' %}">
 </head>
 <body>
-    <header class="header">
-        <img src="{% static 'core/img/BunkerIMG.jpg' %}" alt="Logo Bunker Gym" class="logo">
-        {% if request.session.admin_id %}
-            <button class="cerrar-sesion" onclick="location.href='{% url 'logout' %}'">Cerrar Sesión</button>
-        {% endif %}
-    </header>
+<header class="header">
+    <img src="{% static 'core/img/BunkerIMG.jpg' %}" alt="Logo Bunker Gym" class="logo">
+
+    {% if request.session.admin_id %}
+    <div class="header-buttons">
+        <button class="btn-global " onclick="location.href='{% url 'index' %}'">
+            <img src="{% static 'core/img/volver.png' %}" class="icon"> Volver
+        </button>
+        <button class="btn-global " onclick="location.href='{% url 'logout' %}'">
+            <img src="{% static 'core/img/logout.png' %}"  class="icon"> Cerrar Sesión
+        </button>
+    </div>
+    {% endif %}
+</header>
 
     {% if not request.session.admin_id %}
     <main class="form-container">

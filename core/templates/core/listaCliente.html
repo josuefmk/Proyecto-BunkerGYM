@@ -1,0 +1,37 @@
+{% extends 'core/home.html' %}
+{% load static %}
+
+{% block content %}
+<div class="card-tabla">
+    <h2 class="titulo-tabla">Lista de Clientes</h2>
+
+    <div class="tabla-wrapper">
+        {% if datos_clientes %}
+        <table class="tabla-clientes">
+            <thead>
+                <tr>
+                    <th>Nombre Completo</th>
+                    <th>RUT</th>
+                    <th>Hora de Ingreso</th>
+                    <th>Tipo de Plan</th>
+                    <th>Vencimiento De Plan</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in datos_clientes %}
+                <tr>
+                    <td>{{ item.cliente.nombre }} {{ item.cliente.apellido }}</td>
+                    <td>{{ item.cliente.rut }}</td>
+                    <td>{{ item.hora_ingreso }}</td>
+                    <td>{{ item.tipo_plan }}</td>
+                    <td>{{ item.vencimiento_plan }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="text-align:center; color: gray;">Ningún cliente ha ingresado hoy.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
