@@ -34,4 +34,29 @@
         {% endif %}
     </div>
 </div>
+<script>
+function actualizarTabla() {
+    fetch("{% url 'listaCliente_json' %}")
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.querySelector('.tabla-clientes tbody');
+            tbody.innerHTML = '';
+            data.datos_clientes.forEach(item => {
+                const fila = `
+                    <tr>
+                        <td>${item.nombre}</td>
+                        <td>${item.rut}</td>
+                        <td>${item.hora_ingreso}</td>
+                        <td>${item.tipo_plan}</td>
+                        <td>${item.vencimiento_plan}</td>
+                    </tr>`;
+                tbody.innerHTML += fila;
+            });
+        });
+}
+
+// 3min
+setInterval(actualizarTabla, 180000);
+</script>
+
 {% endblock %}

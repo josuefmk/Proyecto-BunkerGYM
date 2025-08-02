@@ -10,6 +10,7 @@ urlpatterns = [
     path('registro/', views.registro_cliente, name='registro_cliente'),
     path('asistencia/', views.asistencia_cliente, name='asistencia_cliente'),
     path('lista/', views.listaCliente, name='listaCliente'),
+    path('listaCliente/json/', views.listaCliente_json, name='listaCliente_json'),
     path('renovar/', views.renovarCliente, name='renovarCliente'),
     path('cambiar-tipo-plan-mensual/', views.cambiar_tipo_plan_mensual, name='cambiar_tipo_plan_mensual'),
     path('cambiar-plan-personalizado/', views.cambiar_plan_personalizado, name='cambiar_plan_personalizado'),

@@ -8,7 +8,7 @@ import pytz
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.http import HttpResponseRedirect
-
+from django.http import JsonResponse
 from django.contrib import messages
 # ===========================
 # LOGIN PERSONALIZADO (con Admin)
@@ -147,6 +147,27 @@ def listaCliente(request):
 
     return render(request, 'core/listaCliente.html', {'datos_clientes': datos_clientes})
 
+@admin_required
+def listaCliente_json(request):
+    hoy = timezone.localdate()
+    asistencias_hoy = Asistencia.objects.filter(fecha__date=hoy).select_related('cliente').order_by('-fecha')
+    zona_chile = pytz.timezone('America/Santiago')
+
+    datos_clientes = []
+    for asistencia in asistencias_hoy:
+        cliente = asistencia.cliente
+        fecha_chilena = asistencia.fecha.astimezone(zona_chile)
+        datos_clientes.append({
+            'nombre': f"{cliente.nombre} {cliente.apellido}",
+            'rut': cliente.rut,
+            'hora_ingreso': fecha_chilena.strftime('%H:%M:%S'),
+            'tipo_plan': cliente.mensualidad.tipo if cliente.mensualidad else (
+                cliente.plan_personalizado.nombre_plan if cliente.plan_personalizado else '—'
+            ),
+            'vencimiento_plan': f"{cliente.dias_restantes()} días restantes" if cliente.fecha_inicio_plan else '—',
+        })
+
+    return JsonResponse({'datos_clientes': datos_clientes})
 
 @admin_required
 def renovarCliente(request):
@@ -161,7 +182,12 @@ def renovarCliente(request):
             if cliente_renovado:
                 cliente_renovado.fecha_inicio_plan = timezone.now().date()
                 cliente_renovado.save()
-                mensaje = f"El plan de {cliente_renovado.nombre} ha sido renovado correctamente."
+                mensaje = (
+                    f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} "
+                    f"({cliente_renovado.rut}) ha sido renovado correctamente."
+                )
+                rut_buscado = rut_renovar  
+
         elif 'rut' in request.POST:
             rut_buscado = request.POST.get('rut')
 
@@ -175,8 +201,7 @@ def renovarCliente(request):
         'mensaje': mensaje,
         'rut_buscado': rut_buscado,
         'planes_personalizados': PlanPersonalizado.objects.all(),
-         'tipos_mensualidad': ['Estudiante', 'Normal']
-        
+        'tipos_mensualidad': ['Estudiante', 'Normal']
     })
 
 

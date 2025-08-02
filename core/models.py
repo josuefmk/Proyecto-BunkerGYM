@@ -49,6 +49,7 @@ class Cliente(models.Model):
         ('efectivo', 'Efectivo'),
         ('debito', 'Débito'),
         ('credito', 'Crédito'),
+        ('transferencia', 'Transferencia'),
     ]
 
     nombre = models.CharField(max_length=50)
@@ -59,7 +60,7 @@ class Cliente(models.Model):
 
     mensualidad = models.ForeignKey(Mensualidad, on_delete=models.SET_NULL, null=True, blank=True)
     plan_personalizado = models.ForeignKey(PlanPersonalizado, on_delete=models.SET_NULL, null=True, blank=True)
-    metodo_pago = models.CharField(max_length=10, choices=METODOS_PAGO, null=True, blank=True)
+    metodo_pago = models.CharField(max_length=20, choices=METODOS_PAGO, null=True, blank=True)
     fecha_inicio_plan = models.DateField(default=timezone.now, null=True, blank=True)
 
     def calcular_vencimiento(self):
