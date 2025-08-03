@@ -665,7 +665,96 @@ body {
   cursor: pointer;
   font-weight: bo
 }
+  .dash-container {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+    background-color: #f5f6fa;
+  }
 
+  .dash-kpis {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .dash-kpi {
+    flex: 1;
+    background-color: #ffffff;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    text-align: center;
+  }
+
+  .dash-kpi h3 {
+    font-size: 1.1rem;
+    color: #6c7a89;
+    margin-bottom: 0.5rem;
+  }
+
+  .dash-kpi p {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 0;
+  }
+
+  .dash-charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 2rem;
+  }
+
+  .dash-chart-box {
+    background-color: #ffffff;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  }
+
+  .dash-chart-box h4 {
+    text-align: center;
+    margin-bottom: 1rem;
+    color: #2c3e50;
+    font-size: 1.1rem;
+  }
+
+  .dash-stock-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #ffffff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  }
+
+  .dash-stock-table thead {
+    background-color: black;
+    color: white;
+  }
+
+  .dash-stock-table th,
+  .dash-stock-table td {
+    padding: 0.8rem 1rem;
+    text-align: left;
+  }
+
+  .dash-stock-table tbody tr:nth-child(even) {
+    background-color: #f2f2f2;
+  }
+
+  .dash-stock-table tbody tr.low-stock {
+    color: red;
+    font-weight: bold;
+  }
+
+  .dash-title {
+    color: black;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
 @keyframes fadeInRenovar {
     from {opacity: 0;}
     to {opacity: 1;}

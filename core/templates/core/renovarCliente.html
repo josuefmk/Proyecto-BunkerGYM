@@ -4,10 +4,8 @@
 {% block content %}
 
 <div class="centrar-buscador">
-    <form method="post" class="busqueda-container">
+    <form method="post" class="busqueda-container" onsubmit="return validarFormulario(event)">
         {% csrf_token %}
-        
-
         <div class="busqueda-fila">
             <input type="text" id="rutInput" name="rut" placeholder="Buscar Cliente por RUT" value="{{ rut_buscado }}">
             <button type="submit" class="btn-global">🔍 Buscar</button>
@@ -37,7 +35,6 @@
         {{ mensaje }}
     </div>
     <script>
-
     setTimeout(function() {
         var mensajeDiv = document.getElementById('mensaje-exito');
         if (mensajeDiv) {
@@ -47,106 +44,152 @@
     </script>
 {% endif %}
 
-    {% if clientes %}
-        <table class="tabla-renovar">
-    <thead>
-        <tr>
-            <th>Nombre Completo</th>
-            <th>RUT</th>
-            <th>Correo</th>
-            <th>Telefono</th>
-            <th>Tipo de Plan</th>
-            <th>Plan Personalizado</th>
-            <th>Estado De Plan</th>
-            <th>Renovar</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for cliente in clientes %}
-        <tr>
-            <td>{{ cliente.nombre }} {{ cliente.apellido }}</td>
-            <td>{{ cliente.rut }}</td>
-            <td>{{ cliente.correo }}</td>
-            <td>+ {{ cliente.telefono }}</td>
+{% if clientes %}
+    <table class="tabla-renovar">
+        <thead>
+            <tr>
+                <th>Nombre Completo</th>
+                <th>RUT</th>
+                <th>Correo</th>
+                <th>Telefono</th>
+                <th>Tipo de Plan</th>
+                <th>Plan Personalizado</th>
+                <th>Estado De Plan</th>
+                <th>Metodo de pago</th>
+                <th>Renovar</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cliente in clientes %}
+            <tr>
+                <td>{{ cliente.nombre }} {{ cliente.apellido }}</td>
+                <td>{{ cliente.rut }}</td>
+                <td>{{ cliente.correo }}</td>
+                <td>+ {{ cliente.telefono }}</td>
 
-        <!-- Tipo de plan -->
-        <td>
-            <form method="post" action="{% url 'cambiar_tipo_plan_mensual' %}">
-                {% csrf_token %}
-                <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
-                <select name="nuevo_plan" onchange="this.form.submit()" class="select-bonito">
-                    <option value="">-- Selecciona --</option>
-                    {% for opcion in tipos_mensualidad %}
-                        <option value="{{ opcion }}" {% if cliente.mensualidad and cliente.mensualidad.tipo == opcion %}selected{% endif %}>
-                            {{ opcion }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </form>
-        </td>
+                <!-- Tipo de plan -->
+                <td>
+                    <form method="post" action="{% url 'cambiar_tipo_plan_mensual' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
+                        <select name="nuevo_plan" onchange="this.form.submit()" class="select-bonito">
+                            <option value="">-- Selecciona --</option>
+                            {% for opcion in tipos_mensualidad %}
+                                <option value="{{ opcion }}" {% if cliente.mensualidad and cliente.mensualidad.tipo == opcion %}selected{% endif %}>
+                                    {{ opcion }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </td>
 
-        <!-- Plan personalizado -->
-        <td>
-            <form method="post" action="{% url 'cambiar_plan_personalizado' %}">
-                {% csrf_token %}
-                <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
-                <select name="nuevo_plan" onchange="this.form.submit()" class="select-bonito">
-                    <option value="">-- Selecciona --</option>
-                    {% for plan in planes_personalizados %}
-                        <option value="{{ plan.id }}" {% if cliente.plan_personalizado and cliente.plan_personalizado.id == plan.id %}selected{% endif %}>
-                            {{ plan.nombre_plan }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </form>
-        </td>
+                <!-- Plan personalizado -->
+                <td>
+                    <form method="post" action="{% url 'cambiar_plan_personalizado' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
+                        <select name="nuevo_plan" onchange="this.form.submit()" class="select-bonito">
+                            <option value="">-- Selecciona --</option>
+                            {% for plan in planes_personalizados %}
+                                <option value="{{ plan.id }}" {% if cliente.plan_personalizado and cliente.plan_personalizado.id == plan.id %}selected{% endif %}>
+                                    {{ plan.nombre_plan }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </td>
 
-
-        <!-- Estado del plan -->
-        <td>
-            {% if cliente.dias_restantes == 0 %}
-                Vencido
-            {% else %}
-                Activo ({{ cliente.dias_restantes }} días restantes)
-            {% endif %}
-        </td>
-        <td>
-           <button type="button" class="btn-global" onclick="confirmarRenovacion('{{ cliente.rut }}')">Renovar</button>
-        </td>
-    </tr>
-    {% endfor %}
-</tbody>
+                <!-- Estado del plan -->
+                <td>
+                    {% if cliente.dias_restantes == 0 %}
+                        Vencido
+                    {% else %}
+                        Activo ({{ cliente.dias_restantes }} días restantes)
+                    {% endif %}
+                </td>
+                <td>{{ cliente.metodo_pago }}</td>
+                <td>
+                   <button type="button" class="btn-global" onclick="confirmarRenovacion('{{ cliente.rut }}')">Renovar</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
     </table>
 {% else %}
    <p style="text-align: center; font-size: 18px; color: black;">
-    No se encontró el RUT del Cliente.
-</p>
+        No se encontró el RUT del Cliente.
+   </p>
 {% endif %}
 
 
-    <div id="modal-confirmar" class="modal-renovar" style="display: none;">
-        <div class="modal-content-renovar">
-            <p>¿Estás seguro que deseas renovar el plan?</p>
-            <form method="post" action="{% url 'renovarCliente' %}">
-            {# <form method="post" action="{% url 'renovarCliente' %}?rut={{ rut_buscado }}">#}
-                {% csrf_token %}
-                <input type="hidden" id="rut-renovar" name="renovar_rut">
-                <button type="submit">Sí, renovar</button>
-                <button type="button" onclick="cerrarModal()">Cancelar</button>
-            </form>
-        </div>
+<!-- MODAL PARA ELEGIR METODO DE PAGO -->
+<div id="modal-metodo-pago" class="modal-renovar" style="display: none;">
+    <div class="modal-content-renovar">
+        <p>Selecciona el método de pago:</p>
+        <form id="form-metodo-pago" onsubmit="mostrarConfirmacion(event)">
+            <input type="hidden" id="rut-metodo" name="rut">
+            <select id="metodo-pago" class="select-bonito" required>
+                <option value="">-- Selecciona --</option>
+                <option value="Efectivo">Efectivo</option>
+                <option value="Debito">Débito</option>
+                <option value="Credito">Crédito</option>
+                <option value="Transferencia">Transferencia</option>
+            </select>
+            <br><br>
+            <button type="submit">Continuar</button>
+            <button type="button" onclick="cerrarModalMetodo()">Cancelar</button>
+        </form>
     </div>
+</div>
 
-
+<!-- MODAL DE CONFIRMACIÓN -->
+<div id="modal-confirmar" class="modal-renovar" style="display: none;">
+    <div class="modal-content-renovar">
+        <p>¿Estás seguro que deseas renovar el plan?</p>
+        <form method="post" action="{% url 'renovarCliente' %}">
+            {% csrf_token %}
+            <input type="hidden" id="rut-renovar" name="renovar_rut">
+            <input type="hidden" id="metodo-pago-hidden" name="metodo_pago">
+            <button type="submit">Sí, renovar</button>
+            <button type="button" onclick="cerrarModal()">Cancelar</button>
+        </form>
+    </div>
+</div>
 
 <script>
 function confirmarRenovacion(rut) {
+    // Abre el modal para elegir motodo de pago
+    document.getElementById('rut-metodo').value = rut;
+    document.getElementById('modal-metodo-pago').style.display = 'flex';
+}
+
+function cerrarModalMetodo() {
+    document.getElementById('modal-metodo-pago').style.display = 'none';
+}
+
+function mostrarConfirmacion(event) {
+    event.preventDefault();
+    const metodo = document.getElementById('metodo-pago').value;
+    const rut = document.getElementById('rut-metodo').value;
+
+    if (!metodo) {
+        alert("Selecciona un método de pago");
+        return;
+    }
+
+    
     document.getElementById('rut-renovar').value = rut;
+    document.getElementById('metodo-pago-hidden').value = metodo;
+
+   
+    cerrarModalMetodo();
     document.getElementById('modal-confirmar').style.display = 'flex';
 }
+
 function cerrarModal() {
     document.getElementById('modal-confirmar').style.display = 'none';
 }
+
 function validarFormulario(event) {
     const rut = document.getElementById('rutInput').value.trim();
     const mensajeError = document.getElementById('errorMensaje');

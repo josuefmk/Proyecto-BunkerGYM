@@ -13,9 +13,11 @@
 
     {% if request.session.admin_id %}
     <div class="header-buttons">
-        <button class="btn-global " onclick="location.href='{% url 'index' %}'">
-            <img src="{% static 'core/img/volver.png' %}" class="icon"> Volver
+        {% if request.resolver_match.view_name != 'index' %}
+        <button class="btn-global" onclick="location.href='{% url 'index' %}'">
+        <img src="{% static 'core/img/volver.png' %}" class="icon"> Volver
         </button>
+        {% endif %}
         <button class="btn-global " onclick="location.href='{% url 'logout' %}'">
             <img src="{% static 'core/img/logout.png' %}"  class="icon"> Cerrar Sesión
         </button>

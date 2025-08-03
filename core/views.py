@@ -5,6 +5,12 @@ from .forms import ClienteForm,ProductoForm
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import pytz
+from django.utils.timezone import localdate
+from django.db.models import F, ExpressionWrapper, FloatField
+from datetime import timedelta
+import json
+from django.db.models import Count, Sum
+from django.utils.timezone import now
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.http import HttpResponseRedirect
@@ -56,15 +62,18 @@ def index(request):
 
 @admin_required
 def registro_cliente(request):
+    mensaje = None  # Define por defecto
+
     if request.method == 'POST':
         form = ClienteForm(request.POST)
         if form.is_valid():
-            form.save()
-            return redirect('index')  
+            cliente = form.save()
+            mensaje = f"✅ El cliente {cliente.nombre} ha sido creado correctamente."
+            form = ClienteForm()  # Limpiador
     else:
         form = ClienteForm()
-    return render(request, 'core/registroCliente.html', {'form': form})
 
+    return render(request, 'core/registroCliente.html', {'form': form, 'mensaje': mensaje})
 
 @admin_required
 def asistencia_cliente(request):
@@ -178,9 +187,11 @@ def renovarCliente(request):
     if request.method == 'POST':
         if 'renovar_rut' in request.POST:
             rut_renovar = request.POST.get('renovar_rut')
+            metodo_pago = request.POST.get('metodo_pago') 
             cliente_renovado = Cliente.objects.filter(rut=rut_renovar).first()
             if cliente_renovado:
                 cliente_renovado.fecha_inicio_plan = timezone.now().date()
+                cliente_renovado.metodo_pago = metodo_pago
                 cliente_renovado.save()
                 mensaje = (
                     f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} "
@@ -339,6 +350,115 @@ def eliminar_producto(request, producto_id):
         messages.error(request, "Método no permitido.")
 
     return redirect('productos')
+
+@admin_required
+def dashboard(request):
+    hoy = localdate()
+    inicio_mes = hoy.replace(day=1)
+
+    # Total clientes activos
+    total_clientes = Cliente.objects.count()
+
+    # Clientes activos del mes
+    clientes_activos_mes = (
+    Asistencia.objects
+    .filter(fecha__gte=inicio_mes)
+    .values('cliente')
+    .distinct()
+    .count()
+    )
+    clientes_nuevos_mes = Cliente.objects.filter(fecha_inicio_plan__gte=inicio_mes).count()
+
+
+    # Nuevos clientes por mes (ultimos 6 meses)
+    hoy = now().date()
+    seis_meses_antes = hoy - timedelta(days=180)
+
+    # Clientes nuevos del mes
+    clientes_mes_qs = (
+        Cliente.objects
+        .filter(fecha_inicio_plan__gte=seis_meses_antes)
+        .extra(select={'month': "strftime('%%Y-%%m', fecha_inicio_plan)"})
+        .values('month')
+        .annotate(count=Count('id'))
+        .order_by('month')
+    )
+    nuevos_clientes_mes = {item['month']: item['count'] for item in clientes_mes_qs}
+
+    # Ultimas 10 ventas del dia
+    ultimas_ventas = (
+    Venta.objects
+    .select_related('producto')
+    .order_by('-fecha_venta')[:10]  
+    .values(
+        'fecha_venta',
+        'producto__nombre',
+        'cantidad',
+        'producto__precio_venta'
+    )
+    )
+
+    # Asistencia: ranking top 10 clientes por cantidad
+    ranking_asistencia_qs = (
+        Asistencia.objects
+        .values('cliente__nombre', 'cliente__apellido')
+        .annotate(cantidad=Count('id'))
+        .order_by('-cantidad')[:10]
+    )
+    ranking_asistencia = [
+        {
+            "nombre": f"{item['cliente__nombre']} {item['cliente__apellido']}",
+            "cantidad": item['cantidad']
+        }
+        for item in ranking_asistencia_qs
+    ]
+
+    # Productos más vendidos (top 10)
+    productos_vendidos_qs = (
+        Venta.objects
+        .values('producto__nombre')
+        .annotate(total_vendidos=Sum('cantidad'))
+        .order_by('-total_vendidos')[:10]
+    )
+    productos_vendidos = [
+        {"nombre": item['producto__nombre'], "cantidad": item['total_vendidos']}
+        for item in productos_vendidos_qs
+    ]
+
+    # Stock actual productos
+    productos = Producto.objects.all().values('nombre', 'stock')
+
+    # Ingresos por ventas por mes (ultimos 6 meses)
+    ventas_mes_qs = (
+        Venta.objects
+        .filter(fecha_venta__gte=seis_meses_antes)
+        .extra(select={'month': "strftime('%%Y-%%m', fecha_venta)"})
+        .values('month')
+        .annotate(
+            ingresos=Sum(
+                ExpressionWrapper(
+                    F('cantidad') * F('producto__precio_venta'),
+                    output_field=FloatField()
+                )
+            )
+        )
+        .order_by('month')
+    )
+    ingresos_mes = {item['month']: item['ingresos'] or 0 for item in ventas_mes_qs}
+
+    context = {
+        "total_clientes": total_clientes,
+        "nuevos_clientes_mes": json.dumps(nuevos_clientes_mes),
+        "ranking_asistencia": json.dumps(ranking_asistencia),
+        "productos_vendidos": json.dumps(productos_vendidos),
+        "productos": productos,
+        "clientes_activos_mes": clientes_activos_mes,
+        "clientes_nuevos_mes": clientes_nuevos_mes,
+        "ultimas_ventas": ultimas_ventas,
+        "ingresos_mes": json.dumps(ingresos_mes),
+    }
+
+    return render(request, "core/dashboard.html", context)
 
 # ===========================
 # REDIRECCIÓN INICIAL

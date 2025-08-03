@@ -1,0 +1,142 @@
+{% extends 'core/home.html' %}
+{% load static %}
+{% block content %}
+
+
+<div class="dash-container">
+ 
+  <div class="dash-kpis">
+    <div class="dash-kpi">
+      <h3>Total Clientes</h3>
+      <p>{{ total_clientes }}</p>
+    </div>
+ <div class="dash-kpi">
+  <h3>Clientes Activos este Mes</h3>
+  <p>{{ clientes_activos_mes }}</p>
+</div>
+
+<div class="dash-kpi">
+  <h3>Clientes Nuevos este Mes</h3>
+  <p>{{ clientes_nuevos_mes }}</p>
+</div>
+  </div>
+
+  <div class="dash-charts">
+    <div class="dash-chart-box">
+      <h4>Nuevos Clientes por Mes</h4>
+      <canvas id="clientesMesChart"></canvas>
+    </div>
+    <div class="dash-chart-box">
+      <h4>Ranking Asistencia Por Clientes</h4>
+      <canvas id="rankingAsistenciaChart"></canvas>
+    </div>
+    <div class="dash-chart-box">
+      <h4>Productos Más Vendidos</h4>
+      <canvas id="productosVendidosChart"></canvas>
+    </div>
+    <div class="dash-chart-box">
+      <h4>Ingresos por Mes</h4>
+      <canvas id="ingresosMesChart"></canvas>
+    </div>
+  </div>
+
+  <div>
+    <h2 class="dash-title">Stock Actual de Productos</h2>
+    <table class="dash-stock-table">
+      <thead>
+        <tr><th>Producto</th><th>Stock</th></tr>
+      </thead>
+      <tbody>
+        {% for producto in productos %}
+        <tr class="{% if producto.stock < 5 %}low-stock{% endif %}">
+          <td>{{ producto.nombre }}</td>
+          <td>{{ producto.stock }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div>
+  <h2 class="dash-title">Últimas Ventas Realizadas</h2>
+  <table class="dash-stock-table">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Producto</th>
+        <th>Cantidad</th>
+        <th>Precio Unitario</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for venta in ultimas_ventas %}
+      <tr>
+        <td>{{ venta.fecha_venta }}</td>
+        <td>{{ venta.producto__nombre }}</td>
+        <td>{{ venta.cantidad }}</td>
+        <td>${{ venta.producto__precio_venta|floatformat:0 }}</td>
+
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const nuevosClientesMes = JSON.parse('{{ nuevos_clientes_mes|safe }}');
+  const rankingAsistencia = JSON.parse('{{ ranking_asistencia|safe }}');
+  const productosVendidos = JSON.parse('{{ productos_vendidos|safe }}');
+  const ingresosMes = JSON.parse('{{ ingresos_mes|safe }}');
+
+  new Chart(document.getElementById('clientesMesChart'), {
+    type: 'bar',
+    data: {
+      labels: Object.keys(nuevosClientesMes),
+      datasets: [{
+        label: 'Nuevos Clientes',
+        data: Object.values(nuevosClientesMes),
+        backgroundColor: 'rgba(54, 162, 235, 0.7)'
+      }]
+    }
+  });
+
+  new Chart(document.getElementById('rankingAsistenciaChart'), {
+    type: 'bar',
+    data: {
+      labels: rankingAsistencia.map(x => x.nombre),
+      datasets: [{
+        label: 'Asistencias',
+        data: rankingAsistencia.map(x => x.cantidad),
+        backgroundColor: 'rgba(255, 99, 132, 0.7)'
+      }]
+    }
+  });
+
+  new Chart(document.getElementById('productosVendidosChart'), {
+    type: 'bar',
+    data: {
+      labels: productosVendidos.map(x => x.nombre),
+      datasets: [{
+        label: 'Cantidad Vendida',
+        data: productosVendidos.map(x => x.cantidad),
+        backgroundColor: 'rgba(255, 206, 86, 0.7)'
+      }]
+    }
+  });
+
+  new Chart(document.getElementById('ingresosMesChart'), {
+    type: 'bar',
+    data: {
+      labels: Object.keys(ingresosMes),
+      datasets: [{
+        label: 'Ingresos ($)',
+        data: Object.values(ingresosMes),
+        backgroundColor: 'rgba(75, 192, 192, 0.7)'
+      }]
+    }
+  });
+</script>
+
+{% endblock %}

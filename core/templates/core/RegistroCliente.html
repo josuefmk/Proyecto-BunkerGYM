@@ -3,7 +3,29 @@
 
 {% block content %}
 <main class="contenido">
+     {% if mensaje %}
+    <div id="mensaje-exito-registro" style="
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+    ">
+        {{ mensaje }}
+    </div>
+    <script>
+    setTimeout(function() {
+        var mensajeDiv = document.getElementById('mensaje-exito-registro');
+        if (mensajeDiv) {
+            mensajeDiv.style.display = 'none';
+        }
+    }, 5000);
+    </script>
+{% endif %}
     <div class="form-container">
+
+        
         <form class="formulario" method="POST" novalidate>
             {% csrf_token %}
             <h2>Creación De Cliente</h2>

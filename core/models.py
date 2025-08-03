@@ -46,10 +46,10 @@ class PlanPersonalizado(models.Model):
 # --------------------------
 class Cliente(models.Model):
     METODOS_PAGO = [
-        ('efectivo', 'Efectivo'),
-        ('debito', 'Débito'),
-        ('credito', 'Crédito'),
-        ('transferencia', 'Transferencia'),
+        ('Efectivo', 'Efectivo'),
+        ('Debito', 'Débito'),
+        ('Credito', 'Crédito'),
+        ('Transferencia', 'Transferencia'),
     ]
 
     nombre = models.CharField(max_length=50)
