@@ -367,7 +367,7 @@ body {
 .tabla-renovar {
     margin: 0 auto;
     border-collapse: collapse;
-    width: 90%;
+    width: 98%;
     background-color: white;
     border-radius: 10px;
     overflow: hidden;
@@ -755,6 +755,106 @@ body {
     font-size: 1.5rem;
     margin-bottom: 1rem;
   }
+.modal-agregar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.3s ease;
+    z-index: 1000;
+}
+
+.modal-agregar-content {
+    background: #ffffff;
+    border-left: 6px solid #28a745;
+    padding: 40px 30px;
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    text-align: center;
+    position: relative;
+    max-width: 400px;
+    width: 90%;
+    animation: slideIn 0.3s ease;
+}
+
+.modal-agregar-cerrar {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background: transparent;
+    color: #888;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+.modal-agregar-cerrar:hover {
+    color: #000;
+}
+
+
+.btn-confirmar-agregar {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    font-size: 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+.btn-confirmar-agregar:hover {
+    background-color: #218838;
+}
+
+.modal-cliente-content {
+    background: #ffffff;
+    border-left: 6px solid #dc3545;
+    padding: 40px 30px;
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    text-align: center;
+    position: relative;
+    max-width: 400px;
+    width: 90%;
+    animation: slideIn 0.3s ease;
+}
+
+.modal-cliente-actions {
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-around;
+}
+
+.btn-cliente-eliminar {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+.btn-cliente-eliminar:hover {
+    background-color: #c82333;
+}
+
+.btn-cliente-cancelar {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+.btn-cliente-cancelar:hover {
+    background-color: #5a6268;
+}
+
 @keyframes fadeInRenovar {
     from {opacity: 0;}
     to {opacity: 1;}

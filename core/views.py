@@ -62,7 +62,7 @@ def index(request):
 
 @admin_required
 def registro_cliente(request):
-    mensaje = None  # Define por defecto
+    mensaje = None  
 
     if request.method == 'POST':
         form = ClienteForm(request.POST)
@@ -180,40 +180,88 @@ def listaCliente_json(request):
 
 @admin_required
 def renovarCliente(request):
-    mensaje = ''
     rut_buscado = request.POST.get('rut') or request.GET.get('rut', '')
     cliente_renovado = None
 
     if request.method == 'POST':
         if 'renovar_rut' in request.POST:
             rut_renovar = request.POST.get('renovar_rut')
-            metodo_pago = request.POST.get('metodo_pago') 
+            metodo_pago = request.POST.get('metodo_pago')
             cliente_renovado = Cliente.objects.filter(rut=rut_renovar).first()
             if cliente_renovado:
                 cliente_renovado.fecha_inicio_plan = timezone.now().date()
                 cliente_renovado.metodo_pago = metodo_pago
                 cliente_renovado.save()
-                mensaje = (
-                    f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} "
-                    f"({cliente_renovado.rut}) ha sido renovado correctamente."
-                )
-                rut_buscado = rut_renovar  
+                messages.success(request, f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ({cliente_renovado.rut}) ha sido renovado correctamente.")
+                rut_buscado = rut_renovar
 
         elif 'rut' in request.POST:
             rut_buscado = request.POST.get('rut')
 
-    if rut_buscado:
-        clientes = Cliente.objects.filter(rut__icontains=rut_buscado)
-    else:
-        clientes = Cliente.objects.all()
+    clientes = Cliente.objects.filter(rut__icontains=rut_buscado) if rut_buscado else Cliente.objects.all()
 
     return render(request, 'core/renovarCliente.html', {
         'clientes': clientes,
-        'mensaje': mensaje,
         'rut_buscado': rut_buscado,
         'planes_personalizados': PlanPersonalizado.objects.all(),
         'tipos_mensualidad': ['Estudiante', 'Normal']
     })
+@admin_required
+def modificar_cliente(request, cliente_id):
+    cliente = get_object_or_404(Cliente, id=cliente_id)
+
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre')
+        apellido = request.POST.get('apellido')
+        rut = request.POST.get('rut')
+        correo = request.POST.get('correo')
+        telefono = request.POST.get('telefono')
+
+        if not nombre or not apellido or not rut or not correo or not telefono:
+            messages.error(request, "⚠️ Todos los campos obligatorios deben estar completos.")
+        else:
+            try:
+                cliente.nombre = nombre
+                cliente.apellido = apellido
+                cliente.rut = rut
+                cliente.correo = correo
+                cliente.telefono = telefono
+                cliente.save()
+                messages.success(request, "✅ Cliente modificado exitosamente.")
+                return redirect('renovarCliente')  
+            except Exception as e:
+                messages.error(request, f"❌ Error al modificar el cliente: {str(e)}")
+
+    return render(request, 'core/modificar_cliente.html', {'cliente': cliente})
+
+@admin_required
+def eliminar_cliente(request, cliente_id):
+    cliente = get_object_or_404(Cliente, id=cliente_id)
+
+    if request.method == 'POST':
+        cliente.delete()
+        messages.success(request, f"🗑️ Cliente eliminado correctamente.")
+    else:
+        messages.error(request, "Método no permitido.")
+
+    return redirect('renovarCliente')
+
+@admin_required
+def agregar_meses_plan(request):
+    if request.method == 'POST':
+        rut = request.POST.get('rut_cliente')
+        meses = int(request.POST.get('meses', 0))
+
+        cliente = Cliente.objects.filter(rut=rut).first()
+        if cliente:
+            hoy = timezone.now().date()
+            inicio = cliente.fecha_fin_plan or cliente.fecha_inicio_plan or hoy
+            nueva_fecha = inicio + relativedelta(months=meses)
+
+            cliente.fecha_fin_plan = nueva_fecha
+            cliente.save()
+
+        return redirect('renovarCliente')
 
 
 @admin_required
@@ -268,7 +316,7 @@ def productos(request):
 
     return render(request, 'core/productos.html', {'productos': productos})
 
-from django.contrib import messages
+
 
 
 @admin_required

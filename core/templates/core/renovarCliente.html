@@ -23,25 +23,23 @@
     </form>
 </div>
 
-{% if mensaje %}
-    <div id="mensaje-exito" style="
-        background-color: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
-        padding: 10px;
-        margin-bottom: 15px;
-        border-radius: 5px;
-    ">
-        {{ mensaje }}
-    </div>
-    <script>
+{% if messages %}
+  <div id="mi-mensaje-contenedor" class="mi-mensaje-contenedor">
+    {% for message in messages %}
+      <div class="mi-mensaje mi-mensaje-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+
+  <script>
     setTimeout(function() {
-        var mensajeDiv = document.getElementById('mensaje-exito');
-        if (mensajeDiv) {
-            mensajeDiv.style.display = 'none';
-        }
-    }, 5000);
-    </script>
+      const mensaje = document.getElementById("mi-mensaje-contenedor");
+      if (mensaje) {
+        mensaje.style.transition = "opacity 1s ease";
+        mensaje.style.opacity = 0;
+        setTimeout(() => mensaje.remove(), 8000); 
+      }
+    }, 8000); 
+  </script>
 {% endif %}
 
 {% if clientes %}
@@ -57,6 +55,8 @@
                 <th>Estado De Plan</th>
                 <th>Metodo de pago</th>
                 <th>Renovar</th>
+                <th>Modifcar Cliente </th>
+                <th>Eliminar Cliente</th>
             </tr>
         </thead>
         <tbody>
@@ -69,19 +69,21 @@
 
                 <!-- Tipo de plan -->
                 <td>
-                    <form method="post" action="{% url 'cambiar_tipo_plan_mensual' %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
-                        <select name="nuevo_plan" onchange="this.form.submit()" class="select-bonito">
-                            <option value="">-- Selecciona --</option>
-                            {% for opcion in tipos_mensualidad %}
-                                <option value="{{ opcion }}" {% if cliente.mensualidad and cliente.mensualidad.tipo == opcion %}selected{% endif %}>
-                                    {{ opcion }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </form>
+                        <form method="post" action="{% url 'cambiar_tipo_plan_mensual' %}" id="form-plan-{{ cliente.rut }}">
+                            {% csrf_token %}
+                            <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
+                            <select name="nuevo_plan" onchange="handleSelectChange(this, '{{ cliente.rut }}')" class="select-bonito">
+                                <option value="">-- Selecciona --</option>
+                                {% for opcion in tipos_mensualidad %}
+                                    <option value="{{ opcion }}" {% if cliente.mensualidad and cliente.mensualidad.tipo == opcion %}selected{% endif %}>
+                                        {{ opcion }}
+                                    </option>
+                                {% endfor %}
+                                <option value="agregar_meses">Agregar más meses</option>
+                            </select>
+                        </form>
                 </td>
+
 
                 <!-- Plan personalizado -->
                 <td>
@@ -111,6 +113,17 @@
                 <td>
                    <button type="button" class="btn-global" onclick="confirmarRenovacion('{{ cliente.rut }}')">Renovar</button>
                 </td>
+                    <td>
+                <button type="button" class="btn-global"
+                    onclick="window.location.href='{% url 'modificar_cliente' cliente.id %}'">
+                     Editar
+                </button>
+                 </td>
+                <td>
+                    <button type="button" class="btn-global" onclick="abrirModalCliente({{ cliente.id }}, '{{ cliente.nombre }} {{ cliente.apellido }}')">
+                         Eliminar
+                    </button>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -121,6 +134,40 @@
    </p>
 {% endif %}
 
+<!-- MODAL PARA ELIMINAR CLIENTE -->
+<div id="modalEliminarCliente" class="modal modal-error" style="display: none;">
+  <div class="modal-cliente-content">
+    <button type="button" class="modal-close" onclick="cerrarModalCliente()">&times;</button>
+    <h2>Eliminar cliente</h2>
+    <p id="mensaje-modal-cliente">¿Estás seguro que deseas eliminar a este cliente?</p>
+    <form id="formEliminarCliente" method="POST">
+      {% csrf_token %}
+      <div class="modal-cliente-actions">
+        <button type="submit" class="btn-cliente-eliminar">🗑️ Sí, eliminar</button>
+        <button type="button" onclick="cerrarModalCliente()" class="btn-cliente-cancelar">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL PARA AGREGAR MAS MESES -->
+<div id="modal-agregar-meses" class="modal-agregar" style="display:none;">
+  <div class="modal-agregar-content">
+    <button type="button" class="modal-agregar-cerrar" onclick="cerrarModalAgregar()" title="Cerrar">&times;</button>
+    <h2>Agregar meses al plan</h2>
+    <form method="post" action="{% url 'agregar_meses_plan' %}">
+        {% csrf_token %}
+        <input type="hidden" name="rut_cliente" id="modal-rut-cliente">
+        <p>¿Cuántos meses quieres agregar?</p>
+        <input type="number" name="meses" min="1" required
+               style="margin-top: 10px; padding: 8px; width: 100%; border: 1px solid #ccc; border-radius: 5px;">
+
+        <div style="text-align: center; margin-top: 25px;">
+            <button type="submit" class="btn-confirmar-agregar">✅ Confirmar</button>
+        </div>
+    </form>
+  </div>
+</div>
 
 <!-- MODAL PARA ELEGIR METODO DE PAGO -->
 <div id="modal-metodo-pago" class="modal-renovar" style="display: none;">
@@ -158,7 +205,6 @@
 
 <script>
 function confirmarRenovacion(rut) {
-    // Abre el modal para elegir motodo de pago
     document.getElementById('rut-metodo').value = rut;
     document.getElementById('modal-metodo-pago').style.display = 'flex';
 }
@@ -203,6 +249,32 @@ function validarFormulario(event) {
 
     mensajeError.style.display = "none"; 
     return true;
+}
+
+function handleSelectChange(selectElement, rut) {
+    if (selectElement.value === "agregar_meses") {
+        document.getElementById('modal-rut-cliente').value = rut;
+        document.getElementById('modal-agregar-meses').style.display = 'flex';
+        selectElement.value = "";
+    } else {
+        selectElement.form.submit();
+    }
+}
+
+function cerrarModalAgregar() {
+    document.getElementById('modal-agregar-meses').style.display = 'none';
+}
+
+function abrirModalCliente(clienteId, nombreCompleto) {
+    const form = document.getElementById('formEliminarCliente');
+    form.action = `/eliminar-cliente/${clienteId}/`; 
+    document.getElementById('mensaje-modal-cliente').innerText =
+        `¿Estás seguro que deseas eliminar a "${nombreCompleto}"?`;
+    document.getElementById('modalEliminarCliente').style.display = 'flex';
+}
+
+function cerrarModalCliente() {
+    document.getElementById('modalEliminarCliente').style.display = 'none';
 }
 </script>
 

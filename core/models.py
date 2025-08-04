@@ -62,8 +62,11 @@ class Cliente(models.Model):
     plan_personalizado = models.ForeignKey(PlanPersonalizado, on_delete=models.SET_NULL, null=True, blank=True)
     metodo_pago = models.CharField(max_length=20, choices=METODOS_PAGO, null=True, blank=True)
     fecha_inicio_plan = models.DateField(default=timezone.now, null=True, blank=True)
+    fecha_fin_plan = models.DateField(null=True, blank=True)  
 
     def calcular_vencimiento(self):
+        if self.fecha_fin_plan:
+            return self.fecha_fin_plan
         return self.fecha_inicio_plan + relativedelta(months=1)
 
     def dias_restantes(self):
@@ -72,11 +75,8 @@ class Cliente(models.Model):
         dias = (vencimiento - hoy).days
         return dias if dias >= 0 else 0
 
-
-
     def __str__(self):
         return f'{self.nombre} {self.apellido}'
-
 
 class Asistencia(models.Model):
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)

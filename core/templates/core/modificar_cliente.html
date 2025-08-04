@@ -1,0 +1,58 @@
+{% extends 'core/home.html' %}
+{% load static %}
+
+{% block content %}
+{% if messages %}
+  <div class="mi-mensaje-contenedor">
+    {% for message in messages %}
+      <div class="mi-mensaje mi-mensaje-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+
+
+<div class="form-container">
+    <form method="POST" class="formulario">
+        {% csrf_token %}
+
+        <label>Nombre:</label>
+        <input type="text" name="nombre" value="{{ cliente.nombre }}" required>
+
+        <label>Apellido:</label>
+        <input type="text" name="apellido" value="{{ cliente.apellido }}" required>
+
+        <label>RUT:</label>
+        <input type="text" name="rut" value="{{ cliente.rut }}" required>
+
+        <label>Correo:</label>
+        <input type="email" name="correo" value="{{ cliente.correo }}" required>
+
+        <label>Teléfono:</label>
+        <input type="text" name="telefono" value="{{ cliente.telefono }}" required>
+
+        <button type="submit" class="btn-global" style="margin-top: 15px; margin-bottom: 10px;">💾 Guardar Cambios</button>
+        <a href="{% url 'renovarCliente' %}" class="btn-global">🔙 Volver</a>
+    </form>
+</div>
+
+<style>
+.mi-mensaje-contenedor {
+    margin-bottom: 15px;
+}
+.mi-mensaje {
+    padding: 12px;
+    border-radius: 6px;
+    font-weight: 500;
+    margin-bottom: 12px;
+}
+.mi-mensaje-success {
+    background-color: #d4edda;
+    color: #155724;
+}
+.mi-mensaje-error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+</style>
+{% endblock %}
