@@ -9,7 +9,7 @@ from django.utils.timezone import localdate
 from django.db.models import F, ExpressionWrapper, FloatField
 from datetime import timedelta
 import json
-from django.db.models import Count, Sum
+from django.db.models import Count, Sum,Q,F,Func
 from django.utils.timezone import now
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -286,16 +286,19 @@ def cambiar_plan_personalizado(request):
     if request.method == 'POST':
         rut = request.POST.get('rut_cliente')
         nuevo_plan = request.POST.get('nuevo_plan')
+
         cliente = Cliente.objects.filter(rut=rut).first()
-        if cliente:
+        if cliente and nuevo_plan:
             from .models import PlanPersonalizado
-            plan = PlanPersonalizado.objects.filter(id=nuevo_plan).first()
-            if plan:
+            try:
+                plan = PlanPersonalizado.objects.get(id=int(nuevo_plan))
                 cliente.plan_personalizado = plan
                 cliente.save()
+            except (PlanPersonalizado.DoesNotExist, ValueError):
+                pass
+
         return HttpResponseRedirect(reverse('renovarCliente') + f'?rut={rut}')
     return redirect('renovarCliente')
-
 
 def productos(request):
     productos = Producto.objects.all()
@@ -409,20 +412,19 @@ def dashboard(request):
 
     # Clientes activos del mes
     clientes_activos_mes = (
-    Asistencia.objects
-    .filter(fecha__gte=inicio_mes)
-    .values('cliente')
-    .distinct()
-    .count()
+        Asistencia.objects
+        .filter(fecha__gte=inicio_mes)
+        .values('cliente')
+        .distinct()
+        .count()
     )
     clientes_nuevos_mes = Cliente.objects.filter(fecha_inicio_plan__gte=inicio_mes).count()
 
-
-    # Nuevos clientes por mes (ultimos 6 meses)
+    # Últimos 6 meses
     hoy = now().date()
     seis_meses_antes = hoy - timedelta(days=180)
 
-    # Clientes nuevos del mes
+    # Nuevos clientes por mes
     clientes_mes_qs = (
         Cliente.objects
         .filter(fecha_inicio_plan__gte=seis_meses_antes)
@@ -433,20 +435,36 @@ def dashboard(request):
     )
     nuevos_clientes_mes = {item['month']: item['count'] for item in clientes_mes_qs}
 
-    # Ultimas 10 ventas del dia
-    ultimas_ventas = (
-    Venta.objects
-    .select_related('producto')
-    .order_by('-fecha_venta')[:10]  
-    .values(
-        'fecha_venta',
-        'producto__nombre',
-        'cantidad',
-        'producto__precio_venta'
+    # Clientes por tipo de plan por mes
+    clientes_por_plan = (
+        Cliente.objects
+        .filter(fecha_inicio_plan__gte=seis_meses_antes)
+        .extra(select={'month': "strftime('%%Y-%%m', fecha_inicio_plan)"})
+        .values('month')
+      .annotate(
+            estudiante_count=Count('id', filter=Q(mensualidad__tipo='Estudiante')),
+            normal_count=Count('id', filter=Q(mensualidad__tipo='Normal')),
+ 
+        )
+                .order_by('month')
     )
+    clientes_plan_data = {}
+    for item in clientes_por_plan:
+        month = item['month']
+        clientes_plan_data[month] = {
+        "estudiante": item['estudiante_count'],
+        "normal": item['normal_count'],
+    }
+
+    # Últimas 10 ventas
+    ultimas_ventas = (
+        Venta.objects
+        .select_related('producto')
+        .order_by('-fecha_venta')[:10]
+        .values('fecha_venta', 'producto__nombre', 'cantidad', 'producto__precio_venta')
     )
 
-    # Asistencia: ranking top 10 clientes por cantidad
+    # Ranking asistencia
     ranking_asistencia_qs = (
         Asistencia.objects
         .values('cliente__nombre', 'cliente__apellido')
@@ -461,7 +479,7 @@ def dashboard(request):
         for item in ranking_asistencia_qs
     ]
 
-    # Productos más vendidos (top 10)
+    # Productos más vendidos
     productos_vendidos_qs = (
         Venta.objects
         .values('producto__nombre')
@@ -473,10 +491,10 @@ def dashboard(request):
         for item in productos_vendidos_qs
     ]
 
-    # Stock actual productos
+    # Stock actual
     productos = Producto.objects.all().values('nombre', 'stock')
 
-    # Ingresos por ventas por mes (ultimos 6 meses)
+    # Ingresos por ventas
     ventas_mes_qs = (
         Venta.objects
         .filter(fecha_venta__gte=seis_meses_antes)
@@ -492,18 +510,36 @@ def dashboard(request):
         )
         .order_by('month')
     )
+
+    top_planes_personalizados_qs = (
+    Cliente.objects
+    .filter(plan_personalizado__isnull=False)
+    .values('plan_personalizado__nombre_plan')
+    .annotate(total=Count('id'))
+    .order_by('-total')[:5]
+)
+
+    top_planes_personalizados = [
+    {
+        "nombre": item['plan_personalizado__nombre_plan'],
+        "total": item['total']
+    }
+    for item in top_planes_personalizados_qs
+]
     ingresos_mes = {item['month']: item['ingresos'] or 0 for item in ventas_mes_qs}
 
     context = {
         "total_clientes": total_clientes,
+        "clientes_activos_mes": clientes_activos_mes,
+        "clientes_nuevos_mes": clientes_nuevos_mes,
         "nuevos_clientes_mes": json.dumps(nuevos_clientes_mes),
         "ranking_asistencia": json.dumps(ranking_asistencia),
         "productos_vendidos": json.dumps(productos_vendidos),
         "productos": productos,
-        "clientes_activos_mes": clientes_activos_mes,
-        "clientes_nuevos_mes": clientes_nuevos_mes,
         "ultimas_ventas": ultimas_ventas,
         "ingresos_mes": json.dumps(ingresos_mes),
+        "clientes_plan_data": json.dumps(clientes_plan_data),
+        "top_planes_personalizados": json.dumps(top_planes_personalizados),
     }
 
     return render(request, "core/dashboard.html", context)

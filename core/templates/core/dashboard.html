@@ -4,32 +4,52 @@
 
 
 <div class="dash-container">
- 
+
+  <!-- KPIs -->
   <div class="dash-kpis">
     <div class="dash-kpi">
       <h3>Total Clientes</h3>
       <p>{{ total_clientes }}</p>
     </div>
- <div class="dash-kpi">
-  <h3>Clientes Activos este Mes</h3>
-  <p>{{ clientes_activos_mes }}</p>
-</div>
-
-<div class="dash-kpi">
-  <h3>Clientes Nuevos este Mes</h3>
-  <p>{{ clientes_nuevos_mes }}</p>
-</div>
+    <div class="dash-kpi">
+      <h3>Clientes Activos este Mes</h3>
+      <p>{{ clientes_activos_mes }}</p>
+    </div>
+    <div class="dash-kpi">
+      <h3>Clientes Nuevos este Mes</h3>
+      <p>{{ clientes_nuevos_mes }}</p>
+    </div>
   </div>
 
+  <!-- Gráficos Clientes -->
   <div class="dash-charts">
     <div class="dash-chart-box">
       <h4>Nuevos Clientes por Mes</h4>
       <canvas id="clientesMesChart"></canvas>
     </div>
+
     <div class="dash-chart-box">
       <h4>Ranking Asistencia Por Clientes</h4>
       <canvas id="rankingAsistenciaChart"></canvas>
     </div>
+
+    <div class="dash-chart-box">
+      <h4>Clientes por Tipo de Plan</h4>
+      <label for="mesFiltro">Filtrar por mes:</label>
+      <select id="mesFiltro" onchange="filtrarMesClientes()">
+        <option value="todos">Todos</option>
+      </select>
+      <canvas id="clientesTipoPlanChart"></canvas>
+    </div>
+
+    <div class="dash-chart-box">
+      <h4>Top 5 Planes Personalizados Más Usados</h4>
+      <canvas id="topPlanesChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Gráficos Ventas e Ingresos -->
+  <div class="dash-charts">
     <div class="dash-chart-box">
       <h4>Productos Más Vendidos</h4>
       <canvas id="productosVendidosChart"></canvas>
@@ -40,7 +60,8 @@
     </div>
   </div>
 
-  <div>
+  <!-- Tablas -->
+  <div class="dash-section">
     <h2 class="dash-title">Stock Actual de Productos</h2>
     <table class="dash-stock-table">
       <thead>
@@ -56,30 +77,31 @@
       </tbody>
     </table>
   </div>
-  <div>
-  <h2 class="dash-title">Últimas Ventas Realizadas</h2>
-  <table class="dash-stock-table">
-    <thead>
-      <tr>
-        <th>Fecha</th>
-        <th>Producto</th>
-        <th>Cantidad</th>
-        <th>Precio Unitario</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for venta in ultimas_ventas %}
-      <tr>
-        <td>{{ venta.fecha_venta }}</td>
-        <td>{{ venta.producto__nombre }}</td>
-        <td>{{ venta.cantidad }}</td>
-        <td>${{ venta.producto__precio_venta|floatformat:0 }}</td>
 
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+  <div class="dash-section">
+    <h2 class="dash-title">Últimas Ventas Realizadas</h2>
+    <table class="dash-stock-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Producto</th>
+          <th>Cantidad</th>
+          <th>Precio Unitario</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for venta in ultimas_ventas %}
+        <tr>
+          <td>{{ venta.fecha_venta }}</td>
+          <td>{{ venta.producto__nombre }}</td>
+          <td>{{ venta.cantidad }}</td>
+          <td>${{ venta.producto__precio_venta|floatformat:0 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
 </div>
 
 
@@ -137,6 +159,85 @@
       }]
     }
   });
+    const clientesPlanData = JSON.parse('{{ clientes_plan_data|safe }}');
+
+  const meses = Object.keys(clientesPlanData);
+const dataEstudiante = meses.map(mes => clientesPlanData[mes].estudiante);
+const dataNormal = meses.map(mes => clientesPlanData[mes].normal);
+
+  // Poblamos select de filtro
+  const filtroMes = document.getElementById("mesFiltro");
+  meses.forEach(m => {
+    const opt = document.createElement("option");
+    opt.value = m;
+    opt.innerText = m;
+    filtroMes.appendChild(opt);
+  });
+
+const ctx = document.getElementById('clientesTipoPlanChart').getContext('2d');
+const chartClientesPlan = new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: meses,
+    datasets: [
+      {
+        label: 'Estudiante',
+        data: dataEstudiante,
+        backgroundColor: 'rgba(54, 162, 235, 0.7)'
+      },
+      {
+        label: 'Normal',
+        data: dataNormal,
+        backgroundColor: 'rgba(255, 206, 86, 0.7)'
+      }
+   
+    ]
+  }
+});
+function filtrarMesClientes() {
+  const selectedMes = filtroMes.value;
+
+  if (selectedMes === "todos") {
+    chartClientesPlan.data.labels = meses;
+    chartClientesPlan.data.datasets[0].data = dataEstudiante;
+    chartClientesPlan.data.datasets[1].data = dataNormal;
+  } else {
+    chartClientesPlan.data.labels = [selectedMes];
+    chartClientesPlan.data.datasets[0].data = [clientesPlanData[selectedMes].estudiante];
+    chartClientesPlan.data.datasets[1].data = [clientesPlanData[selectedMes].normal];
+
+  }
+
+  chartClientesPlan.update();
+}
+
+  const topPlanesPersonalizados = JSON.parse('{{ top_planes_personalizados|safe }}');
+
+  new Chart(document.getElementById('topPlanesChart'), {
+  type: 'bar',
+  data: {
+    labels: topPlanesPersonalizados.map(p => p.nombre),
+    datasets: [{
+      label: 'Clientes',
+      data: topPlanesPersonalizados.map(p => p.total),
+      backgroundColor: 'rgba(255, 99, 132, 0.7)'
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    plugins: {
+      legend: { display: false },
+      title: {
+        display: false
+      }
+    },
+    scales: {
+      x: {
+        beginAtZero: true
+      }
+    }
+  }
+});
 </script>
 
 {% endblock %}
