@@ -68,21 +68,24 @@
                 <td>+ {{ cliente.telefono }}</td>
 
                 <!-- Tipo de plan -->
-                <td>
-                        <form method="post" action="{% url 'cambiar_tipo_plan_mensual' %}" id="form-plan-{{ cliente.rut }}">
-                            {% csrf_token %}
-                            <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
-                            <select name="nuevo_plan" onchange="handleSelectChange(this, '{{ cliente.rut }}')" class="select-bonito">
-                                <option value="">-- Selecciona --</option>
-                                {% for opcion in tipos_mensualidad %}
-                                    <option value="{{ opcion }}" {% if cliente.mensualidad and cliente.mensualidad.tipo == opcion %}selected{% endif %}>
-                                        {{ opcion }}
-                                    </option>
-                                {% endfor %}
-                                <option value="agregar_meses">Agregar más meses</option>
-                            </select>
-                        </form>
-                </td>
+             <td>
+                <form method="post" action="{% url 'cambiar_tipo_plan_mensual' %}" id="form-plan-{{ cliente.rut }}">
+                    {% csrf_token %}
+                    <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
+                    <select name="nuevo_plan" onchange="handleSelectChange(this, '{{ cliente.rut }}')" class="select-bonito">
+                        <option value="">-- Selecciona --</option>
+                        {% for mensualidad in tipos_mensualidad %}
+                            <option value="{{ mensualidad.id }}"
+                                {% if cliente.mensualidad and cliente.mensualidad.id == mensualidad.id %}selected{% endif %}>
+                                {{ mensualidad.tipo }} + Plan {{ mensualidad.duracion }}
+                            </option>
+                        {% endfor %}
+                        <!--
+                        <option value="agregar_meses">Agregar más meses</option>
+                        -->
+                    </select>
+                </form>
+            </td>
 
 
                 <!-- Plan personalizado -->
@@ -102,18 +105,23 @@
                 </td>
 
                 <!-- Estado del plan -->
+             <td>
+    {% if cliente.dias_restantes <= 0 %}
+        <span class="inactivo">Vencido</span>
+    {% else %}
+        Activo ({{ cliente.dias_restantes }} días restantes)
+    {% endif %}
+</td>
+
                 <td>
-                    {% if cliente.dias_restantes == 0 %}
-                        Vencido
-                    {% else %}
-                        Activo ({{ cliente.dias_restantes }} días restantes)
-                    {% endif %}
+                    {{ cliente.metodo_pago }}
                 </td>
-                <td>{{ cliente.metodo_pago }}</td>
+
                 <td>
                    <button type="button" class="btn-global" onclick="confirmarRenovacion('{{ cliente.rut }}')">Renovar</button>
                 </td>
                     <td>
+
                 <button type="button" class="btn-global"
                     onclick="window.location.href='{% url 'modificar_cliente' cliente.id %}'">
                      Editar
@@ -150,7 +158,7 @@
   </div>
 </div>
 
-<!-- MODAL PARA AGREGAR MAS MESES -->
+<!-- MODAL PARA AGREGAR MAS MESES 
 <div id="modal-agregar-meses" class="modal-agregar" style="display:none;">
   <div class="modal-agregar-content">
     <button type="button" class="modal-agregar-cerrar" onclick="cerrarModalAgregar()" title="Cerrar">&times;</button>
@@ -168,7 +176,7 @@
     </form>
   </div>
 </div>
-
+-->
 <!-- MODAL PARA ELEGIR METODO DE PAGO -->
 <div id="modal-metodo-pago" class="modal-renovar" style="display: none;">
     <div class="modal-content-renovar">

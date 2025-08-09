@@ -3,7 +3,8 @@
 
 {% block content %}
 <main class="contenido">
-     {% if mensaje %}
+
+    {% if mensaje %}
     <div id="mensaje-exito-registro" style="
         background-color: #d4edda;
         color: #155724;
@@ -22,10 +23,9 @@
         }
     }, 5000);
     </script>
-{% endif %}
-    <div class="form-container">
+    {% endif %}
 
-        
+    <div class="form-container">
         <form class="formulario" method="POST" novalidate>
             {% csrf_token %}
             <h2>Creación De Cliente</h2>
@@ -38,23 +38,89 @@
                 {% endfor %}
             {% endfor %}
 
-          <button type="submit" class="btn-global" style=" margin-top: 15px;">✅ Crear Cliente</button>
-            <a href="{% url 'index' %}" class="btn-global">🔙 Volver</a>
+            <button type="submit" class="btn-global" style="margin-top: 15px;">✅ Crear Cliente</button>
+            <a href="{% url 'index' %}" class="btn-global" style="margin-top: 15px;">🔙 Volver</a>
         </form>
     </div>
+
+    {% if cliente %}
+    <!-- Modal para registro de huella -->
+    <div id="modalHuella" class="modal" style="display:none;">
+        <div class="modal-content">
+            <button id="btnCerrarModalHuella" style="float:right;">✖</button>
+            <h2>Registro de Huella</h2>
+            <p id="estadoHuella">Presiona el botón para comenzar</p>
+            <button id="btnCapturarHuella" class="btn-global">Capturar Huella</button>
+        </div>
+    </div>
+    {% endif %}
+
 </main>
 
-<style>
-    .error {
-        color: red;
-        font-size: 0.9em;
-        margin-top: 3px;
-        margin-bottom: 8px;
-    }
-</style>
+{% if cliente %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Mostrar modal automáticamente al crear cliente
+        const modalHuella = document.getElementById('modalHuella');
+        if(modalHuella){
+            modalHuella.style.display = 'flex';
+        }
+    });
+</script>
+{% endif %}
 
 <script>
+    const modalHuella = document.getElementById('modalHuella');
+    const btnCerrarModal = document.getElementById('btnCerrarModalHuella');
+    const btnCapturarHuella = document.getElementById('btnCapturarHuella');
+    const estadoHuella = document.getElementById('estadoHuella');
 
+    if(btnCerrarModal) {
+        btnCerrarModal.onclick = () => modalHuella.style.display = 'none';
+    }
+
+    if(btnCapturarHuella) {
+        btnCapturarHuella.onclick = () => {
+            estadoHuella.textContent = "Capturando huella...";
+
+            // Simulación de captura de huella base64
+            setTimeout(() => {
+                const templateFakeBase64 = btoa("template_de_huella_simulado");
+
+                const clienteId = {{ cliente.id }};
+
+                fetch(`/api/guardar_huella/${clienteId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({template: templateFakeBase64})
+                })
+                .then(resp => resp.json())
+                .then(data => {
+                    if(data.mensaje) {
+                        estadoHuella.textContent = "✅ Huella registrada correctamente.";
+                    } else {
+                        estadoHuella.textContent = "Error: " + (data.error || "Desconocido");
+                    }
+                })
+                .catch(() => {
+                    estadoHuella.textContent = "Error al guardar huella.";
+                });
+            }, 3000);
+        };
+    }
+
+    // Cerrar modal si clic afuera
+    window.onclick = (event) => {
+        if(event.target === modalHuella) {
+            modalHuella.style.display = 'none';
+        }
+    }
+</script>
+
+<script>
     document.addEventListener("DOMContentLoaded", function() {
         const rutInput = document.getElementById("id_rut");
         if (rutInput) {
@@ -64,4 +130,34 @@
         }
     });
 </script>
+
+<style>
+    .error {
+        color: red;
+        font-size: 0.9em;
+        margin-top: 3px;
+        margin-bottom: 8px;
+    }
+    /* Añade estilos para el modal */
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+    .modal-content {
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        min-width: 300px;
+        position: relative;
+    }
+</style>
+
 {% endblock %}

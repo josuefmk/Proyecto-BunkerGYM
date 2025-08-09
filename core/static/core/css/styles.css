@@ -868,7 +868,10 @@ body {
 .btn-cliente-cancelar:hover {
     background-color: #5a6268;
 }
-
+.inactivo {
+    color: red;
+    font-weight: bold;
+}
 @keyframes fadeInRenovar {
     from {opacity: 0;}
     to {opacity: 1;}

@@ -22,7 +22,7 @@ urlpatterns = [
     path('agregar-meses-plan/', views.agregar_meses_plan, name='agregar_meses_plan'),
     path('eliminar-cliente/<int:cliente_id>/', views.eliminar_cliente, name='eliminar_cliente'),
     path('modificar-cliente/<int:cliente_id>/', views.modificar_cliente, name='modificar_cliente'),
-
+    path('api/registrar_asistencia/', views.api_registrar_asistencia, name='api_registrar_asistencia'),
 
     # Login y logout
     path('login/', views.login_admin, name='login'),

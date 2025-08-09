@@ -45,6 +45,17 @@
         </div>
         {% endif %}
 
+        {% if plan_vencido %}
+            <div class="modal modal-error">
+                <div class="modal-content">
+                    <button onclick="cerrarModal()">✖</button>
+                    <h2 style="color:#dc3545;">❌ Plan Vencido</h2>
+                    <p>El cliente <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong> tiene el plan vencido.</p>
+                    <p>Debe renovarlo con un Staff para poder ingresar.</p>
+                </div>
+            </div>
+        {% endif %}
+
 </main>
 
 <script>

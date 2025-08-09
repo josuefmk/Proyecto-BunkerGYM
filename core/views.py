@@ -13,6 +13,7 @@ from django.db.models import Count, Sum,Q,F,Func
 from django.utils.timezone import now
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponseRedirect
 from django.http import JsonResponse
 from django.contrib import messages
@@ -59,21 +60,63 @@ def admin_required(view_func):
 def index(request):
     return render(request, 'core/index.html')
 
-
 @admin_required
 def registro_cliente(request):
-    mensaje = None  
+    mensaje = None
+    cliente_creado = None
 
     if request.method == 'POST':
         form = ClienteForm(request.POST)
         if form.is_valid():
-            cliente = form.save()
-            mensaje = f"✅ El cliente {cliente.nombre} ha sido creado correctamente."
-            form = ClienteForm()  # Limpiador
+            cliente_creado = form.save()
+            mensaje = f"✅ El cliente {cliente_creado.nombre} ha sido creado correctamente."
+            form = ClienteForm()  # limpiar form para crear otro cliente
+        else:
+            cliente_creado = None
     else:
         form = ClienteForm()
 
-    return render(request, 'core/registroCliente.html', {'form': form, 'mensaje': mensaje})
+    return render(request, 'core/registroCliente.html', {
+        'form': form,
+        'mensaje': mensaje,
+        'cliente': cliente_creado,
+    })
+@csrf_exempt
+def api_registrar_asistencia(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+    try:
+        data = json.loads(request.body)
+        cliente_id = data.get("cliente_id")
+
+        cliente = Cliente.objects.filter(id=cliente_id).first()
+        if not cliente:
+            return JsonResponse({"error": "Cliente no encontrado"}, status=404)
+
+        hoy = timezone.now().date()
+        if Asistencia.objects.filter(cliente=cliente, fecha=hoy).exists():
+            return JsonResponse({"mensaje": "Asistencia ya registrada hoy"}, status=200)
+
+        # Verificar vencimiento de plan (ajustar campo según tu modelo)
+        vencimiento_plan = cliente.fecha_vencimiento_plan
+        if vencimiento_plan and vencimiento_plan < hoy:
+            return JsonResponse({"error": "Plan vencido"}, status=403)
+
+        Asistencia.objects.create(cliente=cliente)
+
+        dias_restantes = (vencimiento_plan - hoy).days if vencimiento_plan else None
+        return JsonResponse({
+            "mensaje": "Asistencia registrada",
+            "cliente": {
+                "nombre": cliente.nombre,
+                "apellido": cliente.apellido,
+            },
+            "vencimiento_plan": vencimiento_plan.strftime("%Y-%m-%d") if vencimiento_plan else None,
+            "dias_restantes": dias_restantes,
+        })
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
 
 @admin_required
 def asistencia_cliente(request):
@@ -81,32 +124,41 @@ def asistencia_cliente(request):
         rut = request.POST.get('rut')
         cliente = Cliente.objects.filter(rut=rut).first()
 
-        if cliente:
-            hoy = timezone.localdate()
-            ya_registrado = Asistencia.objects.filter(cliente=cliente, fecha__date=hoy).exists()
-
-            if ya_registrado:
-                request.session['asistencia_ya_registrada'] = True
-                return redirect('asistencia_cliente')
-            Asistencia.objects.create(cliente=cliente)
-
-            vencimiento = cliente.calcular_vencimiento()
-            dias_restantes = cliente.dias_restantes()
-
-            request.session['mostrar_modal'] = True
-            request.session['cliente_id'] = cliente.id
-            request.session['vencimiento_plan'] = vencimiento.isoformat() if vencimiento else ''
-            request.session['dias_restantes'] = dias_restantes
-
-            return redirect('asistencia_cliente')
-        else:
+        if not cliente:
             request.session['rut_invalido'] = True
             return redirect('asistencia_cliente')
 
-  
+        hoy = timezone.localdate()
+
+        # Verificar si el plan está vencido
+        if not cliente.fecha_fin_plan or cliente.fecha_fin_plan < hoy:
+            request.session['plan_vencido'] = True
+            request.session['cliente_id'] = cliente.id
+            return redirect('asistencia_cliente')
+
+        # Verificar si ya registró asistencia hoy
+        if Asistencia.objects.filter(cliente=cliente, fecha__date=hoy).exists():
+            request.session['asistencia_ya_registrada'] = True
+            return redirect('asistencia_cliente')
+
+        # Registrar asistencia si todo está OK
+        Asistencia.objects.create(cliente=cliente)
+
+        vencimiento = cliente.fecha_fin_plan
+        dias_restantes = (vencimiento - hoy).days if vencimiento else 0
+
+        request.session['mostrar_modal'] = True
+        request.session['cliente_id'] = cliente.id
+        request.session['vencimiento_plan'] = vencimiento.isoformat() if vencimiento else ''
+        request.session['dias_restantes'] = dias_restantes
+
+        return redirect('asistencia_cliente')
+
+    # Recuperar variables de sesión
     mostrar_modal = request.session.pop('mostrar_modal', False)
     asistencia_ya_registrada = request.session.pop('asistencia_ya_registrada', False)
     rut_invalido = request.session.pop('rut_invalido', False)
+    plan_vencido = request.session.pop('plan_vencido', False)
 
     cliente_id = request.session.pop('cliente_id', None)
     venc_str = request.session.pop('vencimiento_plan', '')
@@ -119,12 +171,14 @@ def asistencia_cliente(request):
         'mostrar_modal': mostrar_modal,
         'asistencia_ya_registrada': asistencia_ya_registrada,
         'rut_invalido': rut_invalido,
+        'plan_vencido': plan_vencido,
         'cliente': cliente,
         'vencimiento_plan': vencimiento_plan,
         'dias_restantes': dias_restantes,
     }
 
     return render(request, 'core/AsistenciaCliente.html', context)
+
 
 
 
@@ -151,7 +205,7 @@ def listaCliente(request):
             'tipo_plan': cliente.mensualidad.tipo if cliente.mensualidad else (
                 cliente.plan_personalizado.nombre_plan if cliente.plan_personalizado else '—'
             ),
-            'vencimiento_plan': f"{cliente.dias_restantes()} días restantes" if cliente.fecha_inicio_plan else '—',
+            'vencimiento_plan': f"{cliente.dias_restantes} días restantes" if cliente.fecha_inicio_plan else '—',
         })
 
     return render(request, 'core/listaCliente.html', {'datos_clientes': datos_clientes})
@@ -192,7 +246,10 @@ def renovarCliente(request):
                 cliente_renovado.fecha_inicio_plan = timezone.now().date()
                 cliente_renovado.metodo_pago = metodo_pago
                 cliente_renovado.save()
-                messages.success(request, f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ({cliente_renovado.rut}) ha sido renovado correctamente.")
+                messages.success(
+                    request,
+                    f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ({cliente_renovado.rut}) ha sido renovado correctamente."
+                )
                 rut_buscado = rut_renovar
 
         elif 'rut' in request.POST:
@@ -200,12 +257,18 @@ def renovarCliente(request):
 
     clientes = Cliente.objects.filter(rut__icontains=rut_buscado) if rut_buscado else Cliente.objects.all()
 
+    from .models import Mensualidad
+
+
+    tipos_mensualidad = Mensualidad.objects.all()
+
     return render(request, 'core/renovarCliente.html', {
         'clientes': clientes,
         'rut_buscado': rut_buscado,
         'planes_personalizados': PlanPersonalizado.objects.all(),
-        'tipos_mensualidad': ['Estudiante', 'Normal']
+        'tipos_mensualidad': tipos_mensualidad
     })
+
 @admin_required
 def modificar_cliente(request, cliente_id):
     cliente = get_object_or_404(Cliente, id=cliente_id)
@@ -253,33 +316,48 @@ def agregar_meses_plan(request):
         meses = int(request.POST.get('meses', 0))
 
         cliente = Cliente.objects.filter(rut=rut).first()
-        if cliente:
+        if cliente and meses > 0:
             hoy = timezone.now().date()
-            inicio = cliente.fecha_fin_plan or cliente.fecha_inicio_plan or hoy
-            nueva_fecha = inicio + relativedelta(months=meses)
 
+    
+            if cliente.fecha_fin_plan and cliente.fecha_fin_plan > hoy:
+                inicio = cliente.fecha_fin_plan
+            elif cliente.fecha_inicio_plan and cliente.fecha_inicio_plan > hoy:
+                inicio = cliente.fecha_inicio_plan
+            else:
+                inicio = hoy
+                if not cliente.fecha_inicio_plan or cliente.fecha_inicio_plan < hoy:
+                    cliente.fecha_inicio_plan = hoy
+
+            nueva_fecha = inicio + relativedelta(months=meses)
             cliente.fecha_fin_plan = nueva_fecha
             cliente.save()
 
         return redirect('renovarCliente')
 
-
 @admin_required
 def cambiar_tipo_plan_mensual(request):
     if request.method == 'POST':
         rut = request.POST.get('rut_cliente')
-        nuevo_plan = request.POST.get('nuevo_plan')
-        cliente = Cliente.objects.filter(rut=rut).first()
-        if cliente:
-            from .models import Mensualidad
-            mensualidad = Mensualidad.objects.filter(tipo=nuevo_plan).first()
-            if mensualidad:
-                cliente.mensualidad = mensualidad
-                cliente.save()
-        # Redirige con el RUT como parámetro GET
+        mensualidad_id = request.POST.get('nuevo_plan')
+
+    
+        if mensualidad_id and mensualidad_id != "agregar_meses":
+
+            if mensualidad_id.isdigit():
+                cliente = Cliente.objects.filter(rut=rut).first()
+                if cliente:
+                    from .models import Mensualidad
+                    mensualidad = Mensualidad.objects.filter(id=mensualidad_id).first()
+                    if mensualidad:
+                        cliente.mensualidad = mensualidad
+                        cliente.save()
+            else:
+            
+                pass
+
         return HttpResponseRedirect(reverse('renovarCliente') + f'?rut={rut}')
     return redirect('renovarCliente')
-
 
 @admin_required
 def cambiar_plan_personalizado(request):
@@ -300,6 +378,7 @@ def cambiar_plan_personalizado(request):
         return HttpResponseRedirect(reverse('renovarCliente') + f'?rut={rut}')
     return redirect('renovarCliente')
 
+@admin_required
 def productos(request):
     productos = Producto.objects.all()
 
@@ -319,9 +398,6 @@ def productos(request):
 
     return render(request, 'core/productos.html', {'productos': productos})
 
-
-
-
 @admin_required
 def agregar_producto(request):
     if request.method == 'POST':
@@ -337,7 +413,7 @@ def agregar_producto(request):
 
     return render(request, 'core/agregar_producto.html', {'form': form})
 
-
+@admin_required
 def registrar_venta(request):
     if request.method == 'POST':
         producto_id = request.POST.get('producto_id')
@@ -388,7 +464,6 @@ def editar_producto(request, producto_id):
                 messages.error(request, f"❌ Error al modificar el producto: {str(e)}")
 
     return render(request, 'core/editar_producto.html', {'producto': producto})
-
 
 @admin_required
 def eliminar_producto(request, producto_id):
