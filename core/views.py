@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect
 from django.utils import timezone
-from .models import Cliente, Asistencia, Admin, PlanPersonalizado,Producto, Venta
+from .models import Cliente, Asistencia, Admin, Mensualidad, PlanPersonalizado,Producto, Venta
 from .forms import ClienteForm,ProductoForm
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -17,6 +17,10 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponseRedirect
 from django.http import JsonResponse
 from django.contrib import messages
+import calendar
+from collections import defaultdict
+from django.template.loader import render_to_string
+import locale
 # ===========================
 # LOGIN PERSONALIZADO (con Admin)
 # ===========================
@@ -81,6 +85,7 @@ def registro_cliente(request):
         'mensaje': mensaje,
         'cliente': cliente_creado,
     })
+""" #HUELLA COMENTADA
 @csrf_exempt
 def api_registrar_asistencia(request):
     if request.method != "POST":
@@ -116,7 +121,8 @@ def api_registrar_asistencia(request):
         })
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
-
+...
+"""
 
 @admin_required
 def asistencia_cliente(request):
@@ -130,18 +136,17 @@ def asistencia_cliente(request):
 
         hoy = timezone.localdate()
 
-        # Verificar si el plan está vencido
         if not cliente.fecha_fin_plan or cliente.fecha_fin_plan < hoy:
             request.session['plan_vencido'] = True
             request.session['cliente_id'] = cliente.id
             return redirect('asistencia_cliente')
 
-        # Verificar si ya registró asistencia hoy
+      
         if Asistencia.objects.filter(cliente=cliente, fecha__date=hoy).exists():
             request.session['asistencia_ya_registrada'] = True
             return redirect('asistencia_cliente')
 
-        # Registrar asistencia si todo está OK
+   
         Asistencia.objects.create(cliente=cliente)
 
         vencimiento = cliente.fecha_fin_plan
@@ -154,7 +159,7 @@ def asistencia_cliente(request):
 
         return redirect('asistencia_cliente')
 
-    # Recuperar variables de sesión
+
     mostrar_modal = request.session.pop('mostrar_modal', False)
     asistencia_ya_registrada = request.session.pop('asistencia_ya_registrada', False)
     rut_invalido = request.session.pop('rut_invalido', False)
@@ -242,24 +247,36 @@ def renovarCliente(request):
             rut_renovar = request.POST.get('renovar_rut')
             metodo_pago = request.POST.get('metodo_pago')
             cliente_renovado = Cliente.objects.filter(rut=rut_renovar).first()
+
             if cliente_renovado:
                 cliente_renovado.fecha_inicio_plan = timezone.now().date()
                 cliente_renovado.metodo_pago = metodo_pago
+
+                if cliente_renovado.mensualidad:
+                    dias_total = cliente_renovado.duraciones_a_dias.get(
+                        cliente_renovado.mensualidad.duracion,
+                        30
+                    )
+                else:
+                    dias_total = 30
+
+                cliente_renovado.fecha_fin_plan = cliente_renovado.fecha_inicio_plan + timedelta(days=dias_total)
+
                 cliente_renovado.save()
+
                 messages.success(
                     request,
                     f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ({cliente_renovado.rut}) ha sido renovado correctamente."
                 )
+
                 rut_buscado = rut_renovar
 
+ 
         elif 'rut' in request.POST:
             rut_buscado = request.POST.get('rut')
 
+
     clientes = Cliente.objects.filter(rut__icontains=rut_buscado) if rut_buscado else Cliente.objects.all()
-
-    from .models import Mensualidad
-
-
     tipos_mensualidad = Mensualidad.objects.all()
 
     return render(request, 'core/renovarCliente.html', {
@@ -268,6 +285,82 @@ def renovarCliente(request):
         'planes_personalizados': PlanPersonalizado.objects.all(),
         'tipos_mensualidad': tipos_mensualidad
     })
+
+@admin_required
+def historial_cliente(request):
+    rut = request.GET.get('rut') or request.POST.get('rut')
+    year = request.GET.get('year')
+    month = request.GET.get('month')
+
+    zona_chile = pytz.timezone('America/Santiago')
+    now = timezone.localtime()
+
+    try:
+        year = int(year)
+    except (TypeError, ValueError):
+        year = now.year
+
+    try:
+        month = int(month)
+    except (TypeError, ValueError):
+        month = now.month
+
+  
+    try:
+        locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8') 
+    except locale.Error:
+        locale.setlocale(locale.LC_TIME, 'Spanish_Spain.1252') 
+
+    current_month_name = datetime(year, month, 1).strftime('%B').capitalize()
+
+    cliente = None
+    rut_invalido = False
+    asistencias_dict = {}
+
+    dias_mes = list(range(1, calendar.monthrange(year, month)[1] + 1))
+
+    if rut:
+        try:
+            cliente = Cliente.objects.get(rut=rut)
+            inicio_mes = datetime(year, month, 1, tzinfo=zona_chile)
+            fin_mes = datetime(year, month, calendar.monthrange(year, month)[1], 23, 59, 59, tzinfo=zona_chile)
+
+            asistencias = Asistencia.objects.filter(
+                cliente=cliente,
+                fecha__gte=inicio_mes,
+                fecha__lte=fin_mes
+            ).order_by('fecha')
+
+            from collections import defaultdict
+            asistencias_dict = defaultdict(list)
+
+            for asistencia in asistencias:
+                fecha_local = asistencia.fecha.astimezone(zona_chile)
+                dia = fecha_local.day
+                hora = fecha_local.strftime("%H:%M:%S")
+                asistencias_dict[dia].append(hora)
+
+            asistencias_dict = dict(asistencias_dict)
+
+        except Cliente.DoesNotExist:
+            rut_invalido = True
+
+    context = {
+        'cliente': cliente,
+        'rut_invalido': rut_invalido,
+        'dias_mes': dias_mes,
+        'current_year': year,
+        'current_month': month,
+        'current_month_name': current_month_name,  
+        'asistencias_dict': asistencias_dict,
+        'rut': rut or '',
+    }
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        html = render_to_string('core/calendario_parcial.html', context, request=request)
+        return JsonResponse({'html': html})
+    
+    return render(request, 'core/historial_cliente.html', context)
 
 @admin_required
 def modificar_cliente(request, cliente_id):

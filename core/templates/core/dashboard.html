@@ -34,13 +34,16 @@
     </div>
 
     <div class="dash-chart-box">
-      <h4>Clientes por Tipo de Plan</h4>
-      <label for="mesFiltro">Filtrar por mes:</label>
-      <select id="mesFiltro" onchange="filtrarMesClientes()">
-        <option value="todos">Todos</option>
-      </select>
-      <canvas id="clientesTipoPlanChart"></canvas>
-    </div>
+  <h4>Clientes por Tipo de Plan</h4>
+  <label for="mesFiltro">Filtrar por mes:</label>
+  <div class="select-container">
+    <select id="mesFiltro" onchange="filtrarMesClientes()">
+      <option value="todos">Todos</option>
+
+    </select>
+  </div>
+  <canvas id="clientesTipoPlanChart"></canvas>
+</div>
 
     <div class="dash-chart-box">
       <h4>Top 5 Planes Personalizados Más Usados</h4>

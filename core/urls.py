@@ -12,6 +12,7 @@ urlpatterns = [
     path('lista/', views.listaCliente, name='listaCliente'),
     path('listaCliente/json/', views.listaCliente_json, name='listaCliente_json'),
     path('renovar/', views.renovarCliente, name='renovarCliente'),
+    path('historialCliente/', views.historial_cliente, name='historial_cliente'),
     path('cambiar-tipo-plan-mensual/', views.cambiar_tipo_plan_mensual, name='cambiar_tipo_plan_mensual'),
     path('cambiar-plan-personalizado/', views.cambiar_plan_personalizado, name='cambiar_plan_personalizado'),
     path('productos/', views.productos, name='productos'),
@@ -22,7 +23,7 @@ urlpatterns = [
     path('agregar-meses-plan/', views.agregar_meses_plan, name='agregar_meses_plan'),
     path('eliminar-cliente/<int:cliente_id>/', views.eliminar_cliente, name='eliminar_cliente'),
     path('modificar-cliente/<int:cliente_id>/', views.modificar_cliente, name='modificar_cliente'),
-    path('api/registrar_asistencia/', views.api_registrar_asistencia, name='api_registrar_asistencia'),
+    #path('api/registrar_asistencia/', views.api_registrar_asistencia, name='api_registrar_asistencia'),
 
     # Login y logout
     path('login/', views.login_admin, name='login'),

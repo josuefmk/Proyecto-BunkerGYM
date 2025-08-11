@@ -67,41 +67,39 @@ class Cliente(models.Model):
     correo = models.EmailField()
     telefono = models.CharField(max_length=15)
     huella_template = models.BinaryField(null=True, blank=True)
-    mensualidad = models.ForeignKey(Mensualidad, on_delete=models.SET_NULL, null=True, blank=True)
-    plan_personalizado = models.ForeignKey(PlanPersonalizado, on_delete=models.SET_NULL, null=True, blank=True)
+    mensualidad = models.ForeignKey('Mensualidad', on_delete=models.SET_NULL, null=True, blank=True)
+    plan_personalizado = models.ForeignKey('PlanPersonalizado', on_delete=models.SET_NULL, null=True, blank=True)
     metodo_pago = models.CharField(max_length=20, choices=METODOS_PAGO, null=True, blank=True)
     fecha_inicio_plan = models.DateField(default=timezone.now, null=True, blank=True)
-    fecha_fin_plan = models.DateField(null=True, blank=True)  
+    fecha_fin_plan = models.DateField(null=True, blank=True)
 
-    def calcular_vencimiento(self):
-        if self.fecha_fin_plan:
-            return self.fecha_fin_plan
-        return self.fecha_inicio_plan + relativedelta(months=1)
+    duraciones_a_dias = {
+        "Mensual": 30,
+        "Trimestral": 90,
+        "Anual": 365
+    }
+
+    def save(self, *args, **kwargs):
+        if self.fecha_inicio_plan and not self.fecha_fin_plan and self.mensualidad:
+            dias_total = self.duraciones_a_dias.get(self.mensualidad.duracion, 30)
+            self.fecha_fin_plan = self.fecha_inicio_plan + timedelta(days=dias_total)
+        super().save(*args, **kwargs)
+
     @property
     def dias_restantes(self):
         if not self.fecha_inicio_plan:
             return 0
 
         hoy = timezone.now().date()
-
-        duraciones_a_dias = {
-            "Mensual": 30,
-            "Trimestral": 90,
-            "Anual": 365
-        }
-
-        if self.mensualidad:
-            dias_total = duraciones_a_dias.get(self.mensualidad.duracion, 30)
-        else:
-            dias_total = 0
-
-        vencimiento = self.fecha_inicio_plan + timedelta(days=dias_total)
+        vencimiento = self.fecha_fin_plan or (
+            self.fecha_inicio_plan + timedelta(
+                days=self.duraciones_a_dias.get(self.mensualidad.duracion, 30)
+            )
+        )
         return (vencimiento - hoy).days
 
     def __str__(self):
-            return f'{self.nombre} {self.apellido}'
-    
-
+        return f'{self.nombre} {self.apellido}'
 
 
 class Asistencia(models.Model):

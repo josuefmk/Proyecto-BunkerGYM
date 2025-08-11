@@ -53,6 +53,7 @@
                 <th>Tipo de Plan</th>
                 <th>Plan Personalizado</th>
                 <th>Estado De Plan</th>
+               
                 <th>Metodo de pago</th>
                 <th>Renovar</th>
                 <th>Modifcar Cliente </th>
@@ -105,11 +106,14 @@
                 </td>
 
                 <!-- Estado del plan -->
-             <td>
+         
+ <td>
     {% if cliente.dias_restantes <= 0 %}
-        <span class="inactivo">Vencido</span>
+        <span class="inactivo">
+            Vencido ({{ cliente.dias_restantes|floatformat:0|slice:"1:" }} días)
+        </span>
     {% else %}
-        Activo ({{ cliente.dias_restantes }} días restantes)
+        Activo ({{ cliente.dias_restantes }} días)
     {% endif %}
 </td>
 

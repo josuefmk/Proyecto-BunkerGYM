@@ -13,8 +13,8 @@
     </div>
 
         {% if mostrar_modal %}
-        <div class="modal">
-            <div class="modal-content">
+        <div class="modal-custom">
+            <div class="modal-content-custom">
                 <button onclick="cerrarModal()">✖</button>
                 <h2>✅ Registro de Asistencia</h2>
                 <p>Bienvenido <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong></p>
@@ -24,9 +24,10 @@
         </div>
         {% endif %}
 
+        
         {% if rut_invalido %}
-        <div class="modal modal-error">
-        <div class="modal-content">
+        <div class="modal-custom modal-error-custom">
+        <div class="modal-content-custom">
             <button onclick="cerrarModal()">✖</button>
             <h2 style="color:#dc3545;">❌ Error</h2>
             <p>El RUT ingresado no fue encontrado</p>
@@ -36,8 +37,8 @@
         {% endif %}
 
         {% if asistencia_ya_registrada %}
-        <div class="modal modal-warning">
-            <div class="modal-content">
+        <div class="modal-custom modal-warning-custom">
+            <div class="modal-content-custom">
                 <button onclick="cerrarModal()">✖</button>
                 <h2 style="color:#ffc107;">⚠️ Atención</h2>
                 <p>El RUT ya está ingresado hoy.</p>
@@ -46,8 +47,8 @@
         {% endif %}
 
         {% if plan_vencido %}
-            <div class="modal modal-error">
-                <div class="modal-content">
+            <div class="modal-custom modal-error-custom">
+                <div class="modal-content-custom">
                     <button onclick="cerrarModal()">✖</button>
                     <h2 style="color:#dc3545;">❌ Plan Vencido</h2>
                     <p>El cliente <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong> tiene el plan vencido.</p>
@@ -60,17 +61,17 @@
 
 <script>
     function cerrarModal() {
-        const modal = document.querySelector('.modal');
+        const modal = document.querySelector('.modal-custom');
         if (modal) {
             modal.style.display = 'none';
         }
     }
     
     document.addEventListener("DOMContentLoaded", function() {
-        const modal = document.querySelector('.modal');
+        const modal = document.querySelector('.modal-custom');
         if (modal) {
-            const isError = modal.classList.contains('modal-error');
-            const isWarning = modal.classList.contains('modal-warning');
+            const isError = modal.classList.contains('modal-error-custom');
+            const isWarning = modal.classList.contains('modal-warning-custom');
             let delay = 15000; 
     
             if (isError) delay = 10000;
@@ -81,5 +82,5 @@
             }, delay);
         }
     });
-    </script>
+</script>
 {% endblock %}

@@ -1,0 +1,25 @@
+{% load myfilters %}
+<div class="historial-asistencia">
+    <h3>Historial de Asistencia</h3>
+
+    <div style="margin-bottom: 15px;">
+        <button id="prev-month" class="btn-month">&lt;</button>
+    <span id="mes-ano">{{ current_month_name }} del {{ current_year }}</span>
+        <button id="next-month" class="btn-month">&gt;</button>
+    </div>
+
+    <div class="calendar">
+        {% for day in dias_mes %}
+            {% if day in asistencias_dict %}
+                <div class="calendar-day has-assistance" data-day="{{ day }}" tabindex="0" role="button" aria-pressed="false" title="Ingresos: {{ asistencias_dict|dict_get:day|join:', ' }}">
+                    {{ day }}
+                </div>
+            {% else %}
+                <div class="calendar-day">
+                    {{ day }}
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+    <div id="detalles-horas" style="margin-top: 20px; font-family: monospace;"></div>
+</div>

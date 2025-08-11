@@ -1,0 +1,148 @@
+{% extends 'core/home.html' %}
+{% block content %}
+{% load myfilters %}
+<main class="contenido historia-cliente">
+
+<div class="form-container-historial"> 
+    <form method="POST" class="formulario" id="form-rut">
+        {% csrf_token %}
+        <h2>Historial del Cliente</h2>
+        <label for="rut">Ingrese RUT</label>
+        <input type="text" name="rut" id="rut" value="{% if cliente %}{{ cliente.rut }}{% endif %}">
+        <button type="submit" class="btn-global" style="margin-top: 15px;">Buscar</button>
+    </form>
+</div>
+
+{% if cliente %}
+<div class="cliente-info">
+    <h3>Información del Cliente</h3>
+    <p><strong>Nombre:</strong> {{ cliente.nombre }} {{ cliente.apellido }}</p>
+    <p><strong>RUT:</strong> {{ cliente.rut }}</p>
+    <p><strong>Email:</strong> {{ cliente.correo }}</p>
+    <p><strong>Teléfono:</strong> {{ cliente.telefono }}</p>
+    <p><strong>Plan Actual:</strong> {{ cliente.mensualidad }}</p>
+    <p><strong>Días Restantes:</strong> {{ cliente.dias_restantes }}</p>
+</div>
+
+<div id="calendario-container">
+    <div class="historial-asistencia">
+        <h3>Historial de Asistencia</h3>
+
+        <!-- Selector de mes y año -->
+        <div style="margin-bottom: 15px;">
+            <button id="prev-month" class="btn-month">&lt;</button>
+       <span id="mes-ano">{{ current_month_name }} del {{ current_year }}</span>
+            <button id="next-month" class="btn-month">&gt;</button>
+        </div>
+
+        <div class="calendar">
+            {% for day in dias_mes %}
+                {% if day in asistencias_dict %}
+                    <div class="calendar-day has-assistance" data-day="{{ day }}" tabindex="0" role="button" aria-pressed="false" title="Ingresos: {{ asistencias_dict|dict_get:day|join:', ' }}">
+                        {{ day }}
+                    </div>
+                {% else %}
+                    <div class="calendar-day">
+                        {{ day }}
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <div id="detalles-horas" style="margin-top: 20px; font-family: monospace;"></div>
+    </div>
+</div>
+
+
+
+<script>
+    (function() {
+        const calendarioContainer = document.getElementById('calendario-container');
+        const rutInput = document.getElementById('rut');
+        let year = {{ current_year }};
+        let month = {{ current_month }};
+
+        function agregarEventos() {
+            const btnPrev = document.getElementById('prev-month');
+            const btnNext = document.getElementById('next-month');
+            const detallesHoras = document.getElementById('detalles-horas');
+            const asistencias = {{ asistencias_dict|safe }};
+
+            if (btnPrev) {
+                btnPrev.onclick = () => {
+                    month--;
+                    if (month < 1) {
+                        month = 12;
+                        year--;
+                    }
+                    cargarCalendario();
+                };
+            }
+            if (btnNext) {
+                btnNext.onclick = () => {
+                    month++;
+                    if (month > 12) {
+                        month = 1;
+                        year++;
+                    }
+                    cargarCalendario();
+                };
+            }
+
+            calendarioContainer.querySelectorAll('.calendar-day.has-assistance').forEach(div => {
+                div.onclick = () => {
+                    const dia = div.getAttribute('data-day');
+                    const horas = asistencias[dia];
+                    if (horas && horas.length > 0) {
+                        detallesHoras.innerHTML = `<strong>Asistencias del día ${dia}:</strong><br>` +
+                            horas.map(h => `• ${h}`).join('<br>');
+                    } else {
+                        detallesHoras.innerHTML = `<strong>No hay asistencias registradas para el día ${dia}.</strong>`;
+                    }
+                    detallesHoras.scrollIntoView({behavior: "smooth"});
+                };
+            });
+        }
+
+        function cargarCalendario() {
+            if (!rutInput.value.trim()) {
+                alert('Ingrese un RUT para consultar.');
+                return;
+            }
+
+            fetch(window.location.pathname + `?rut=${rutInput.value.trim()}&month=${month}&year=${year}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                calendarioContainer.innerHTML = data.html;
+                agregarEventos();
+            })
+            .catch(() => alert('Error cargando el calendario'));
+        }
+
+        agregarEventos();
+
+        document.getElementById('form-rut').onsubmit = function(e) {
+            e.preventDefault();
+            year = new Date().getFullYear();
+            month = new Date().getMonth() + 1;
+            cargarCalendario();
+        };
+    })();
+</script>
+
+{% elif rut_invalido %}
+<div class="modal modal-error">
+    <div class="modal-content">
+        <button onclick="this.parentElement.parentElement.style.display='none'">✖</button>
+        <h2 style="color:#dc3545;">❌ Error</h2>
+        <p>El RUT ingresado no fue encontrado.</p>
+        <p>Por favor, verifica e intenta nuevamente.</p>
+    </div>
+</div>
+{% endif %}
+
+</main>
+{% endblock %}
