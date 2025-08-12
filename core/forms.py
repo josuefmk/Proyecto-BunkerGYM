@@ -2,7 +2,7 @@ from datetime import timedelta
 from django import forms
 from .models import Cliente, Producto, PlanPersonalizado
 import re
-
+from django.utils import timezone
 
 
 def validar_rut(rut):
@@ -31,6 +31,7 @@ def validar_rut(rut):
         dv_calculado = str(dv_calculado)
 
     return dv == dv_calculado
+
 
 class ClienteForm(forms.ModelForm):
     class Meta:
@@ -63,8 +64,15 @@ class ClienteForm(forms.ModelForm):
                 'class': 'form-control',
                 'type': 'date'
             }),
-            'sub_plan': forms.HiddenInput() 
+            'sub_plan': forms.HiddenInput()
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.instance.pk:  
+            hoy = timezone.localdate().strftime('%Y-%m-%d')
+            self.fields['fecha_inicio_plan'].initial = hoy
+            self.fields['fecha_inicio_plan'].widget.attrs['value'] = hoy
 
     def clean_rut(self):
         rut = self.cleaned_data.get('rut')
@@ -73,15 +81,12 @@ class ClienteForm(forms.ModelForm):
 
         rut = rut.strip().upper()
 
-        # Validar formato
         if not re.match(r'^\d{7,8}-[\dK]$', rut):
             raise forms.ValidationError("Formato inválido. Use 12345678-9")
 
-        # Validar digito verificador
         if not validar_rut(rut):
             raise forms.ValidationError("RUT inválido. Dígito verificador incorrecto.")
 
-        # Validar duplicados 
         if Cliente.objects.filter(rut=rut).exclude(pk=self.instance.pk).exists():
             raise forms.ValidationError("⚠️ Este RUT ya está registrado.")
 
