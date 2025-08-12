@@ -1,86 +1,102 @@
 {% extends 'core/home.html' %}
-
 {% block content %}
 <main class="contenido asistencia">
     <div class="form-container-historial"> 
         <form method="POST" class="formulario">
             {% csrf_token %}
             <h2>Registro de Asistencia</h2>
-            <label for="rut" >Ingrese RUT</label>
+            <label for="rut">Ingrese RUT</label>
             <input type="text" name="rut" id="rut" required>
-          {#  <button type="submit" class="btn verde" style="margin-top: 15px;">Registrar</button>#}
         </form>
     </div>
 
-        {% if mostrar_modal %}
-        <div class="modal-custom">
-            <div class="modal-content-custom">
-                <button onclick="cerrarModal()">✖</button>
-                <h2>✅ Registro de Asistencia</h2>
-                <p>Bienvenido <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong></p>
-                <p>El plan vence el <strong>{{ vencimiento_plan|date:"d" }} de {{ vencimiento_plan|date:"F" }}</strong></p>
-                <p>Le quedan <strong>{{ dias_restantes }}</strong> días de mensualidad</p>
-            </div>
-        </div>
+    {% if mostrar_modal %}
+    <div class="modal-custom">
+        <div class="modal-content-custom">
+            <button onclick="cerrarModal()"></button>
+            <h2>✅ Registro de Asistencia</h2>
+            <p>Bienvenido <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong></p>
+            <p>El plan le vence el <strong>{{ vencimiento_plan|date:"d" }} de {{ vencimiento_plan|date:"F" }}</strong></p>
+            <p>Le quedan <strong>{{ dias_restantes }}</strong> días de mensualidad</p>
+         {% if cliente.sub_plan %}
+            {% if cliente.sub_plan != "Titanio" %}
+                <p>Accesos restantes: <strong>{{ cliente.accesos_restantes }}</strong></p>
+            {% endif %}
         {% endif %}
 
-        
-        {% if rut_invalido %}
-        <div class="modal-custom modal-error-custom">
+        {% if cliente.plan_personalizado and cliente.plan_personalizado.nombre_plan != "Ninguno" %}
+            {% if cliente.plan_personalizado.nombre_plan == "Plan Semi Personalizado FULL" %}
+                <p>Acceso ilimitado esta semana</p>
+            {% else %}
+                <p>Accesos personalizados restantes esta semana: 
+                    <strong>{{ cliente.accesos_semana_restantes|default:"0" }}</strong>
+                </p>
+            {% endif %}
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if rut_invalido %}
+    <div class="modal-custom modal-error-custom">
         <div class="modal-content-custom">
-            <button onclick="cerrarModal()">✖</button>
+            <button onclick="cerrarModal()"></button>
             <h2 style="color:#dc3545;">❌ Error</h2>
             <p>El RUT ingresado no fue encontrado</p>
-            <p>Por favor, verifica e intenta nuevamente</p>
         </div>
-        </div>
-        {% endif %}
+    </div>
+    {% endif %}
 
-        {% if asistencia_ya_registrada %}
-        <div class="modal-custom modal-warning-custom">
-            <div class="modal-content-custom">
-                <button onclick="cerrarModal()">✖</button>
-                <h2 style="color:#ffc107;">⚠️ Atención</h2>
-                <p>El RUT ya está ingresado hoy.</p>
-            </div>
+    {% if asistencia_ya_registrada %}
+    <div class="modal-custom modal-warning-custom">
+        <div class="modal-content-custom">
+            <button onclick="cerrarModal()"></button>
+            <h2 style="color:#ffc107;">⚠️ Atención</h2>
+            <p>El RUT ya está ingresado hoy.</p>
         </div>
-        {% endif %}
+    </div>
+    {% endif %}
 
-        {% if plan_vencido %}
-            <div class="modal-custom modal-error-custom">
-                <div class="modal-content-custom">
-                    <button onclick="cerrarModal()">✖</button>
-                    <h2 style="color:#dc3545;">❌ Plan Vencido</h2>
-                    <p>El cliente <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong> tiene el plan vencido.</p>
-                    <p>Debe renovarlo con un Staff para poder ingresar.</p>
-                </div>
-            </div>
-        {% endif %}
+    {% if plan_vencido %}
+    <div class="modal-custom modal-error-custom">
+        <div class="modal-content-custom">
+            <button onclick="cerrarModal()"></button>
+            <h2 style="color:#dc3545;">❌ Plan Vencido</h2>
+            <p>Debe renovarlo para poder ingresar.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if sin_accesos %}
+    <div class="modal-custom modal-error-custom">
+        <div class="modal-content-custom">
+            <button onclick="cerrarModal()"></button>
+            <h2 style="color:#dc3545;">❌ Sin Accesos</h2>
+            <p>No le quedan accesos disponibles para ingresar.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if sin_plan_asignado %}
+    <div class="modal-custom modal-error-custom">
+        <div class="modal-content-custom">
+            <button onclick="cerrarModal()"></button>
+            <h2 style="color:#dc3545;">❌ Sin Plan Asignado</h2>
+            <p>Este cliente no tiene un subplan o plan personalizado asignado.</p>
+        </div>
+    </div>
+    {% endif %}
 
 </main>
 
 <script>
-    function cerrarModal() {
-        const modal = document.querySelector('.modal-custom');
-        if (modal) {
-            modal.style.display = 'none';
-        }
-    }
-    
-    document.addEventListener("DOMContentLoaded", function() {
-        const modal = document.querySelector('.modal-custom');
-        if (modal) {
-            const isError = modal.classList.contains('modal-error-custom');
-            const isWarning = modal.classList.contains('modal-warning-custom');
-            let delay = 15000; 
-    
-            if (isError) delay = 10000;
-            else if (isWarning) delay = 12000;
-    
-            setTimeout(() => {
-                cerrarModal();
-            }, delay);
-        }
+function cerrarModal() {
+    document.querySelectorAll('.modal-custom').forEach(modal => modal.style.display = 'none');
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll('.modal-custom').forEach(modal => {
+        setTimeout(() => { cerrarModal(); }, 5000);
     });
+});
 </script>
 {% endblock %}

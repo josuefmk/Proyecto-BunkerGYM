@@ -978,7 +978,7 @@ main.contenido.historia-cliente {
 
 .modal-content-custom {
     background: #ffffff;
-    border-left: 6px solid #28a745; /* verde por defecto */
+    border-left: 6px solid #28a745; 
     padding: 40px 30px;
     border-radius: 10px;
     box-shadow: 0 8px 20px rgba(0,0,0,0.2);
@@ -1007,11 +1007,10 @@ main.contenido.historia-cliente {
 }
 
 .modal-content-custom button {
-    position: absolute;
+ 
     top: 10px;
     right: 15px;
-    background: transparent;
-    color: #888;
+    color: #fff;
     border: none;
     font-size: 22px;
     cursor: pointer;
@@ -1019,7 +1018,7 @@ main.contenido.historia-cliente {
 }
 
 .modal-content-custom button:hover {
-    color: #000;
+    color: #fff;
 }
 
 

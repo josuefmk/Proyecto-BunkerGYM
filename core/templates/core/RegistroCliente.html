@@ -31,105 +31,65 @@
             <h2>Creación De Cliente</h2>
 
             {% for field in form %}
-                <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
-                {{ field }}
-                {% for error in field.errors %}
-                    <p class="error">{{ error }}</p>
-                {% endfor %}
+                {% if field.name != 'sub_plan' %} 
+                    <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
+                    {{ field }}
+                    {% for error in field.errors %}
+                        <p class="error">{{ error }}</p>
+                    {% endfor %}
+                {% else %}
+                    {{ field }} 
+                {% endif %}
             {% endfor %}
 
             <button type="submit" class="btn-global" style="margin-top: 15px;">✅ Crear Cliente</button>
             <a href="{% url 'index' %}" class="btn-global" style="margin-top: 15px;">🔙 Volver</a>
         </form>
     </div>
- <!-- 
-    {% if cliente %}
-   Modal para registro de huella 
-    <div id="modalHuella" class="modal" style="display:none;">
-        <div class="modal-content">
-            <button id="btnCerrarModalHuella" style="float:right;">✖</button>
-            <h2>Registro de Huella</h2>
-            <p id="estadoHuella">Presiona el botón para comenzar</p>
-            <button id="btnCapturarHuella" class="btn-global">Capturar Huella</button>
+
+    <!-- Modal para seleccionar Sub Plan -->
+    <div id="modalSubPlan" class="modal-custom" style="display:none;">
+        <div class="modal-content-custom">
+          
+            <label><input type="radio" name="subPlanOption" value="Bronce"> 🥉 Bronce (4 Accesos)</label><br>
+            <label><input type="radio" name="subPlanOption" value="Hierro"> 🪙 Hierro (8 Accesos)</label><br>
+            <label><input type="radio" name="subPlanOption" value="Acero"> 🛡 Acero (12 Accesos)</label><br>
+            <label><input type="radio" name="subPlanOption" value="Titanio"> ⚔ Titanio (Acceso Libre)</label><br>
+            <div style="margin-top: 15px;">
+                <button type="button" onclick="guardarSubPlan()" class="btn-global modal-content-customv2">Aceptar</button>
+            </div>
         </div>
     </div>
-    {% endif %}
--->
+
 </main>
- <!-- 
-{% if cliente %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Mostrar modal automáticamente al crear cliente
-        const modalHuella = document.getElementById('modalHuella');
-        if(modalHuella){
-            modalHuella.style.display = 'flex';
-        }
-    });
-</script>
-{% endif %}
 
 <script>
-  
-    const modalHuella = document.getElementById('modalHuella');
-    const btnCerrarModal = document.getElementById('btnCerrarModalHuella');
-    const btnCapturarHuella = document.getElementById('btnCapturarHuella');
-    const estadoHuella = document.getElementById('estadoHuella');
-
-    if(btnCerrarModal) {
-        btnCerrarModal.onclick = () => modalHuella.style.display = 'none';
+document.addEventListener("DOMContentLoaded", function() {
+    const selectPlan = document.getElementById("id_mensualidad");
+    if (selectPlan) {
+        selectPlan.addEventListener("change", function() {
+            if (this.value) {
+                document.getElementById("modalSubPlan").style.display = "flex";
+            }
+        });
     }
+});
 
-    if(btnCapturarHuella) {
-        btnCapturarHuella.onclick = () => {
-            estadoHuella.textContent = "Capturando huella...";
-
-            // Simulación de captura de huella base64
-            setTimeout(() => {
-                const templateFakeBase64 = btoa("template_de_huella_simulado");
-
-                const clienteId = {{ cliente.id }};
-
-                fetch(`/api/guardar_huella/${clienteId}/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    },
-                    body: JSON.stringify({template: templateFakeBase64})
-                })
-                .then(resp => resp.json())
-                .then(data => {
-                    if(data.mensaje) {
-                        estadoHuella.textContent = "✅ Huella registrada correctamente.";
-                    } else {
-                        estadoHuella.textContent = "Error: " + (data.error || "Desconocido");
-                    }
-                })
-                .catch(() => {
-                    estadoHuella.textContent = "Error al guardar huella.";
-                });
-            }, 3000);
-        };
+function guardarSubPlan() {
+    let elegido = document.querySelector('input[name="subPlanOption"]:checked');
+    if (!elegido) {
+        alert("Selecciona un sub plan");
+        return;
     }
+    document.getElementById("id_sub_plan").value = elegido.value;
+    document.getElementById("modalSubPlan").style.display = "none";
+}
 
-    // Cerrar modal si clic afuera
-    window.onclick = (event) => {
-        if(event.target === modalHuella) {
-            modalHuella.style.display = 'none';
-        }
+window.onclick = (event) => {
+    const modal = document.getElementById("modalSubPlan");
+    if(event.target === modal) {
+        modal.style.display = "none";
     }
+};
 </script>
-
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const rutInput = document.getElementById("id_rut");
-        if (rutInput) {
-            rutInput.addEventListener("input", function() {
-                this.value = this.value.replace(/\./g, '');
-            });
-        }
-    });
-</script>
--->
 {% endblock %}

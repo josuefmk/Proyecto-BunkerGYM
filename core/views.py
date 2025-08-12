@@ -72,11 +72,20 @@ def registro_cliente(request):
     if request.method == 'POST':
         form = ClienteForm(request.POST)
         if form.is_valid():
-            cliente_creado = form.save()
+            cliente_creado = form.save(commit=False)
+            accesos_dict = {
+                'Bronce': 4,
+                'Hierro': 8,
+                'Acero': 12,
+                'Titanio': 0
+            }
+            cliente_creado.accesos_restantes = accesos_dict.get(cliente_creado.sub_plan, 0)
+
+          
+
+            cliente_creado.save()
             mensaje = f"✅ El cliente {cliente_creado.nombre} ha sido creado correctamente."
-            form = ClienteForm()  # limpiar form para crear otro cliente
-        else:
-            cliente_creado = None
+            form = ClienteForm()
     else:
         form = ClienteForm()
 
@@ -85,6 +94,7 @@ def registro_cliente(request):
         'mensaje': mensaje,
         'cliente': cliente_creado,
     })
+
 """ #HUELLA COMENTADA
 @csrf_exempt
 def api_registrar_asistencia(request):
@@ -125,6 +135,28 @@ def api_registrar_asistencia(request):
 """
 
 @admin_required
+def activar_plan_cliente(request, cliente_id):
+    cliente = get_object_or_404(Cliente, id=cliente_id)
+
+    if request.method == 'POST':
+        fecha_activacion = request.POST.get('fecha_activacion')
+        if fecha_activacion:
+            fecha_activacion = timezone.datetime.strptime(fecha_activacion, '%Y-%m-%d').date()
+        else:
+            fecha_activacion = timezone.localdate()
+
+        cliente.activar_plan(fecha_activacion)
+        messages.success(request, f'Plan activado para {cliente.nombre} desde {fecha_activacion}')
+        return redirect('listaClientes')
+
+    return render(request, 'core/activarPlan.html', {
+        'cliente': cliente,
+        'fecha_hoy': timezone.localdate()
+    })
+
+
+
+@admin_required
 def asistencia_cliente(request):
     if request.method == "POST":
         rut = request.POST.get('rut')
@@ -136,17 +168,65 @@ def asistencia_cliente(request):
 
         hoy = timezone.localdate()
 
+        # Si el plan está pendiente y la fecha inicio es FUTURA,
+        # se activa automáticamente el plan desde hoy (fecha activación adelantada)
+        if cliente.estado_plan == 'pendiente' and cliente.fecha_inicio_plan > hoy:
+            cliente.activar_plan(fecha_activacion=hoy)
+
+        # Validar vencimiento
         if not cliente.fecha_fin_plan or cliente.fecha_fin_plan < hoy:
             request.session['plan_vencido'] = True
             request.session['cliente_id'] = cliente.id
             return redirect('asistencia_cliente')
 
-      
+        # Verificar si ya registró asistencia hoy
         if Asistencia.objects.filter(cliente=cliente, fecha__date=hoy).exists():
             request.session['asistencia_ya_registrada'] = True
             return redirect('asistencia_cliente')
 
-   
+        acceso_permitido = True
+
+        # Lógica subplan normal (no personalizado)
+        if cliente.sub_plan != "Titanio":
+            if cliente.accesos_restantes > 0:
+                cliente.accesos_restantes -= 1
+            else:
+                acceso_permitido = False
+
+        # Lógica plan personalizado
+        if cliente.plan_personalizado:
+            nombre_plan = cliente.plan_personalizado.nombre_plan
+
+            if nombre_plan == "Plan Semi Personalizado FULL":
+                acceso_permitido = True
+            else:
+                if cliente.accesos_semana_restantes is None or cliente.accesos_semana_restantes == 0:
+                    cliente.accesos_semana_restantes = cliente.plan_personalizado.accesos_por_semana
+
+                semana_actual = hoy.isocalendar()[1]
+
+                if not cliente.ultimo_reset_semana:
+                    cliente.ultimo_reset_semana = hoy
+                else:
+                    semana_ultima = cliente.ultimo_reset_semana.isocalendar()[1]
+                    if semana_actual != semana_ultima:
+                        accesos_no_usados = cliente.accesos_semana_restantes
+                        cliente.accesos_semana_restantes = cliente.plan_personalizado.accesos_por_semana + accesos_no_usados
+                        cliente.ultimo_reset_semana = hoy
+
+                if cliente.accesos_semana_restantes > 0:
+                    cliente.accesos_semana_restantes -= 1
+
+                acceso_permitido = True
+
+        if not acceso_permitido:
+            request.session['sin_accesos'] = True
+            request.session['cliente_id'] = cliente.id
+            return redirect('asistencia_cliente')
+
+        cliente.save()
+
+        # Registrar asistencia
         Asistencia.objects.create(cliente=cliente)
 
         vencimiento = cliente.fecha_fin_plan
@@ -159,11 +239,12 @@ def asistencia_cliente(request):
 
         return redirect('asistencia_cliente')
 
-
+    # GET
     mostrar_modal = request.session.pop('mostrar_modal', False)
     asistencia_ya_registrada = request.session.pop('asistencia_ya_registrada', False)
     rut_invalido = request.session.pop('rut_invalido', False)
     plan_vencido = request.session.pop('plan_vencido', False)
+    sin_accesos = request.session.pop('sin_accesos', False)
 
     cliente_id = request.session.pop('cliente_id', None)
     venc_str = request.session.pop('vencimiento_plan', '')
@@ -177,16 +258,13 @@ def asistencia_cliente(request):
         'asistencia_ya_registrada': asistencia_ya_registrada,
         'rut_invalido': rut_invalido,
         'plan_vencido': plan_vencido,
+        'sin_accesos': sin_accesos,
         'cliente': cliente,
         'vencimiento_plan': vencimiento_plan,
         'dias_restantes': dias_restantes,
     }
 
     return render(request, 'core/AsistenciaCliente.html', context)
-
-
-
-
 
 @admin_required
 def listaCliente(request):
@@ -210,7 +288,7 @@ def listaCliente(request):
             'tipo_plan': cliente.mensualidad.tipo if cliente.mensualidad else (
                 cliente.plan_personalizado.nombre_plan if cliente.plan_personalizado else '—'
             ),
-            'vencimiento_plan': f"{cliente.dias_restantes} días restantes" if cliente.fecha_inicio_plan else '—',
+        'vencimiento_plan': f"{cliente.dias_restantes} días restantes" if cliente.fecha_inicio_plan else '—',
         })
 
     return render(request, 'core/listaCliente.html', {'datos_clientes': datos_clientes})
@@ -232,10 +310,11 @@ def listaCliente_json(request):
             'tipo_plan': cliente.mensualidad.tipo if cliente.mensualidad else (
                 cliente.plan_personalizado.nombre_plan if cliente.plan_personalizado else '—'
             ),
-            'vencimiento_plan': f"{cliente.dias_restantes()} días restantes" if cliente.fecha_inicio_plan else '—',
+       'vencimiento_plan': f"{cliente.dias_restantes} días restantes" if cliente.fecha_inicio_plan else '—',
         })
 
     return JsonResponse({'datos_clientes': datos_clientes})
+
 
 @admin_required
 def renovarCliente(request):
@@ -249,34 +328,36 @@ def renovarCliente(request):
             cliente_renovado = Cliente.objects.filter(rut=rut_renovar).first()
 
             if cliente_renovado:
-                cliente_renovado.fecha_inicio_plan = timezone.now().date()
                 cliente_renovado.metodo_pago = metodo_pago
 
-                if cliente_renovado.mensualidad:
-                    dias_total = cliente_renovado.duraciones_a_dias.get(
-                        cliente_renovado.mensualidad.duracion,
-                        30
-                    )
-                else:
-                    dias_total = 30
+                hoy = timezone.localdate()
+                dias_restantes = (cliente_renovado.fecha_fin_plan - hoy).days if cliente_renovado.fecha_fin_plan else 0
 
-                cliente_renovado.fecha_fin_plan = cliente_renovado.fecha_inicio_plan + timedelta(days=dias_total)
+                # Si faltan días o está vencido, sumamos los días restantes al nuevo plan
+                dias_extra = dias_restantes if dias_restantes > 0 else 0
 
-                cliente_renovado.save()
+                # Activamos el plan con la fecha actual y días extra
+                cliente_renovado.activar_plan(fecha_activacion=hoy, dias_extra=dias_extra)
 
                 messages.success(
                     request,
                     f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ({cliente_renovado.rut}) ha sido renovado correctamente."
                 )
-
                 rut_buscado = rut_renovar
 
- 
         elif 'rut' in request.POST:
             rut_buscado = request.POST.get('rut')
 
+    hoy = timezone.localdate()
 
-    clientes = Cliente.objects.filter(rut__icontains=rut_buscado) if rut_buscado else Cliente.objects.all()
+    if rut_buscado:
+        clientes = Cliente.objects.filter(rut__icontains=rut_buscado)
+    else:
+        from django.db.models import Q
+        clientes = Cliente.objects.filter(
+            Q(fecha_fin_plan__gte=hoy - timedelta(days=100)) | Q(fecha_fin_plan__isnull=True)
+        )
+
     tipos_mensualidad = Mensualidad.objects.all()
 
     return render(request, 'core/renovarCliente.html', {
@@ -285,6 +366,30 @@ def renovarCliente(request):
         'planes_personalizados': PlanPersonalizado.objects.all(),
         'tipos_mensualidad': tipos_mensualidad
     })
+
+@admin_required
+def cambiar_sub_plan(request):
+    if request.method == 'POST':
+        rut_cliente = request.POST.get('rut_cliente')
+        nuevo_sub_plan = request.POST.get('nuevo_sub_plan')
+
+        cliente = Cliente.objects.filter(rut=rut_cliente).first()
+        if cliente:
+            cliente.sub_plan = nuevo_sub_plan
+
+        
+            accesos_dict = {
+                'Bronce': 4,
+                'Hierro': 8,
+                'Acero': 12,
+                'Titanio': 9999  # acceso libre
+            }
+            cliente.accesos_restantes = accesos_dict.get(nuevo_sub_plan, 0)
+
+            cliente.save()
+            messages.success(request, f"SubPlan de {cliente.nombre} actualizado a {nuevo_sub_plan}.")
+
+    return redirect('renovarCliente')
 
 @admin_required
 def historial_cliente(request):
@@ -444,6 +549,7 @@ def cambiar_tipo_plan_mensual(request):
                     mensualidad = Mensualidad.objects.filter(id=mensualidad_id).first()
                     if mensualidad:
                         cliente.mensualidad = mensualidad
+                        cliente.activar_plan(fecha_activacion=timezone.localdate())
                         cliente.save()
             else:
             
