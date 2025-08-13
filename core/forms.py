@@ -1,36 +1,48 @@
 from datetime import timedelta
 from django import forms
-from .models import Cliente, Producto, PlanPersonalizado
+from .models import Cliente, Precios, Producto, PlanPersonalizado
 import re
 from django.utils import timezone
 
 
+
 def validar_rut(rut):
-    rut = rut.replace('.', '').upper()
-    if not re.match(r'^\d{7,8}-[\dK]$', rut):
+ 
+    try:
+        # Limpiar puntos y convertir a mayuscula
+        rut = rut.replace('.', '').upper().strip()
+        
+        # Verificar formato basico
+        if not re.match(r'^\d{7,8}-[\dK]$', rut):
+            return False
+        
+        num, dv = rut.split('-')
+        suma = 0
+        multiplicador = 2
+
+        # Calcular el dígito verificador
+        for digito in reversed(num):
+            suma += int(digito) * multiplicador
+            multiplicador += 1
+            if multiplicador > 7:
+                multiplicador = 2
+
+        resto = suma % 11
+        dv_calculado = 11 - resto
+
+        if dv_calculado == 11:
+            dv_calculado = '0'
+        elif dv_calculado == 10:
+            dv_calculado = 'K'
+        else:
+            dv_calculado = str(dv_calculado)
+
+        # Comparar con el digito verificador ingresado
+        return dv == dv_calculado
+
+    except Exception:
+        # Cualquier error devuelve False
         return False
-
-    num, dv = rut.split('-')
-    suma = 0
-    multiplicador = 2
-
-    for digito in reversed(num):
-        suma += int(digito) * multiplicador
-        multiplicador += 1
-        if multiplicador > 7:
-            multiplicador = 2
-
-    resto = suma % 11
-    dv_calculado = 11 - resto
-
-    if dv_calculado == 11:
-        dv_calculado = '0'
-    elif dv_calculado == 10:
-        dv_calculado = 'K'
-    else:
-        dv_calculado = str(dv_calculado)
-
-    return dv == dv_calculado
 
 
 class ClienteForm(forms.ModelForm):
@@ -73,24 +85,26 @@ class ClienteForm(forms.ModelForm):
             hoy = timezone.localdate().strftime('%Y-%m-%d')
             self.fields['fecha_inicio_plan'].initial = hoy
             self.fields['fecha_inicio_plan'].widget.attrs['value'] = hoy
-
     def clean_rut(self):
-        rut = self.cleaned_data.get('rut')
-        if not rut:
-            raise forms.ValidationError("Este campo es obligatorio.")
+            rut = self.cleaned_data.get('rut')
+            if not rut:
+                raise forms.ValidationError("Este campo es obligatorio.")
 
-        rut = rut.strip().upper()
+            rut = rut.strip().upper()
 
-        if not re.match(r'^\d{7,8}-[\dK]$', rut):
-            raise forms.ValidationError("Formato inválido. Use 12345678-9")
+            
+            if not re.match(r'^\d{7,8}-[\dK]$', rut):
+                raise forms.ValidationError("Formato inválido. Use 12345678-9")
 
-        if not validar_rut(rut):
-            raise forms.ValidationError("RUT inválido. Dígito verificador incorrecto.")
+           
+            if not validar_rut(rut):
+                raise forms.ValidationError("RUT inválido. Dígito verificador incorrecto.")
 
-        if Cliente.objects.filter(rut=rut).exclude(pk=self.instance.pk).exists():
-            raise forms.ValidationError("⚠️ Este RUT ya está registrado.")
+        
+            if Cliente.objects.filter(rut=rut).exclude(pk=self.instance.pk).exists():
+                raise forms.ValidationError("⚠️ Este RUT ya está registrado.")
 
-        return rut
+            return rut
 
     def clean_telefono(self):
         telefono = self.cleaned_data.get('telefono')
@@ -113,3 +127,17 @@ class ProductoForm(forms.ModelForm):
     class Meta:
         model = Producto
         fields = ['nombre', 'descripcion', 'precio_compra', 'precio_venta', 'stock']
+
+
+
+class PrecioForm(forms.ModelForm):
+    descuento = forms.IntegerField(
+        required=False, min_value=0, max_value=100,
+        label="Descuento (%)",
+        help_text="Opcional: Porcentaje de descuento a aplicar",
+        widget=forms.NumberInput(attrs={'class': 'input-bonito'})
+    )
+
+    class Meta:
+        model = Precios
+        fields = ['precio', 'descuento']

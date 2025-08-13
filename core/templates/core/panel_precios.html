@@ -1,0 +1,145 @@
+{% extends 'core/home.html' %}
+{% load static %}
+
+{% block content %}
+
+<div class="contenedor-central-precios">
+    <h1 class="titulo-seccion">Panel de Precios</h1>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mi-mensaje mi-mensaje-success">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="tabla-wrapper-scroll">
+        <table class="tabla-clientes">
+            <thead>
+                <tr>
+                    <th>Tipo Público</th>
+                    <th>Sub Plan</th>
+                    <th>Precio</th>
+                    <th>Descuento (%)</th>
+                    <th>Precio Final</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for precio, form in forms_list %}
+                <tr>
+                    <td><input type="text" value="{{ precio.tipo_publico }}" readonly class="input-bonito"></td>
+                    <td><input type="text" value="{{ precio.sub_plan }}" readonly class="input-bonito"></td>
+                    <td>
+                        <form method="POST">
+                            {% csrf_token %}
+                            {{ form.precio }}
+                    </td>
+                    <td>
+                            {{ form.descuento }}
+                    </td>
+                    <td>
+                        {% if precio.precio_final %}
+                            ${{ precio.precio_final }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                            <button type="submit" class="btn-global">💾 Guardar</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.contenedor-central-precios {
+    width: 95%;
+    margin: 0 auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.titulo-seccion {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.tabla-wrapper-scroll {
+    width: 100%;
+    max-height: 400px; /* ajusta la altura deseada */
+    overflow-y: auto;   /* scroll vertical */
+    border: 1px solid #ccc;
+}
+
+.tabla-clientes {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.tabla-clientes th, .tabla-clientes td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: center;
+    word-wrap: break-word;
+}
+
+.tabla-clientes th {
+    background-color: #f0f0f0;
+    position: sticky;
+    top: 0;
+    z-index: 2; /* asegurarse que esté por encima del scroll */
+}
+
+.input-bonito {
+    width: 120px;
+    text-align: center;
+    padding: 4px;
+    box-sizing: border-box;
+}
+
+.btn-global {
+    padding: 4px 10px;
+    margin: 0;
+}
+
+.mi-mensaje-success {
+    background-color: #d4edda;
+    color: #155724;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    width: 100%;
+    text-align: center;
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const filas = document.querySelectorAll('.tabla-clientes tbody tr');
+
+    filas.forEach(fila => {
+        const precioInput = fila.querySelector('input[name$="precio"]');
+        const descuentoInput = fila.querySelector('input[name$="descuento"]') || fila.querySelector('select[name$="descuento"]');
+        const precioFinalTd = fila.cells[4];
+
+        function actualizarPrecioFinal() {
+            const precio = parseFloat(precioInput.value) || 0;
+            const descuento = parseFloat(descuentoInput.value) || 0;
+            const precioFinal = Math.round(precio * (1 - descuento / 100));
+            precioFinalTd.textContent = '$' + precioFinal;
+        }
+
+    
+        actualizarPrecioFinal();
+
+ 
+        precioInput.addEventListener('input', actualizarPrecioFinal);
+        descuentoInput.addEventListener('input', actualizarPrecioFinal);
+    });
+});
+</script>
+{% endblock %}

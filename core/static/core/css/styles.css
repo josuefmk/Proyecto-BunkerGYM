@@ -1039,7 +1039,8 @@ main.contenido.historia-cliente {
     color: #ffc107;
 }
 
-/* Animaciones */
+
+
 @keyframes fadeIn {
     from { opacity: 0; }
     to   { opacity: 1; }

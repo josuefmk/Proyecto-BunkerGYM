@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.utils import timezone
-from .models import Cliente, Asistencia, Admin, Mensualidad, PlanPersonalizado,Producto, Venta
-from .forms import ClienteForm,ProductoForm
+from .models import Cliente, Asistencia, Admin, Mensualidad, PlanPersonalizado, Precios,Producto, Venta
+from .forms import ClienteForm,ProductoForm,PrecioForm
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import pytz
@@ -9,7 +9,7 @@ from django.utils.timezone import localdate
 from django.db.models import F, ExpressionWrapper, FloatField
 from datetime import timedelta
 import json
-from django.db.models import Count, Sum,Q,F,Func
+from django.db.models import Count, Sum, Avg, F, Q, ExpressionWrapper, FloatField
 from django.utils.timezone import now
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -167,9 +167,6 @@ def asistencia_cliente(request):
             return redirect('asistencia_cliente')
 
         hoy = timezone.localdate()
-
-        # Si el plan está pendiente y la fecha inicio es FUTURA,
-        # se activa automáticamente el plan desde hoy (fecha activación adelantada)
         if cliente.estado_plan == 'pendiente' and cliente.fecha_inicio_plan > hoy:
             cliente.activar_plan(fecha_activacion=hoy)
 
@@ -179,21 +176,21 @@ def asistencia_cliente(request):
             request.session['cliente_id'] = cliente.id
             return redirect('asistencia_cliente')
 
-        # Verificar si ya registró asistencia hoy
+        # Verificar si ya registro asistencia hoy
         if Asistencia.objects.filter(cliente=cliente, fecha__date=hoy).exists():
             request.session['asistencia_ya_registrada'] = True
             return redirect('asistencia_cliente')
 
         acceso_permitido = True
 
-        # Lógica subplan normal (no personalizado)
+        # Logica subplan normal (no personalizado)
         if cliente.sub_plan != "Titanio":
             if cliente.accesos_restantes > 0:
                 cliente.accesos_restantes -= 1
             else:
                 acceso_permitido = False
 
-        # Lógica plan personalizado
+        # Logica plan personalizado
         if cliente.plan_personalizado:
             nombre_plan = cliente.plan_personalizado.nombre_plan
 
@@ -315,7 +312,6 @@ def listaCliente_json(request):
 
     return JsonResponse({'datos_clientes': datos_clientes})
 
-
 @admin_required
 def renovarCliente(request):
     rut_buscado = request.POST.get('rut') or request.GET.get('rut', '')
@@ -325,23 +321,46 @@ def renovarCliente(request):
         if 'renovar_rut' in request.POST:
             rut_renovar = request.POST.get('renovar_rut')
             metodo_pago = request.POST.get('metodo_pago')
+            nuevo_plan_id = request.POST.get('tipo_plan')  
+            nuevo_sub_plan = request.POST.get('sub_plan')  
             cliente_renovado = Cliente.objects.filter(rut=rut_renovar).first()
 
             if cliente_renovado:
+                plan_anterior = cliente_renovado.mensualidad_id
                 cliente_renovado.metodo_pago = metodo_pago
 
+                if nuevo_plan_id:
+                    mensualidad_obj = Mensualidad.objects.get(pk=nuevo_plan_id)
+                    cliente_renovado.mensualidad = mensualidad_obj
+                    cliente_renovado.tipo_publico = mensualidad_obj.tipo 
+                if nuevo_sub_plan:
+                    cliente_renovado.sub_plan = nuevo_sub_plan
+
                 hoy = timezone.localdate()
-                dias_restantes = (cliente_renovado.fecha_fin_plan - hoy).days if cliente_renovado.fecha_fin_plan else 0
+                dias_restantes = 0
+                if cliente_renovado.fecha_fin_plan:
+                    dias_restantes = (cliente_renovado.fecha_fin_plan - hoy).days
+                    if dias_restantes < 0:
+                        dias_restantes = 0
 
-                # Si faltan días o está vencido, sumamos los días restantes al nuevo plan
-                dias_extra = dias_restantes if dias_restantes > 0 else 0
+                cambio_de_plan = plan_anterior != cliente_renovado.mensualidad_id
 
-                # Activamos el plan con la fecha actual y días extra
-                cliente_renovado.activar_plan(fecha_activacion=hoy, dias_extra=dias_extra)
+                # Reasignar precio según mensualidad.tipo y sub_plan actualizados
+                cliente_renovado.asignar_precio()
+
+                if cambio_de_plan:
+                    # El nuevo plan comienza cuando termine el actual
+                    fecha_activacion = cliente_renovado.fecha_fin_plan or hoy
+                    cliente_renovado.activar_plan(fecha_activacion=fecha_activacion, dias_extra=0)
+                    mensaje_extra = f"El nuevo plan comenzará en {dias_restantes} días, al finalizar el actual."
+                else:
+                    # Renovación normal: suma días restantes
+                    cliente_renovado.activar_plan(fecha_activacion=hoy, dias_extra=dias_restantes)
+                    mensaje_extra = f"Se sumaron {dias_restantes} días extra."
 
                 messages.success(
                     request,
-                    f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ({cliente_renovado.rut}) ha sido renovado correctamente."
+                    f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ({cliente_renovado.rut}) ha sido renovado correctamente. {mensaje_extra}"
                 )
                 rut_buscado = rut_renovar
 
@@ -389,7 +408,7 @@ def cambiar_sub_plan(request):
             cliente.save()
             messages.success(request, f"SubPlan de {cliente.nombre} actualizado a {nuevo_sub_plan}.")
 
-    return redirect('renovarCliente')
+    return redirect(f'{reverse("renovarCliente")}?rut={rut_cliente}')
 
 @admin_required
 def historial_cliente(request):
@@ -534,47 +553,66 @@ def agregar_meses_plan(request):
         return redirect('renovarCliente')
 
 @admin_required
+def panel_precios(request):
+    precios = Precios.objects.all()
+    forms_list = []
+
+    if request.method == 'POST':
+ 
+        for precio in precios:
+            form = PrecioForm(request.POST, prefix=str(precio.id), instance=precio)
+            if form.is_valid():
+                descuento = form.cleaned_data.get('descuento') or 0
+                precio_base = form.cleaned_data['precio']
+        
+                precio.precio = precio_base
+          
+                precio.precio_final = int(precio_base * (1 - descuento / 100))
+                precio.save()
+                messages.success(request, f"{precio.tipo_publico} - {precio.sub_plan} actualizado con descuento {descuento}%")
+        return redirect('panel_precios')
+
+    for precio in precios:
+        form = PrecioForm(prefix=str(precio.id), instance=precio)
+        forms_list.append((precio, form))
+
+    return render(request, 'core/panel_precios.html', {'forms_list': forms_list})
+
+@admin_required
 def cambiar_tipo_plan_mensual(request):
     if request.method == 'POST':
-        rut = request.POST.get('rut_cliente')
-        mensualidad_id = request.POST.get('nuevo_plan')
+        rut_cliente = request.POST.get('rut_cliente')
+        nuevo_plan_id = request.POST.get('nuevo_plan')
 
+        cliente = Cliente.objects.filter(rut=rut_cliente).first()
+        if cliente and nuevo_plan_id:
+            cliente.mensualidad_id = nuevo_plan_id
+            cliente.save()
+
+
+        return redirect(f'{reverse("renovarCliente")}?rut={rut_cliente}')
     
-        if mensualidad_id and mensualidad_id != "agregar_meses":
-
-            if mensualidad_id.isdigit():
-                cliente = Cliente.objects.filter(rut=rut).first()
-                if cliente:
-                    from .models import Mensualidad
-                    mensualidad = Mensualidad.objects.filter(id=mensualidad_id).first()
-                    if mensualidad:
-                        cliente.mensualidad = mensualidad
-                        cliente.activar_plan(fecha_activacion=timezone.localdate())
-                        cliente.save()
-            else:
-            
-                pass
-
-        return HttpResponseRedirect(reverse('renovarCliente') + f'?rut={rut}')
-    return redirect('renovarCliente')
-
 @admin_required
 def cambiar_plan_personalizado(request):
     if request.method == 'POST':
-        rut = request.POST.get('rut_cliente')
+        rut_cliente = request.POST.get('rut_cliente')
         nuevo_plan = request.POST.get('nuevo_plan')
 
-        cliente = Cliente.objects.filter(rut=rut).first()
+        cliente = Cliente.objects.filter(rut=rut_cliente).first()
         if cliente and nuevo_plan:
             from .models import PlanPersonalizado
             try:
                 plan = PlanPersonalizado.objects.get(id=int(nuevo_plan))
                 cliente.plan_personalizado = plan
+
                 cliente.save()
+                messages.success(request, f"Plan personalizado de {cliente.nombre} actualizado correctamente.")
             except (PlanPersonalizado.DoesNotExist, ValueError):
                 pass
 
-        return HttpResponseRedirect(reverse('renovarCliente') + f'?rut={rut}')
+        
+        return redirect(f'{reverse("renovarCliente")}?rut={rut_cliente}')
+
     return redirect('renovarCliente')
 
 @admin_required
@@ -681,10 +719,10 @@ def dashboard(request):
     hoy = localdate()
     inicio_mes = hoy.replace(day=1)
 
-    # Total clientes activos
+    # Total clientes
     total_clientes = Cliente.objects.count()
 
-    # Clientes activos del mes
+    # Clientes activos este mes
     clientes_activos_mes = (
         Asistencia.objects
         .filter(fecha__gte=inicio_mes)
@@ -692,10 +730,11 @@ def dashboard(request):
         .distinct()
         .count()
     )
+
+    # Clientes nuevos este mes
     clientes_nuevos_mes = Cliente.objects.filter(fecha_inicio_plan__gte=inicio_mes).count()
 
     # Últimos 6 meses
-    hoy = now().date()
     seis_meses_antes = hoy - timedelta(days=180)
 
     # Nuevos clientes por mes
@@ -715,20 +754,19 @@ def dashboard(request):
         .filter(fecha_inicio_plan__gte=seis_meses_antes)
         .extra(select={'month': "strftime('%%Y-%%m', fecha_inicio_plan)"})
         .values('month')
-      .annotate(
+        .annotate(
             estudiante_count=Count('id', filter=Q(mensualidad__tipo='Estudiante')),
             normal_count=Count('id', filter=Q(mensualidad__tipo='Normal')),
- 
         )
-                .order_by('month')
+        .order_by('month')
     )
     clientes_plan_data = {}
     for item in clientes_por_plan:
         month = item['month']
         clientes_plan_data[month] = {
-        "estudiante": item['estudiante_count'],
-        "normal": item['normal_count'],
-    }
+            "estudiante": item['estudiante_count'],
+            "normal": item['normal_count'],
+        }
 
     # Últimas 10 ventas
     ultimas_ventas = (
@@ -784,23 +822,52 @@ def dashboard(request):
         )
         .order_by('month')
     )
-
-    top_planes_personalizados_qs = (
-    Cliente.objects
-    .filter(plan_personalizado__isnull=False)
-    .values('plan_personalizado__nombre_plan')
-    .annotate(total=Count('id'))
-    .order_by('-total')[:5]
-)
-
-    top_planes_personalizados = [
-    {
-        "nombre": item['plan_personalizado__nombre_plan'],
-        "total": item['total']
-    }
-    for item in top_planes_personalizados_qs
-]
     ingresos_mes = {item['month']: item['ingresos'] or 0 for item in ventas_mes_qs}
+
+    # Top planes personalizados
+    top_planes_personalizados_qs = (
+        Cliente.objects
+        .filter(plan_personalizado__isnull=False)
+        .values('plan_personalizado__nombre_plan')
+        .annotate(total=Count('id'))
+        .order_by('-total')[:5]
+    )
+    top_planes_personalizados = [
+        {
+            "nombre": item['plan_personalizado__nombre_plan'],
+            "total": item['total']
+        }
+        for item in top_planes_personalizados_qs
+    ]
+
+
+    # Precio promedio por sub-plan
+    precios_plan_qs = Precios.objects.values('sub_plan').annotate(promedio=Avg('precio'))
+    precios_plan_data = {p['sub_plan']: p['promedio'] for p in precios_plan_qs}
+
+    # Clientes por tipo de público y sub-plan
+    clientes_tipo_subplan = {}
+    for tipo in Cliente.TIPOS_PUBLICO:
+        subplanes_dict = {}
+        for sp in Cliente.SUB_PLANES:
+            count = Cliente.objects.filter(tipo_publico=tipo[0], sub_plan=sp[0]).count()
+            subplanes_dict[sp[0]] = count
+        clientes_tipo_subplan[tipo[0]] = subplanes_dict
+
+    # Ingresos estimados por plan
+    ingresos_plan_data = {}
+    for mensualidad in Mensualidad.objects.all():
+        clientes = Cliente.objects.filter(mensualidad=mensualidad)
+        ingresos_plan_data[str(mensualidad)] = sum(c.precio_asignado or 0 for c in clientes)
+
+
+    accesos_restantes_data = {}
+    for sp in Cliente.SUB_PLANES:
+        clientes = Cliente.objects.filter(sub_plan=sp[0])
+        if clientes.exists():
+            accesos_restantes_data[sp[0]] = round(clientes.aggregate(avg=Avg('accesos_restantes'))['avg'],1)
+        else:
+            accesos_restantes_data[sp[0]] = 0
 
     context = {
         "total_clientes": total_clientes,
@@ -814,10 +881,14 @@ def dashboard(request):
         "ingresos_mes": json.dumps(ingresos_mes),
         "clientes_plan_data": json.dumps(clientes_plan_data),
         "top_planes_personalizados": json.dumps(top_planes_personalizados),
+    
+        "precios_plan_data": json.dumps(precios_plan_data),
+        "clientes_tipo_subplan": json.dumps(clientes_tipo_subplan),
+        "ingresos_plan_data": json.dumps(ingresos_plan_data),
+        "accesos_restantes_data": json.dumps(accesos_restantes_data),
     }
 
     return render(request, "core/dashboard.html", context)
-
 # ===========================
 # REDIRECCIÓN INICIAL
 # ===========================

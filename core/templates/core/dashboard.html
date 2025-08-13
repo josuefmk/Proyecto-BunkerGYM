@@ -2,7 +2,6 @@
 {% load static %}
 {% block content %}
 
-
 <div class="dash-container">
 
   <!-- KPIs -->
@@ -34,16 +33,15 @@
     </div>
 
     <div class="dash-chart-box">
-  <h4>Clientes por Tipo de Plan</h4>
-  <label for="mesFiltro">Filtrar por mes:</label>
-  <div class="select-container">
-    <select id="mesFiltro" onchange="filtrarMesClientes()">
-      <option value="todos">Todos</option>
-
-    </select>
-  </div>
-  <canvas id="clientesTipoPlanChart"></canvas>
-</div>
+      <h4>Clientes por Tipo de Plan</h4>
+      <label for="mesFiltro">Filtrar por mes:</label>
+      <div class="select-container">
+        <select id="mesFiltro" onchange="filtrarMesClientes()">
+          <option value="todos">Todos</option>
+        </select>
+      </div>
+      <canvas id="clientesTipoPlanChart"></canvas>
+    </div>
 
     <div class="dash-chart-box">
       <h4>Top 5 Planes Personalizados Más Usados</h4>
@@ -60,6 +58,19 @@
     <div class="dash-chart-box">
       <h4>Ingresos por Mes</h4>
       <canvas id="ingresosMesChart"></canvas>
+    </div>
+  </div>
+
+
+  <div class="dash-charts">
+    <div class="dash-chart-box" style="width: 100%; height: 500px;">
+      <h4>Clientes por Tipo de Público y Sub-Plan</h4>
+      <canvas id="clientesTipoSubPlanChart"></canvas>
+    </div>
+
+    <div class="dash-chart-box" style="width: 100%; height: 500px;">
+      <h4>Ingresos Estimados por Plan</h4>
+      <canvas id="ingresosPlanChart"></canvas>
     </div>
   </div>
 
@@ -107,140 +118,134 @@
 
 </div>
 
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+
   const nuevosClientesMes = JSON.parse('{{ nuevos_clientes_mes|safe }}');
   const rankingAsistencia = JSON.parse('{{ ranking_asistencia|safe }}');
   const productosVendidos = JSON.parse('{{ productos_vendidos|safe }}');
   const ingresosMes = JSON.parse('{{ ingresos_mes|safe }}');
+  const clientesPlanData = JSON.parse('{{ clientes_plan_data|safe }}');
+  const topPlanesPersonalizados = JSON.parse('{{ top_planes_personalizados|safe }}');
+  const clientesTipoSubPlan = JSON.parse('{{ clientes_tipo_subplan|safe }}');
+  const ingresosPlan = JSON.parse('{{ ingresos_plan_data|safe }}');
+
+  // Función para formatear pesos chilenos
+  function formatoCLP(valor) {
+    return '$' + Number(valor).toLocaleString('es-CL');
+  }
+
 
   new Chart(document.getElementById('clientesMesChart'), {
     type: 'bar',
-    data: {
-      labels: Object.keys(nuevosClientesMes),
-      datasets: [{
-        label: 'Nuevos Clientes',
-        data: Object.values(nuevosClientesMes),
-        backgroundColor: 'rgba(54, 162, 235, 0.7)'
-      }]
-    }
+    data: { labels: Object.keys(nuevosClientesMes), datasets: [{ label: 'Nuevos Clientes', data: Object.values(nuevosClientesMes), backgroundColor: 'rgba(54, 162, 235, 0.7)' }] }
   });
 
   new Chart(document.getElementById('rankingAsistenciaChart'), {
     type: 'bar',
-    data: {
-      labels: rankingAsistencia.map(x => x.nombre),
-      datasets: [{
-        label: 'Asistencias',
-        data: rankingAsistencia.map(x => x.cantidad),
-        backgroundColor: 'rgba(255, 99, 132, 0.7)'
-      }]
-    }
+    data: { labels: rankingAsistencia.map(x => x.nombre), datasets: [{ label: 'Asistencias', data: rankingAsistencia.map(x => x.cantidad), backgroundColor: 'rgba(255, 99, 132, 0.7)' }] }
   });
 
   new Chart(document.getElementById('productosVendidosChart'), {
     type: 'bar',
-    data: {
-      labels: productosVendidos.map(x => x.nombre),
-      datasets: [{
-        label: 'Cantidad Vendida',
-        data: productosVendidos.map(x => x.cantidad),
-        backgroundColor: 'rgba(255, 206, 86, 0.7)'
-      }]
-    }
+    data: { labels: productosVendidos.map(x => x.nombre), datasets: [{ label: 'Cantidad Vendida', data: productosVendidos.map(x => x.cantidad), backgroundColor: 'rgba(255, 206, 86, 0.7)' }] }
   });
 
   new Chart(document.getElementById('ingresosMesChart'), {
     type: 'bar',
-    data: {
-      labels: Object.keys(ingresosMes),
-      datasets: [{
-        label: 'Ingresos ($)',
-        data: Object.values(ingresosMes),
-        backgroundColor: 'rgba(75, 192, 192, 0.7)'
-      }]
+    data: { labels: Object.keys(ingresosMes), datasets: [{ label: 'Ingresos', data: Object.values(ingresosMes), backgroundColor: 'rgba(75, 192, 192, 0.7)' }] },
+    options: {
+      plugins: {
+        tooltip: {
+          callbacks: { label: ctx => formatoCLP(ctx.raw) }
+        }
+      },
+      scales: { y: { ticks: { callback: value => formatoCLP(value) } } }
     }
   });
-    const clientesPlanData = JSON.parse('{{ clientes_plan_data|safe }}');
 
+  // Clientes por tipo de plan
   const meses = Object.keys(clientesPlanData);
-const dataEstudiante = meses.map(mes => clientesPlanData[mes].estudiante);
-const dataNormal = meses.map(mes => clientesPlanData[mes].normal);
-
-  // Poblamos select de filtro
+  const dataEstudiante = meses.map(m => clientesPlanData[m].estudiante);
+  const dataNormal = meses.map(m => clientesPlanData[m].normal);
   const filtroMes = document.getElementById("mesFiltro");
-  meses.forEach(m => {
-    const opt = document.createElement("option");
-    opt.value = m;
-    opt.innerText = m;
-    filtroMes.appendChild(opt);
+  meses.forEach(m => { const opt = document.createElement("option"); opt.value = m; opt.innerText = m; filtroMes.appendChild(opt); });
+
+  const ctxClientesPlan = document.getElementById('clientesTipoPlanChart').getContext('2d');
+  const chartClientesPlan = new Chart(ctxClientesPlan, {
+    type: 'bar',
+    data: { labels: meses, datasets: [
+      { label: 'Estudiante', data: dataEstudiante, backgroundColor: 'rgba(54, 162, 235, 0.7)' },
+      { label: 'Normal', data: dataNormal, backgroundColor: 'rgba(255, 206, 86, 0.7)' }
+    ]}
   });
 
-const ctx = document.getElementById('clientesTipoPlanChart').getContext('2d');
-const chartClientesPlan = new Chart(ctx, {
-  type: 'bar',
-  data: {
-    labels: meses,
-    datasets: [
-      {
-        label: 'Estudiante',
-        data: dataEstudiante,
-        backgroundColor: 'rgba(54, 162, 235, 0.7)'
-      },
-      {
-        label: 'Normal',
-        data: dataNormal,
-        backgroundColor: 'rgba(255, 206, 86, 0.7)'
-      }
-   
-    ]
+  function filtrarMesClientes() {
+    const selectedMes = filtroMes.value;
+    if (selectedMes === "todos") {
+      chartClientesPlan.data.labels = meses;
+      chartClientesPlan.data.datasets[0].data = dataEstudiante;
+      chartClientesPlan.data.datasets[1].data = dataNormal;
+    } else {
+      chartClientesPlan.data.labels = [selectedMes];
+      chartClientesPlan.data.datasets[0].data = [clientesPlanData[selectedMes].estudiante];
+      chartClientesPlan.data.datasets[1].data = [clientesPlanData[selectedMes].normal];
+    }
+    chartClientesPlan.update();
   }
-});
-function filtrarMesClientes() {
-  const selectedMes = filtroMes.value;
-
-  if (selectedMes === "todos") {
-    chartClientesPlan.data.labels = meses;
-    chartClientesPlan.data.datasets[0].data = dataEstudiante;
-    chartClientesPlan.data.datasets[1].data = dataNormal;
-  } else {
-    chartClientesPlan.data.labels = [selectedMes];
-    chartClientesPlan.data.datasets[0].data = [clientesPlanData[selectedMes].estudiante];
-    chartClientesPlan.data.datasets[1].data = [clientesPlanData[selectedMes].normal];
-
-  }
-
-  chartClientesPlan.update();
-}
-
-  const topPlanesPersonalizados = JSON.parse('{{ top_planes_personalizados|safe }}');
 
   new Chart(document.getElementById('topPlanesChart'), {
-  type: 'bar',
-  data: {
-    labels: topPlanesPersonalizados.map(p => p.nombre),
-    datasets: [{
-      label: 'Clientes',
-      data: topPlanesPersonalizados.map(p => p.total),
-      backgroundColor: 'rgba(255, 99, 132, 0.7)'
-    }]
-  },
-  options: {
-    indexAxis: 'y',
-    plugins: {
-      legend: { display: false },
-      title: {
-        display: false
-      }
+    type: 'bar',
+    data: { labels: topPlanesPersonalizados.map(p => p.nombre), datasets: [{ label: 'Clientes', data: topPlanesPersonalizados.map(p => p.total), backgroundColor: 'rgba(255, 99, 132, 0.7)' }] },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+  });
+
+
+  const subPlanes = Object.keys(clientesTipoSubPlan[Object.keys(clientesTipoSubPlan)[0]]);
+  const tiposPublico = Object.keys(clientesTipoSubPlan);
+  const datasetsClientes = tiposPublico.map((tipo,i)=>({
+    label: tipo,
+    data: subPlanes.map(sp => clientesTipoSubPlan[tipo][sp] || 0),
+    backgroundColor: `rgba(${50+i*60}, ${99+i*30}, ${132+i*20}, 0.7)`
+  }));
+
+  new Chart(document.getElementById('clientesTipoSubPlanChart'), {
+    type: 'bar',
+    data: { labels: subPlanes, datasets: datasetsClientes },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{position:'top'} } }
+  });
+
+
+  new Chart(document.getElementById('ingresosPlanChart'), {
+    type: 'bar',
+    data: {
+        labels: Object.keys(ingresosPlan),
+        datasets: [{
+            label: 'Ingresos Estimados',
+            data: Object.values(ingresosPlan),
+            backgroundColor: 'rgba(255, 159, 64, 0.7)'
+        }]
     },
-    scales: {
-      x: {
-        beginAtZero: true
-      }
+    options: {
+        maintainAspectRatio: false,
+        plugins: {
+            tooltip: {
+                callbacks: { 
+                    label: ctx => formatoCLP(ctx.raw)
+                }
+            }
+        },
+        scales: {
+            y: {
+                ticks: {
+                    callback: v => formatoCLP(v),
+                    stepSize: 250000
+                }
+            }
+        }
     }
-  }
-});
+  });
+
 </script>
 
 {% endblock %}

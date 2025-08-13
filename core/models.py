@@ -3,9 +3,20 @@ from django.utils import timezone
 from dateutil.relativedelta import relativedelta 
 from datetime import timedelta,datetime
 from django.utils import timezone
+
+
+SUB_PLANES = [
+        ('Bronce', 'Bronce (4 Accesos)'),
+        ('Hierro', 'Hierro (8 Accesos)'),
+        ('Acero', 'Acero (12 Accesos)'),
+        ('Titanio', 'Titanio (Acceso Libre)'),
+    ]
+
 # --------------------------
 # Modelo: Administrador
 # --------------------------
+    
+
 class Admin(models.Model):
     nombreUsuario = models.CharField(max_length=50, default="usuario")
     nombre = models.CharField(max_length=50)
@@ -24,7 +35,7 @@ class Mensualidad(models.Model):
     TIPOS = [
         ('Estudiante', 'Estudiante'),
         ('Normal', 'Normal'),
-         ('Adulto Mayor', 'Adulto Mayor'),
+        ('Adulto Mayor', 'Adulto Mayor'),
     ]
     DURACIONES = [
         ('Mensual', 'Mensual'),
@@ -34,7 +45,7 @@ class Mensualidad(models.Model):
 
     tipo = models.CharField(max_length=20, choices=TIPOS)
     duracion = models.CharField(max_length=20, choices=DURACIONES, default='Mensual')
-
+    sub_plan = models.CharField(max_length=20, choices=SUB_PLANES)
     class Meta:
         unique_together = ('tipo', 'duracion')
 
@@ -51,6 +62,37 @@ class PlanPersonalizado(models.Model):
         return self.nombre_plan
 
 
+
+# --------------------------
+# Modelo: Precios
+# --------------------------
+class Precios(models.Model):
+    TIPOS_PUBLICO = [
+        ('Normal', 'Normal'),
+        ('Estudiante', 'Estudiante'),
+        ('Adulto Mayor', 'Adulto Mayor'),
+    ]
+
+    SUB_PLANES = [
+        ('Bronce', 'Bronce (4 Accesos)'),
+        ('Hierro', 'Hierro (8 Accesos)'),
+        ('Acero', 'Acero (12 Accesos)'),
+        ('Titanio', 'Titanio (Acceso Libre)'),
+    ]
+
+    tipo_publico = models.CharField(max_length=20, choices=TIPOS_PUBLICO)
+    sub_plan = models.CharField(max_length=20, choices=SUB_PLANES)
+    precio = models.PositiveIntegerField("Precio (CLP)")
+
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+  
+
+    def __str__(self):
+        return f"{self.tipo_publico} - {self.sub_plan}: ${self.precio}"
+
+
 # --------------------------
 # Modelo: Cliente
 # --------------------------
@@ -63,6 +105,7 @@ class Cliente(models.Model):
         ('Credito', 'Crédito'),
         ('Transferencia', 'Transferencia'),
     ]
+
     SUB_PLANES = [
         ('Bronce', 'Bronce (4 Accesos)'),
         ('Hierro', 'Hierro (8 Accesos)'),
@@ -77,6 +120,12 @@ class Cliente(models.Model):
         ('suspendido', 'Suspendido'),
     ]
 
+    TIPOS_PUBLICO = [
+        ('Normal', 'Normal'),
+        ('Estudiante', 'Estudiante'),
+        ('AdultoMayor', 'Adulto Mayor'),
+    ]
+
     nombre = models.CharField(max_length=50)
     apellido = models.CharField(max_length=50)
     rut = models.CharField(max_length=12, unique=True)
@@ -88,10 +137,12 @@ class Cliente(models.Model):
     metodo_pago = models.CharField(max_length=20, choices=METODOS_PAGO, null=True, blank=True)
     fecha_inicio_plan = models.DateField(null=True, blank=True)
     fecha_fin_plan = models.DateField(null=True, blank=True)
+    tipo_publico = models.CharField(max_length=20, choices=TIPOS_PUBLICO, default='Normal')
     sub_plan = models.CharField(max_length=20, choices=SUB_PLANES, null=True, blank=True)
     accesos_restantes = models.IntegerField(default=0)
     accesos_semana_restantes = models.IntegerField(default=0)
     ultimo_reset_semana = models.DateField(null=True, blank=True)
+    precio_asignado = models.PositiveIntegerField(null=True, blank=True)
 
     duraciones_a_dias = {
         "Mensual": 30,
@@ -99,22 +150,22 @@ class Cliente(models.Model):
         "Anual": 365
     }
 
-    precios = {
-        'Normal': {
-            'Bronce': 15990,
-            'Hierro': 25990,
-            'Acero': 32990,
-            'Titanio': 44990,
-        },
-        'Estudiante': {
-            'Bronce': 11990,
-            'Hierro': 18990,
-            'Acero': 22990,
-            'Titanio': 31990,
-        }
-    }
+    def asignar_precio(self):
+        if self.mensualidad and self.sub_plan:
+            precio_obj = Precios.objects.filter(
+                tipo_publico=self.mensualidad.tipo,
+                sub_plan=self.sub_plan
+            ).first()
+            if precio_obj:
+                self.precio_asignado = precio_obj.precio
+            else:
+                self.precio_asignado = None
+        else:
+            self.precio_asignado = None
 
     def save(self, *args, **kwargs):
+        from django.utils import timezone
+
         if isinstance(self.fecha_inicio_plan, datetime):
             self.fecha_inicio_plan = self.fecha_inicio_plan.date()
 
@@ -129,6 +180,9 @@ class Cliente(models.Model):
 
         if self.plan_personalizado and (self.accesos_semana_restantes == 0 or self.accesos_semana_restantes is None):
             self.accesos_semana_restantes = self.plan_personalizado.accesos_por_semana
+
+  
+        self.asignar_precio()
 
         super().save(*args, **kwargs)
 
@@ -153,13 +207,18 @@ class Cliente(models.Model):
         )
         return (vencimiento - hoy).days
 
-    def activar_plan(self, fecha_activacion=None, dias_extra=0):
-        if fecha_activacion is None:
-            fecha_activacion = timezone.localdate()
+    def activar_plan(self, fecha_activacion=None, dias_extra=0, forzar=False):
+        hoy = timezone.localdate()
 
-        self.fecha_inicio_plan = fecha_activacion
+        if fecha_activacion is None:
+            if self.fecha_fin_plan and self.fecha_fin_plan > hoy and not forzar:
+                fecha_activacion = self.fecha_fin_plan
+            else:
+                fecha_activacion = hoy
+
         dias_total = self.duraciones_a_dias.get(self.mensualidad.duracion, 30) + dias_extra
-        self.fecha_fin_plan = self.fecha_inicio_plan + timedelta(days=dias_total)
+        self.fecha_inicio_plan = fecha_activacion
+        self.fecha_fin_plan = fecha_activacion + timedelta(days=dias_total)
 
         accesos_dict = {
             'Bronce': 4,
@@ -170,19 +229,11 @@ class Cliente(models.Model):
         if self.sub_plan:
             self.accesos_restantes = accesos_dict.get(self.sub_plan, 0)
 
+        self.asignar_precio()
+
         super().save()
-
-    @property
-    def precio_plan(self):
-        if not self.mensualidad or not self.sub_plan:
-            return None
-
-        tipo = self.mensualidad.tipo  
-        return self.precios.get(tipo, {}).get(self.sub_plan, None)
-
     def __str__(self):
-        return f'{self.nombre} {self.apellido}'
-
+        return f"{self.nombre} {self.apellido}"
 
 
 

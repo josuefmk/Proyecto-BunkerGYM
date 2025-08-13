@@ -48,8 +48,6 @@
             <tr>
                 <th>Nombre Completo</th>
                 <th>RUT</th>
-                <th>Correo</th>
-                <th>Teléfono</th>
                 <th>Tipo de Plan</th>
                 <th>SubPlan</th>
                 <th>Plan Personalizado</th>
@@ -65,8 +63,6 @@
             <tr>
                 <td>{{ cliente.nombre }} {{ cliente.apellido }}</td>
                 <td>{{ cliente.rut }}</td>
-                <td>{{ cliente.correo }}</td>
-                <td>+{{ cliente.telefono }}</td>
 
                 <!-- Tipo de plan -->
                 <td>
@@ -89,7 +85,7 @@
                     <form method="post" action="{% url 'cambiar_sub_plan' %}" id="form-subplan-{{ cliente.rut }}">
                         {% csrf_token %}
                         <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
-                        <select name="nuevo_sub_plan" onchange="document.getElementById('form-subplan-{{ cliente.rut }}').submit();" class="select-bonito">
+                        <select name="nuevo_sub_plan" onchange="confirmarCambioPlan(this, '{{ cliente.sub_plan|default:'' }}')" class="select-bonito">
                             <option value="">-- Selecciona SubPlan --</option>
                             {% for key, value in cliente.SUB_PLANES %}
                                 <option value="{{ key }}" {% if cliente.sub_plan == key %}selected{% endif %}>{{ value }}</option>
@@ -103,7 +99,7 @@
                     <form method="post" action="{% url 'cambiar_plan_personalizado' %}">
                         {% csrf_token %}
                         <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
-                        <select name="nuevo_plan" onchange="this.form.submit()" class="select-bonito">
+                        <select name="nuevo_plan" onchange="confirmarCambioPlan(this, '{{ cliente.plan_personalizado.nombre_plan|default:'' }}')" class="select-bonito">
                             <option value="">-- Selecciona --</option>
                             {% for plan in planes_personalizados %}
                                 <option value="{{ plan.id }}" {% if cliente.plan_personalizado and cliente.plan_personalizado.id == plan.id %}selected{% endif %}>
@@ -115,21 +111,21 @@
                 </td>
 
                 <!-- Estado del plan -->
-        <td>
-        {% if cliente.estado_plan == 'pendiente' %}
-            <span style="color: #0d6efd; font-weight: bold;">
-                Pendiente (Plan comienza el {{ cliente.fecha_inicio_plan|date:"d \d\e F \d\e Y" }})
-            </span>
-        {% elif cliente.estado_plan == 'vencido' %}
-            <span style="color: #dc3545; font-weight: bold;">
-                Vencido ({{ cliente.dias_restantes|floatformat:0 }} días)
-            </span>
-        {% else %}
-            <span style="color: #198754; font-weight: bold;">
-                Activo ({{ cliente.dias_restantes }} días)
-            </span>
-        {% endif %}
-    </td>
+                <td>
+                    {% if cliente.estado_plan == 'pendiente' %}
+                        <span style="color: #0d6efd; font-weight: bold;">
+                            Pendiente (Plan comienza el {{ cliente.fecha_inicio_plan|date:"d \d\e F \d\e Y" }})
+                        </span>
+                    {% elif cliente.estado_plan == 'vencido' %}
+                        <span style="color: #dc3545; font-weight: bold;">
+                            Vencido ({{ cliente.dias_restantes|floatformat:0 }} días)
+                        </span>
+                    {% else %}
+                        <span style="color: #198754; font-weight: bold;">
+                            Activo ({{ cliente.dias_restantes }} días)
+                        </span>
+                    {% endif %}
+                </td>
 
                 <td>{{ cliente.metodo_pago }}</td>
 
@@ -191,7 +187,7 @@
     </div>
 </div>
 
-<!-- MODAL DE CONFIRMACIÓN -->
+<!-- MODAL DE CONFIRMACIÓN DE RENOVACIÓN -->
 <div id="modal-confirmar" class="modal-renovar" style="display: none;">
     <div class="modal-content-renovar">
         <p>¿Estás seguro que deseas renovar el plan?</p>
@@ -205,7 +201,42 @@
     </div>
 </div>
 
+<!-- MODAL DE CONFIRMACIÓN CAMBIO DE PLAN/SUBPLAN -->
+<div id="modal-cambio-plan" class="modal-renovar" style="display: none;">
+    <div class="modal-content-renovar">
+        <p id="mensaje-cambio-plan"></p>
+        <div class="modal-cliente-actions">
+            <button type="button" class="btn-global" onclick="confirmarEnvioCambio()">✅ Sí, cambiar</button>
+            <button type="button" class="btn-cliente-cancelar" onclick="cerrarModalCambio()">Cancelar</button>
+        </div>
+    </div>
+</div>
+
 <script>
+let formularioTemporal = null;
+
+function confirmarCambioPlan(selectElement, planAnterior) {
+    const nuevoTexto = selectElement.options[selectElement.selectedIndex].text;
+
+    if (!nuevoTexto || nuevoTexto.startsWith("--")) return;
+
+    formularioTemporal = selectElement.form;
+    document.getElementById("mensaje-cambio-plan").innerText =
+        `¿Confirma que desea cambiar de "${planAnterior || 'Ninguno'}" a "${nuevoTexto}"?`;
+
+    document.getElementById("modal-cambio-plan").style.display = 'flex';
+}
+
+function confirmarEnvioCambio() {
+    if (formularioTemporal) formularioTemporal.submit();
+    cerrarModalCambio();
+}
+
+function cerrarModalCambio() {
+    document.getElementById("modal-cambio-plan").style.display = 'none';
+    formularioTemporal = null;
+}
+
 function confirmarRenovacion(rut) {
     document.getElementById('rut-metodo').value = rut;
     document.getElementById('modal-metodo-pago').style.display = 'flex';

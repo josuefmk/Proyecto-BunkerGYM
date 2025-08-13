@@ -19,6 +19,7 @@ urlpatterns = [
     path('productos/', views.productos, name='productos'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('productos/agregar/', views.agregar_producto, name='agregar_producto'),
+    path('precios/panel/', views.panel_precios, name='panel_precios'),
     path('editar_producto/<int:producto_id>/', views.editar_producto, name='editar_producto'),
     path('eliminar_producto/<int:producto_id>/', views.eliminar_producto, name='eliminar_producto'),
     path('agregar-meses-plan/', views.agregar_meses_plan, name='agregar_meses_plan'),
