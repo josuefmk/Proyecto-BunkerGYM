@@ -186,6 +186,10 @@ class Cliente(models.Model):
 
         super().save(*args, **kwargs)
 
+
+
+
+
     @property
     def estado_plan(self):
         hoy = timezone.localdate()
@@ -232,6 +236,9 @@ class Cliente(models.Model):
         self.asignar_precio()
 
         super().save()
+    
+    
+
     def __str__(self):
         return f"{self.nombre} {self.apellido}"
 

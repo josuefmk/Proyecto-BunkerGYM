@@ -600,7 +600,6 @@ def cambiar_plan_personalizado(request):
 
         cliente = Cliente.objects.filter(rut=rut_cliente).first()
         if cliente and nuevo_plan:
-            from .models import PlanPersonalizado
             try:
                 plan = PlanPersonalizado.objects.get(id=int(nuevo_plan))
                 cliente.plan_personalizado = plan
