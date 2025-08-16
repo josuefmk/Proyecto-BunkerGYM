@@ -95,6 +95,7 @@
                 </td>
 
                 <!-- Plan personalizado -->
+<<<<<<< HEAD
                 <td>
                     <form method="post" action="{% url 'cambiar_plan_personalizado' %}">
                         {% csrf_token %}
@@ -110,6 +111,27 @@
                     </form>
                 </td>
 
+=======
+
+<td>
+    <form method="post" action="{% url 'cambiar_planes_personalizados' %}" id="form-plan-personalizado-{{ cliente.rut }}">
+        {% csrf_token %}
+        <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
+        <select name="nuevo_planes_personalizados"
+                class="select2 select-plan-personalizado"
+                multiple="multiple"
+                data-rut="{{ cliente.rut }}"
+                style="width: 180px;">
+            {% for plan in planes_personalizados %}
+                <option value="{{ plan.id }}"
+                    {% if plan in cliente.planes_personalizados.all %}selected{% endif %}>
+                    {{ plan.nombre_plan }}
+                </option>
+            {% endfor %}
+        </select>
+    </form>
+</td>
+>>>>>>> 4f161d7 (v18)
                 <!-- Estado del plan -->
                 <td>
                     {% if cliente.estado_plan == 'pendiente' %}
@@ -212,7 +234,64 @@
     </div>
 </div>
 
+<<<<<<< HEAD
 <script>
+=======
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Inicializar Select2 en todos los select de planes personalizados
+    $('.select2').select2({
+        placeholder: "Selecciona hasta 2 planes personalizados",
+        maximumSelectionLength: 2,
+        allowClear: true,
+        width: '100%'  // mejor que 'style'
+    });
+
+    let modalMostrado = false;
+    window.formularioTemporal = null;
+
+    // Detectar cambios en select2
+    $('.select-plan-personalizado').on('change', function () {
+        if (modalMostrado) return;
+
+        const form = $(this).closest('form')[0];
+        const nombres = $(this).find("option:selected").map(function(){ 
+            return $(this).text(); 
+        }).get();
+
+        if (nombres.length > 0) {
+            const texto = (nombres.length === 1)
+                ? `¿Confirma que desea asignar el plan: "${nombres[0]}"?`
+                : `¿Confirma que desea asignar los planes: "${nombres.join(', ')}"?`;
+
+            document.getElementById("mensaje-cambio-plan").innerText = texto;
+
+            formularioTemporal = form;
+            document.getElementById("modal-cambio-plan").style.display = 'flex';
+
+            modalMostrado = true;
+        }
+    });
+
+    window.confirmarEnvioCambio = function() {
+        if (formularioTemporal) formularioTemporal.submit();
+        cerrarModalCambio();
+        modalMostrado = false;
+    }
+
+    window.cerrarModalCambio = function() {
+        document.getElementById("modal-cambio-plan").style.display = 'none';
+        formularioTemporal = null;
+        modalMostrado = false;
+    }
+});
+
+    
+>>>>>>> 4f161d7 (v18)
 let formularioTemporal = null;
 
 function confirmarCambioPlan(selectElement, planAnterior) {

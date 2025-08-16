@@ -14,7 +14,11 @@ urlpatterns = [
     path('renovar/', views.renovarCliente, name='renovarCliente'),
     path('historialCliente/', views.historial_cliente, name='historial_cliente'),
     path('cambiar-tipo-plan-mensual/', views.cambiar_tipo_plan_mensual, name='cambiar_tipo_plan_mensual'),
+<<<<<<< HEAD
     path('cambiar-plan-personalizado/', views.cambiar_plan_personalizado, name='cambiar_plan_personalizado'),
+=======
+    path('cambiar-planes-personalizados/', views.cambiar_planes_personalizados, name='cambiar_planes_personalizados'),
+>>>>>>> 4f161d7 (v18)
     path('cambiar-sub-plan/', views.cambiar_sub_plan, name='cambiar_sub_plan'),
     path('productos/', views.productos, name='productos'),
     path('dashboard/', views.dashboard, name='dashboard'),

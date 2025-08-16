@@ -133,7 +133,11 @@ class Cliente(models.Model):
     telefono = models.CharField(max_length=15)
     huella_template = models.BinaryField(null=True, blank=True)
     mensualidad = models.ForeignKey('Mensualidad', on_delete=models.SET_NULL, null=True, blank=True)
+<<<<<<< HEAD
     plan_personalizado = models.ForeignKey('PlanPersonalizado', on_delete=models.SET_NULL, null=True, blank=True)
+=======
+    planes_personalizados = models.ManyToManyField('PlanPersonalizado', blank=True)
+>>>>>>> 4f161d7 (v18)
     metodo_pago = models.CharField(max_length=20, choices=METODOS_PAGO, null=True, blank=True)
     fecha_inicio_plan = models.DateField(null=True, blank=True)
     fecha_fin_plan = models.DateField(null=True, blank=True)
@@ -166,22 +170,43 @@ class Cliente(models.Model):
     def save(self, *args, **kwargs):
         from django.utils import timezone
 
+<<<<<<< HEAD
         if isinstance(self.fecha_inicio_plan, datetime):
             self.fecha_inicio_plan = self.fecha_inicio_plan.date()
 
         if not self.fecha_inicio_plan:
             self.fecha_inicio_plan = timezone.localdate()
 
+=======
+        # Asegurarse de que fecha_inicio_plan sea tipo date
+        if isinstance(self.fecha_inicio_plan, datetime):
+            self.fecha_inicio_plan = self.fecha_inicio_plan.date()
+
+        # Si no tiene fecha de inicio, asignar hoy
+        if not self.fecha_inicio_plan:
+            self.fecha_inicio_plan = timezone.localdate()
+
+        # Si no tiene fecha de fin, calcular según duración del plan
+>>>>>>> 4f161d7 (v18)
         if not self.fecha_fin_plan:
             dias_total = 30
             if self.mensualidad:
                 dias_total = self.duraciones_a_dias.get(self.mensualidad.duracion, 30)
             self.fecha_fin_plan = self.fecha_inicio_plan + timedelta(days=dias_total)
 
+<<<<<<< HEAD
         if self.plan_personalizado and (self.accesos_semana_restantes == 0 or self.accesos_semana_restantes is None):
             self.accesos_semana_restantes = self.plan_personalizado.accesos_por_semana
 
   
+=======
+        # ⚡ Plan personalizado temporal (desde la vista)
+        if hasattr(self, 'plan_personalizado') and self.plan_personalizado:
+            if self.accesos_semana_restantes is None or self.accesos_semana_restantes == 0:
+                self.accesos_semana_restantes = self.plan_personalizado.accesos_por_semana
+
+        # Asignar precio según mensualidad y sub_plan
+>>>>>>> 4f161d7 (v18)
         self.asignar_precio()
 
         super().save(*args, **kwargs)
@@ -190,6 +215,10 @@ class Cliente(models.Model):
 
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 4f161d7 (v18)
     @property
     def estado_plan(self):
         hoy = timezone.localdate()
