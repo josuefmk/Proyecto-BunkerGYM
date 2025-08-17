@@ -50,11 +50,7 @@ class ClienteForm(forms.ModelForm):
         model = Cliente
         fields = [
             'nombre', 'apellido', 'correo', 'telefono', 'rut',
-<<<<<<< HEAD
-            'mensualidad', 'plan_personalizado', 'metodo_pago', 'fecha_inicio_plan', 'sub_plan'
-=======
             'mensualidad', 'planes_personalizados', 'metodo_pago', 'fecha_inicio_plan', 'sub_plan'
->>>>>>> 4f161d7 (v18)
         ]
         labels = {
             'nombre': 'Nombres',
@@ -63,11 +59,7 @@ class ClienteForm(forms.ModelForm):
             'telefono': 'Teléfono',
             'rut': 'RUT',
             'mensualidad': 'Plan',
-<<<<<<< HEAD
-            'plan_personalizado': 'Plan Personalizado',
-=======
             'planes_personalizados': 'Planes Personalizados',
->>>>>>> 4f161d7 (v18)
             'metodo_pago': 'Método de pago',
             'fecha_inicio_plan': 'Fecha de inicio'
         }
@@ -78,14 +70,10 @@ class ClienteForm(forms.ModelForm):
             'telefono': forms.TextInput(attrs={'class': 'form-control'}),
             'rut': forms.TextInput(attrs={'class': 'form-control'}),
             'mensualidad': forms.Select(attrs={'class': 'form-control'}),
-<<<<<<< HEAD
-            'plan_personalizado': forms.Select(attrs={'class': 'form-control'}),
-=======
             'planes_personalizados': forms.SelectMultiple(attrs={
             'class': 'form-control select2',
             'style': 'width: 100%;'
         }),
->>>>>>> 4f161d7 (v18)
             'metodo_pago': forms.Select(attrs={'class': 'form-control'}),
             'fecha_inicio_plan': forms.DateInput(attrs={
                 'class': 'form-control',
@@ -100,8 +88,6 @@ class ClienteForm(forms.ModelForm):
             hoy = timezone.localdate().strftime('%Y-%m-%d')
             self.fields['fecha_inicio_plan'].initial = hoy
             self.fields['fecha_inicio_plan'].widget.attrs['value'] = hoy
-<<<<<<< HEAD
-=======
 
     def clean_planes_personalizados(self):
         planes = self.cleaned_data.get('planes_personalizados')
@@ -109,7 +95,6 @@ class ClienteForm(forms.ModelForm):
             raise forms.ValidationError("⚠️ Solo puedes seleccionar máximo 2 planes personalizados.")
         return planes
 
->>>>>>> 4f161d7 (v18)
     def clean_rut(self):
             rut = self.cleaned_data.get('rut')
             if not rut:
@@ -147,13 +132,9 @@ class ClienteForm(forms.ModelForm):
             cliente.fecha_fin_plan = cliente.fecha_inicio_plan + timedelta(days=30)
         if commit:
             cliente.save()
-<<<<<<< HEAD
-        return cliente
-=======
             self.save_m2m()  
         return cliente
     
->>>>>>> 4f161d7 (v18)
 class ProductoForm(forms.ModelForm):
     class Meta:
         model = Producto

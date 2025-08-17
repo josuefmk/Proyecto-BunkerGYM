@@ -95,23 +95,6 @@
                 </td>
 
                 <!-- Plan personalizado -->
-<<<<<<< HEAD
-                <td>
-                    <form method="post" action="{% url 'cambiar_plan_personalizado' %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
-                        <select name="nuevo_plan" onchange="confirmarCambioPlan(this, '{{ cliente.plan_personalizado.nombre_plan|default:'' }}')" class="select-bonito">
-                            <option value="">-- Selecciona --</option>
-                            {% for plan in planes_personalizados %}
-                                <option value="{{ plan.id }}" {% if cliente.plan_personalizado and cliente.plan_personalizado.id == plan.id %}selected{% endif %}>
-                                    {{ plan.nombre_plan }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </form>
-                </td>
-
-=======
 
 <td>
     <form method="post" action="{% url 'cambiar_planes_personalizados' %}" id="form-plan-personalizado-{{ cliente.rut }}">
@@ -131,7 +114,6 @@
         </select>
     </form>
 </td>
->>>>>>> 4f161d7 (v18)
                 <!-- Estado del plan -->
                 <td>
                     {% if cliente.estado_plan == 'pendiente' %}
@@ -234,9 +216,6 @@
     </div>
 </div>
 
-<<<<<<< HEAD
-<script>
-=======
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
@@ -291,7 +270,6 @@ $(document).ready(function() {
 });
 
     
->>>>>>> 4f161d7 (v18)
 let formularioTemporal = null;
 
 function confirmarCambioPlan(selectElement, planAnterior) {
