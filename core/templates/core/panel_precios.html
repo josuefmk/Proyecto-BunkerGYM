@@ -21,32 +21,42 @@
                     <th>Precio</th>
                     <th>Descuento (%)</th>
                     <th>Precio Final</th>
-                    <th>Acción</th>
                 </tr>
             </thead>
             <tbody>
-                {% for precio, form in forms_list %}
+                {% for precio, form_precio, form_descuento in forms_list %}
                 <tr>
                     <td><input type="text" value="{{ precio.tipo_publico }}" readonly class="input-bonito"></td>
                     <td><input type="text" value="{{ precio.sub_plan }}" readonly class="input-bonito"></td>
+                    
+                   
                     <td>
                         <form method="POST">
                             {% csrf_token %}
-                            {{ form.precio }}
+                            {{ form_precio.precio }}
+                            <input type="hidden" name="action" value="update_precio">
+                            <input type="hidden" name="precio_id" value="{{ precio.id }}">
+                            <button type="submit" class="btn-global">💾 Guardar</button>
+                        </form>
                     </td>
+
+              
                     <td>
-                            {{ form.descuento }}
+                        <form method="POST">
+                            {% csrf_token %}
+                            {{ form_descuento.descuento }}
+                            <input type="hidden" name="action" value="update_descuento">
+                            <input type="hidden" name="precio_id" value="{{ precio.id }}">
+                            <button type="submit" class="btn-global">💾 Guardar</button>
+                        </form>
                     </td>
+
                     <td>
                         {% if precio.precio_final %}
                             ${{ precio.precio_final }}
                         {% else %}
                             -
                         {% endif %}
-                    </td>
-                    <td>
-                            <button type="submit" class="btn-global">💾 Guardar</button>
-                        </form>
                     </td>
                 </tr>
                 {% endfor %}

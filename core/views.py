@@ -1,7 +1,9 @@
 from django.shortcuts import render, redirect
 from django.utils import timezone
+from psycopg import logger
+from pyparsing import wraps
 from .models import Cliente, Asistencia, Admin, Mensualidad, PlanPersonalizado, Precios,Producto, Venta
-from .forms import ClienteForm,ProductoForm,PrecioForm
+from .forms import ClienteForm, DescuentoUpdateForm, PrecioUpdateForm,ProductoForm
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import pytz
@@ -15,16 +17,30 @@ from django.utils.timezone import now
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, HttpResponseServerError
 from django.http import JsonResponse
 from django.contrib import messages
 import calendar
 from collections import defaultdict
 from django.template.loader import render_to_string
 import locale
+
+
+def safe_view(view_func):
+
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        try:
+            return view_func(request, *args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error en {view_func.__name__}: {str(e)}", exc_info=True)
+            return HttpResponseServerError("Ha ocurrido un error inesperado. Estamos trabajando en ello.")
+    return wrapper
+
 # ===========================
 # LOGIN PERSONALIZADO (con Admin)
 # ===========================
+@safe_view
 def login_admin(request):
     if request.method == 'POST':
         rut = request.POST.get('rut')
@@ -153,8 +169,8 @@ def activar_plan_cliente(request, cliente_id):
         'fecha_hoy': timezone.localdate()
     })
 
-
-
+@admin_required
+@safe_view
 def asistencia_cliente(request):
     contexto = {
         "mostrar_modal": False,
@@ -568,25 +584,37 @@ def panel_precios(request):
     forms_list = []
 
     if request.method == 'POST':
- 
-        for precio in precios:
-            form = PrecioForm(request.POST, prefix=str(precio.id), instance=precio)
+        action = request.POST.get("action")
+        precio_id = request.POST.get("precio_id")
+        precio_obj = Precios.objects.get(id=precio_id)
+
+        if action == "update_precio":
+            form = PrecioUpdateForm(request.POST, prefix=f"precio_{precio_id}", instance=precio_obj)
             if form.is_valid():
-                descuento = form.cleaned_data.get('descuento') or 0
-                precio_base = form.cleaned_data['precio']
-        
-                precio.precio = precio_base
-          
-                precio.precio_final = int(precio_base * (1 - descuento / 100))
-                precio.save()
-                messages.success(request, f"{precio.tipo_publico} - {precio.sub_plan} actualizado con descuento {descuento}%")
-        return redirect('panel_precios')
+                precio_base = form.cleaned_data["precio"]
+                precio_obj.precio = precio_base
+                precio_obj.precio_final = int(precio_base * (1 - (precio_obj.descuento or 0) / 100))
+                precio_obj.save()
+                messages.success(request, f"Precio actualizado para {precio_obj.sub_plan}")
+
+        elif action == "update_descuento":
+            form = DescuentoUpdateForm(request.POST, prefix=f"descuento_{precio_id}", instance=precio_obj)
+            if form.is_valid():
+                descuento = form.cleaned_data["descuento"]
+                precio_obj.descuento = descuento
+                precio_obj.precio_final = int(precio_obj.precio * (1 - (descuento or 0) / 100))
+                precio_obj.save()
+                messages.success(request, f"Descuento actualizado para {precio_obj.sub_plan}")
+
+        return redirect("panel_precios")
+
 
     for precio in precios:
-        form = PrecioForm(prefix=str(precio.id), instance=precio)
-        forms_list.append((precio, form))
+        form_precio = PrecioUpdateForm(prefix=f"precio_{precio.id}", instance=precio)
+        form_descuento = DescuentoUpdateForm(prefix=f"descuento_{precio.id}", instance=precio)
+        forms_list.append((precio, form_precio, form_descuento))
 
-    return render(request, 'core/panel_precios.html', {'forms_list': forms_list})
+    return render(request, "core/panel_precios.html", {"forms_list": forms_list})
 
 @admin_required
 def cambiar_tipo_plan_mensual(request):
@@ -622,6 +650,7 @@ def cambiar_planes_personalizados(request):
     return redirect('renovarCliente')
 
 @admin_required
+@safe_view
 def productos(request):
     productos = Producto.objects.all()
 
@@ -630,6 +659,9 @@ def productos(request):
         cantidad = int(request.POST.get('cantidad'))
 
         producto = Producto.objects.get(id=producto_id)
+        if not producto:
+                messages.error(request, "Producto no encontrado.")
+                return redirect('productos')
 
         if cantidad > producto.stock:
             messages.error(request, "No hay suficiente stock.")
@@ -642,6 +674,7 @@ def productos(request):
     return render(request, 'core/productos.html', {'productos': productos})
 
 @admin_required
+@safe_view
 def agregar_producto(request):
     if request.method == 'POST':
         form = ProductoForm(request.POST)
@@ -657,6 +690,7 @@ def agregar_producto(request):
     return render(request, 'core/agregar_producto.html', {'form': form})
 
 @admin_required
+@safe_view
 def registrar_venta(request):
     if request.method == 'POST':
         producto_id = request.POST.get('producto_id')

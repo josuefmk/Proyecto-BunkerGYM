@@ -89,6 +89,7 @@ class ClienteForm(forms.ModelForm):
             self.fields['fecha_inicio_plan'].initial = hoy
             self.fields['fecha_inicio_plan'].widget.attrs['value'] = hoy
 
+    
     def clean_planes_personalizados(self):
         planes = self.cleaned_data.get('planes_personalizados')
         if planes.count() > 2:
@@ -142,14 +143,19 @@ class ProductoForm(forms.ModelForm):
 
 
 
-class PrecioForm(forms.ModelForm):
-    descuento = forms.IntegerField(
-        required=False, min_value=0, max_value=100,
-        label="Descuento (%)",
-        help_text="Opcional: Porcentaje de descuento a aplicar",
-        widget=forms.NumberInput(attrs={'class': 'input-bonito'})
-    )
 
+class PrecioUpdateForm(forms.ModelForm):
     class Meta:
         model = Precios
-        fields = ['precio', 'descuento']
+        fields = ['precio']
+        widgets = {
+            'precio': forms.NumberInput(attrs={'class': 'input-bonito'}),
+        }
+
+class DescuentoUpdateForm(forms.ModelForm):
+    class Meta:
+        model = Precios
+        fields = ['descuento']
+        widgets = {
+            'descuento': forms.NumberInput(attrs={'class': 'input-bonito'}),
+        }

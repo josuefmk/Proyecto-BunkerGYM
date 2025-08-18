@@ -83,14 +83,21 @@ class Precios(models.Model):
     tipo_publico = models.CharField(max_length=20, choices=TIPOS_PUBLICO)
     sub_plan = models.CharField(max_length=20, choices=SUB_PLANES)
     precio = models.PositiveIntegerField("Precio (CLP)")
-
+    descuento = models.IntegerField(default=0) 
     creado = models.DateTimeField(auto_now_add=True)
     actualizado = models.DateTimeField(auto_now=True)
-
+    precio_final = models.PositiveIntegerField(default=0)
   
 
+    def calcular_precio_final(self):
+        return int(self.precio * (1 - self.descuento / 100))
+
+    def save(self, *args, **kwargs):
+            self.precio_final = self.calcular_precio_final()
+            super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.tipo_publico} - {self.sub_plan}: ${self.precio}"
+            return f"{self.tipo_publico} - {self.sub_plan}: ${self.precio}"
 
 
 # --------------------------
