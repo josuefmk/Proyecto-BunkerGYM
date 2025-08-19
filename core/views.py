@@ -194,12 +194,21 @@ def asistencia_cliente(request):
 
         hoy = timezone.localdate()
 
-        # ⚡ Plan vencido
+        #  Plan vencido
         if cliente.estado_plan == "vencido":
             contexto["plan_vencido"] = True
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-        # ⚡ Manejo de planes personalizados
+        #  Plan pendiente → activar si corresponde
+        if cliente.estado_plan == "pendiente":
+            if cliente.fecha_inicio_plan and cliente.fecha_inicio_plan <= hoy:
+                #  Ya llegó la fecha, no hay que tocar nada
+                pass
+            else:
+                #  Cliente vino antes de la fecha → activar desde hoy
+                cliente.activar_plan(fecha_activacion=hoy, forzar=True)
+
+        #  Manejo de planes personalizados
         if cliente.planes_personalizados.exists():
             if cliente.planes_personalizados.count() > 1 and not confirmar:
                 # Mostrar modal para elegir plan
@@ -221,7 +230,7 @@ def asistencia_cliente(request):
 
         plan_activo = cliente.plan_personalizado_activo
 
-        # ✅ Si el plan activo se llama "Ninguno", tratarlo como si NO existiera
+        #  Si el plan activo se llama "Ninguno", tratarlo como si NO existiera
         if plan_activo and plan_activo.nombre_plan == "Ninguno":
             plan_activo = None
             cliente.plan_personalizado_activo = None
@@ -231,20 +240,20 @@ def asistencia_cliente(request):
         plan_libre = False
         plan_full = False
 
-        # ⚡ Determinar si es plan libre o full
+        #  Determinar si es plan libre o full
         if plan_activo:
             if plan_activo.nombre_plan in ["Plan libre semi personalizado", "Plan libre personalizado"]:
                 plan_libre = True
             if plan_activo.accesos_por_semana == 0:
                 plan_full = True
 
-        # ⚡ Inicializar accesos semanales si corresponde
+        #  Inicializar accesos semanales si corresponde
         if plan_activo and not plan_libre:
             if cliente.accesos_semana_restantes is None:
                 cliente.accesos_semana_restantes = plan_activo.accesos_por_semana
                 cliente.save()
 
-        # ⚡ Validar accesos disponibles
+        #  Validar accesos disponibles
         accesos_disponibles = True
 
         # Subplan
@@ -261,17 +270,17 @@ def asistencia_cliente(request):
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-        # ⚡ Verificar asistencia duplicada
+        #  Verificar asistencia duplicada
         if Asistencia.objects.filter(cliente=cliente, fecha__date=hoy).exists():
             contexto["asistencia_ya_registrada"] = True
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-        # ⚡ Registrar asistencia
+        # Registrar asistencia
         asistencia = Asistencia(cliente=cliente)
         asistencia.save()
 
-        # ⚡ Restar acceso
+        #  Restar acceso
         if cliente.sub_plan and cliente.sub_plan != "Titanio":
             cliente.accesos_restantes -= 1
         if plan_activo and not plan_libre:
@@ -288,8 +297,9 @@ def asistencia_cliente(request):
         })
         return render(request, "core/AsistenciaCliente.html", contexto)
 
-    # ⚡ GET request
+ 
     return render(request, "core/AsistenciaCliente.html", contexto)
+
 
 @admin_required
 def listaCliente(request):
