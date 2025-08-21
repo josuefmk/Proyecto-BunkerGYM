@@ -9,10 +9,10 @@ from django.utils import timezone
 def validar_rut(rut):
  
     try:
-        # Limpiar puntos y convertir a mayuscula
+      
         rut = rut.replace('.', '').upper().strip()
         
-        # Verificar formato basico
+      
         if not re.match(r'^\d{7,8}-[\dK]$', rut):
             return False
         
@@ -20,7 +20,6 @@ def validar_rut(rut):
         suma = 0
         multiplicador = 2
 
-        # Calcular el dígito verificador
         for digito in reversed(num):
             suma += int(digito) * multiplicador
             multiplicador += 1
@@ -37,11 +36,11 @@ def validar_rut(rut):
         else:
             dv_calculado = str(dv_calculado)
 
-        # Comparar con el digito verificador ingresado
+     
         return dv == dv_calculado
 
     except Exception:
-        # Cualquier error devuelve False
+ 
         return False
 
 
@@ -71,9 +70,9 @@ class ClienteForm(forms.ModelForm):
             'rut': forms.TextInput(attrs={'class': 'form-control'}),
             'mensualidad': forms.Select(attrs={'class': 'form-control'}),
             'planes_personalizados': forms.SelectMultiple(attrs={
-            'class': 'form-control select2',
-            'style': 'width: 100%;'
-        }),
+                'class': 'form-control select2',
+                'style': 'width: 100%;'
+            }),
             'metodo_pago': forms.Select(attrs={'class': 'form-control'}),
             'fecha_inicio_plan': forms.DateInput(attrs={
                 'class': 'form-control',
@@ -84,12 +83,12 @@ class ClienteForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if not self.instance.pk:  
+        if not self.instance.pk:  # Si es nuevo
             hoy = timezone.localdate().strftime('%Y-%m-%d')
             self.fields['fecha_inicio_plan'].initial = hoy
             self.fields['fecha_inicio_plan'].widget.attrs['value'] = hoy
 
-    
+ 
     def clean_planes_personalizados(self):
         planes = self.cleaned_data.get('planes_personalizados')
         if planes.count() > 2:
@@ -97,25 +96,17 @@ class ClienteForm(forms.ModelForm):
         return planes
 
     def clean_rut(self):
-            rut = self.cleaned_data.get('rut')
-            if not rut:
-                raise forms.ValidationError("Este campo es obligatorio.")
-
-            rut = rut.strip().upper()
-
-            
-            if not re.match(r'^\d{7,8}-[\dK]$', rut):
-                raise forms.ValidationError("Formato inválido. Use 12345678-9")
-
-           
-            if not validar_rut(rut):
-                raise forms.ValidationError("RUT inválido. Dígito verificador incorrecto.")
-
-        
-            if Cliente.objects.filter(rut=rut).exclude(pk=self.instance.pk).exists():
-                raise forms.ValidationError("⚠️ Este RUT ya está registrado.")
-
-            return rut
+        rut = self.cleaned_data.get('rut')
+        if not rut:
+            raise forms.ValidationError("Este campo es obligatorio.")
+        rut = rut.strip().upper()
+        if not re.match(r'^\d{7,8}-[\dK]$', rut):
+            raise forms.ValidationError("Formato inválido. Use 12345678-9")
+        if not validar_rut(rut):
+            raise forms.ValidationError("RUT inválido. Dígito verificador incorrecto.")
+        if Cliente.objects.filter(rut=rut).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("⚠️ Este RUT ya está registrado.")
+        return rut
 
     def clean_telefono(self):
         telefono = self.cleaned_data.get('telefono')
@@ -129,13 +120,23 @@ class ClienteForm(forms.ModelForm):
 
     def save(self, commit=True):
         cliente = super().save(commit=False)
-        if cliente.fecha_inicio_plan:
-            cliente.fecha_fin_plan = cliente.fecha_inicio_plan + timedelta(days=30)
+
+   
+        if not cliente.fecha_inicio_plan:
+            cliente.fecha_inicio_plan = timezone.localdate()
+
+     
+        dias_total = 30
+        if cliente.mensualidad:
+            key = cliente.mensualidad.duracion.strip().lower()
+            dias_total = cliente.duraciones_a_dias.get(key, 30)
+
+        cliente.fecha_fin_plan = cliente.fecha_inicio_plan + timedelta(days=dias_total)
+
         if commit:
             cliente.save()
-            self.save_m2m()  
+            self.save_m2m()
         return cliente
-    
 class ProductoForm(forms.ModelForm):
     class Meta:
         model = Producto

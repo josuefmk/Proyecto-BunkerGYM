@@ -41,6 +41,7 @@ class Mensualidad(models.Model):
         ('Mensual', 'Mensual'),
         ('Trimestral', 'Trimestral'),
         ('Anual', 'Anual'),
+        ('Semestral', 'Semestral'),
     ]
 
     tipo = models.CharField(max_length=20, choices=TIPOS)
@@ -57,7 +58,7 @@ class Mensualidad(models.Model):
 # --------------------------
 class PlanPersonalizado(models.Model):
     nombre_plan = models.CharField(max_length=100, unique=True)
-    accesos_por_semana = models.IntegerField(default=0)
+    accesos_por_mes = models.IntegerField(default=0)
     def __str__(self):
         return self.nombre_plan
 
@@ -139,36 +140,34 @@ class Cliente(models.Model):
     correo = models.EmailField()
     telefono = models.CharField(max_length=15)
     huella_template = models.BinaryField(null=True, blank=True)
+    ultimo_reset_mes = models.DateField(null=True, blank=True)
     mensualidad = models.ForeignKey('Mensualidad', on_delete=models.SET_NULL, null=True, blank=True)
     planes_personalizados = models.ManyToManyField('PlanPersonalizado', blank=True)
+    plan_personalizado_activo = models.ForeignKey(
+        "PlanPersonalizado", null=True, blank=True, on_delete=models.SET_NULL, related_name="clientes_activos"
+    )
+
     metodo_pago = models.CharField(max_length=20, choices=METODOS_PAGO, null=True, blank=True)
     fecha_inicio_plan = models.DateField(null=True, blank=True)
     fecha_fin_plan = models.DateField(null=True, blank=True)
+
     tipo_publico = models.CharField(max_length=20, choices=TIPOS_PUBLICO, default='Normal')
     sub_plan = models.CharField(max_length=20, choices=SUB_PLANES, null=True, blank=True)
-    accesos_restantes = models.IntegerField(default=0)
-    accesos_semana_restantes = models.IntegerField(default=0)
-    ultimo_reset_semana = models.DateField(null=True, blank=True)
+
+    accesos_restantes = models.IntegerField(default=0)  
     precio_asignado = models.PositiveIntegerField(null=True, blank=True)
-    plan_personalizado_activo = models.ForeignKey(
-        "PlanPersonalizado",
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="clientes_activos"
-    )
 
     duraciones_a_dias = {
-        "Mensual": 30,
-        "Trimestral": 90,
-        "Anual": 365
+        "mensual": 30,
+        "trimestral": 90,
+        "semestral": 180,
+        "anual": 365,
     }
 
     def asignar_precio(self):
         if self.mensualidad and self.sub_plan:
             precio_obj = Precios.objects.filter(
-                tipo_publico=self.mensualidad.tipo,
-                sub_plan=self.sub_plan
+                tipo_publico=self.mensualidad.tipo, sub_plan=self.sub_plan
             ).first()
             if precio_obj:
                 self.precio_asignado = precio_obj.precio
@@ -178,36 +177,30 @@ class Cliente(models.Model):
             self.precio_asignado = None
 
     def save(self, *args, **kwargs):
-        from django.utils import timezone
-
-        # Asegurarse de que fecha_inicio_plan sea tipo date
+  
         if isinstance(self.fecha_inicio_plan, datetime):
             self.fecha_inicio_plan = self.fecha_inicio_plan.date()
 
-        # Si no tiene fecha de inicio, asignar hoy
+   
         if not self.fecha_inicio_plan:
             self.fecha_inicio_plan = timezone.localdate()
 
-        # Si no tiene fecha de fin, calcular según duración del plan
-        if not self.fecha_fin_plan:
-            dias_total = 30
-            if self.mensualidad:
-                dias_total = self.duraciones_a_dias.get(self.mensualidad.duracion, 30)
+        dias_total = 30
+        if self.mensualidad:
+            key = self.mensualidad.duracion.strip().lower()
+            dias_total = self.duraciones_a_dias.get(key, 30)
+
+        if not self.fecha_fin_plan or 'update' in kwargs:
             self.fecha_fin_plan = self.fecha_inicio_plan + timedelta(days=dias_total)
 
-        # ⚡ Plan personalizado temporal (desde la vista)
-        if hasattr(self, 'plan_personalizado') and self.plan_personalizado:
-            if self.accesos_semana_restantes is None or self.accesos_semana_restantes == 0:
-                self.accesos_semana_restantes = self.plan_personalizado.accesos_por_semana
+  
+        if self.plan_personalizado_activo and (self.accesos_restantes is None or self.accesos_restantes == 0):
+            self.accesos_restantes = self.plan_personalizado_activo.accesos_por_mes
 
-        # Asignar precio según mensualidad y sub_plan
+   
         self.asignar_precio()
 
         super().save(*args, **kwargs)
-
-
-
-
 
     @property
     def estado_plan(self):
@@ -224,43 +217,48 @@ class Cliente(models.Model):
         hoy = timezone.localdate()
         if self.fecha_inicio_plan and self.fecha_inicio_plan > hoy:
             return (self.fecha_inicio_plan - hoy).days
-        vencimiento = self.fecha_fin_plan or (
-            self.fecha_inicio_plan + timedelta(days=self.duraciones_a_dias.get(
-                self.mensualidad.duracion if self.mensualidad else None, 30))
-        )
+
+        if self.mensualidad:
+            key = self.mensualidad.duracion.strip().lower()
+            dias_default = self.duraciones_a_dias.get(key, 30)
+        else:
+            dias_default = 30
+
+        vencimiento = self.fecha_fin_plan or (self.fecha_inicio_plan + timedelta(days=dias_default))
         return (vencimiento - hoy).days
 
     def activar_plan(self, fecha_activacion=None, dias_extra=0, forzar=False):
         hoy = timezone.localdate()
-
+        
+  
         if fecha_activacion is None:
             if self.fecha_fin_plan and self.fecha_fin_plan > hoy and not forzar:
                 fecha_activacion = self.fecha_fin_plan
             else:
                 fecha_activacion = hoy
 
-        dias_total = self.duraciones_a_dias.get(self.mensualidad.duracion, 30) + dias_extra
+        dias_total = 30
+        if self.mensualidad:
+            key = self.mensualidad.duracion.strip().lower()
+            dias_total = self.duraciones_a_dias.get(key, 30)
+
+        dias_total += dias_extra
+
         self.fecha_inicio_plan = fecha_activacion
         self.fecha_fin_plan = fecha_activacion + timedelta(days=dias_total)
 
-        accesos_dict = {
-            'Bronce': 4,
-            'Hierro': 8,
-            'Acero': 12,
-            'Titanio': 0
-        }
+    
         if self.sub_plan:
+            accesos_dict = {'Bronce': 4, 'Hierro': 8, 'Acero': 12, 'Titanio': 0}
             self.accesos_restantes = accesos_dict.get(self.sub_plan, 0)
+        elif self.plan_personalizado_activo:
+            self.accesos_restantes = self.plan_personalizado_activo.accesos_por_mes
 
         self.asignar_precio()
-
         super().save()
-    
-    
 
     def __str__(self):
         return f"{self.nombre} {self.apellido}"
-
 
 
 class Asistencia(models.Model):
