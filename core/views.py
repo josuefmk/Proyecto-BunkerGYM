@@ -169,6 +169,7 @@ def activar_plan_cliente(request, cliente_id):
         'fecha_hoy': timezone.localdate()
     })
 
+
 @admin_required
 @safe_view
 def asistencia_cliente(request):
@@ -194,7 +195,7 @@ def asistencia_cliente(request):
 
         hoy = timezone.localdate()
 
-      
+        # Resetear accesos si es un nuevo mes
         if not cliente.ultimo_reset_mes or cliente.ultimo_reset_mes.month != hoy.month or cliente.ultimo_reset_mes.year != hoy.year:
             if cliente.plan_personalizado_activo:
                 cliente.accesos_restantes = cliente.plan_personalizado_activo.accesos_por_mes
@@ -204,17 +205,17 @@ def asistencia_cliente(request):
             cliente.ultimo_reset_mes = hoy
             cliente.save()
 
-       
+        # Validar plan vencido
         if cliente.estado_plan == "vencido":
             contexto["plan_vencido"] = True
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-      
+        # Activar plan pendiente
         if cliente.estado_plan == "pendiente":
             if not cliente.fecha_inicio_plan or cliente.fecha_inicio_plan > hoy:
                 cliente.activar_plan(fecha_activacion=hoy, forzar=True)
 
-     
+        # Manejo de planes personalizados
         if cliente.planes_personalizados.exists():
             if cliente.planes_personalizados.count() > 1 and not confirmar:
                 contexto["planes_personalizados"] = cliente.planes_personalizados.all()
@@ -233,23 +234,27 @@ def asistencia_cliente(request):
 
         plan_activo = cliente.plan_personalizado_activo
 
-      
         if plan_activo and plan_activo.nombre_plan == "Ninguno":
-            plan_activo = None
-            cliente.plan_personalizado_activo = None
-            cliente.accesos_restantes = 0
-            cliente.save()
+                plan_activo = None
+                cliente.plan_personalizado_activo = None
 
+                if cliente.sub_plan and cliente.sub_plan != "Titanio":
+                    accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
+                    # ✅ Siempre re-asignamos accesos al sub_plan cuando el personalizado es "Ninguno"
+                    cliente.accesos_restantes = accesos_dict.get(cliente.sub_plan, 0)
+
+                cliente.save()
+
+        # Verificar planes libres o full
         plan_libre = False
         plan_full = False
-
         if plan_activo:
             if plan_activo.nombre_plan in ["Plan libre semi personalizado", "Plan libre personalizado"]:
                 plan_libre = True
             if plan_activo.accesos_por_mes == 0:
                 plan_full = True
 
-      
+        # Validación de accesos disponibles
         accesos_disponibles = True
         if cliente.sub_plan and cliente.sub_plan != "Titanio":
             if cliente.accesos_restantes <= 0:
@@ -262,17 +267,17 @@ def asistencia_cliente(request):
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-        
+        # Evitar doble registro en el mismo día
         if Asistencia.objects.filter(cliente=cliente, fecha__date=hoy).exists():
             contexto["asistencia_ya_registrada"] = True
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-      
+        # Registrar asistencia
         asistencia = Asistencia(cliente=cliente)
         asistencia.save()
 
-     
+        # Descontar accesos
         if cliente.sub_plan and cliente.sub_plan != "Titanio":
             cliente.accesos_restantes -= 1
         elif plan_activo and not plan_libre:
