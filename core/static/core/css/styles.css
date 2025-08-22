@@ -5,17 +5,25 @@ body {
 }
 
 .header {
-    display: flex;
+       display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 10px 30px;
     background-color: #000000;
     border-bottom: 1px solid #ddd;
+    flex-wrap: wrap; 
+    
 }
 
+.header-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap; 
+}
 
 .logo {
     height: 60px;
+    width: auto;
 }.btn-global {
     background-color: #000; 
     color: white;
@@ -84,7 +92,10 @@ body {
     display: flex;
     gap: 20px;
     margin: 10px 0;
+    flex-wrap: wrap; 
+    justify-content: center; 
 }
+
 .btn-index {
     padding: 12px 20px;
     border: 2px solid black;
@@ -96,6 +107,7 @@ body {
     border-radius: 6px;
     transition: background-color 0.3s, color 0.3s;
     min-width: 220px; 
+    
 }
 
 .btn-index:hover {
@@ -249,23 +261,33 @@ body {
 .busqueda-container {
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 10px;
-    width: 320px; 
+    margin: 20px auto;
+    width: 100%;
+    max-width: 600px;
 }
-
 
 .busqueda-fila {
     display: flex;
-    flex-direction: row;
-    gap: 8px;
+    gap: 10px;
+    width: 100%;
 }
 
 .busqueda-fila input {
     flex: 1;
-    padding: 8px;
+    padding: 10px;
     border: 1px solid #ccc;
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: 6px;
+}
+@media (max-width: 768px) {
+    .busqueda-fila {
+        flex-direction: column;
+    }
+
+    .busqueda-fila button {
+        width: 100%;
+    }
 }
 
 .mostrar-todos {
@@ -290,17 +312,27 @@ body {
     margin: 0 auto;
     border-collapse: collapse;
     width: 98%;
+     margin-top: 20px;
     background-color: white;
     border-radius: 10px;
     overflow: hidden;
+    font-size: 15px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
 .tabla-renovar th, .tabla-renovar td {
     padding: 12px;
     text-align: center;
+ 
+    white-space: nowrap;
 }
-
+@media (max-width: 992px) {
+    .tabla-renovar {
+        display: block;
+        overflow-x: auto; 
+        white-space: nowrap;
+    }
+}
 .tabla-renovar th {
     background-color: #f3f3f3;
 }
@@ -348,6 +380,19 @@ body {
     max-width: 400px;
     width: 90%;
     animation: slideInRenovar 0.3s ease;
+}
+@media (max-width: 480px) {
+    .modal-content-renovar, .modal-cliente-content {
+        width: 95%;
+        padding: 15px;
+        font-size: 14px;
+    }
+
+    .modal-cliente-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
 }
 .modal-content-renovar button {
   padding: 10px 20px;
@@ -1141,4 +1186,55 @@ main.contenido.historia-cliente {
 @keyframes slideIn {
     from { transform: translateY(-20px); opacity: 0; }
     to   { transform: translateY(0); opacity: 1; }
+}
+@media (max-width: 768px) {
+    .header {
+        flex-direction: column; 
+        align-items: flex-start;
+        padding: 10px;
+    }
+
+    .header-buttons {
+        width: 100%;
+        justify-content: flex-end;
+        margin-top: 10px;
+    }
+
+    .btn-global {
+        font-size: 13px;
+    }
+
+    .logo {
+        height: 40px;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-buttons {
+        flex-direction: column; 
+        align-items: flex-end;
+        gap: 8px;
+    }
+
+    .btn-global {
+        font-size: 12px;
+    }
+}@media (max-width: 992px) {
+    .fila-botones {
+        justify-content: center; /
+    }
+}
+
+@media (max-width: 768px) {
+    .fila-botones {
+        flex-direction: column; 
+        align-items: center; 
+        gap: 12px;
+    }
+
+    .btn-index {
+        width: 90%; 
+        max-width: 300px;
+        font-size: 14px;
+    }
 }

@@ -43,9 +43,15 @@ def safe_view(view_func):
 @safe_view
 def login_admin(request):
     if request.method == 'POST':
-        rut = request.POST.get('rut')
-        password = request.POST.get('password')
-        admin = Admin.objects.filter(rut=rut, password=password).first()
+        rut_input = request.POST.get('rut', '')
+        password = request.POST.get('password', '')
+
+    
+        rut_limpio = rut_input.replace('.', '').replace('-', '').upper()
+
+     
+        admin = Admin.objects.filter(rut__iexact=rut_limpio, password=password).first()
+
         if admin:
             request.session['admin_id'] = admin.id
             return redirect('index')
@@ -55,7 +61,6 @@ def login_admin(request):
     else:
         error = request.session.pop('login_error', None)
         return render(request, 'core/home.html', {'error': error})
-
 
 def logout_admin(request):
     request.session.flush()
