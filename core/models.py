@@ -154,7 +154,7 @@ class Cliente(models.Model):
     tipo_publico = models.CharField(max_length=20, choices=TIPOS_PUBLICO, default='Normal')
     sub_plan = models.CharField(max_length=20, choices=SUB_PLANES, null=True, blank=True)
 
-    accesos_restantes = models.IntegerField(default=0)  
+    accesos_restantes = models.FloatField(default=0)
     precio_asignado = models.PositiveIntegerField(null=True, blank=True)
 
     duraciones_a_dias = {
@@ -262,11 +262,21 @@ class Cliente(models.Model):
 
 
 class Asistencia(models.Model):
+    TIPO_ASISTENCIA_CHOICES = [
+        ("subplan", "Subplan"),
+        ("plan_personalizado", "Plan Personalizado"),
+    ]
+
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
     fecha = models.DateTimeField(default=timezone.now)
+    tipo_asistencia = models.CharField(
+        max_length=20,
+        choices=TIPO_ASISTENCIA_CHOICES,
+        default="subplan"
+    )
 
     def __str__(self):
-        return f"{self.cliente.nombre} - {self.fecha.date()}"
+        return f"{self.cliente.nombre} - {self.fecha.date()} ({self.tipo_asistencia})"
 
 
 

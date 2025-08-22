@@ -104,7 +104,7 @@ def registro_cliente(request):
                 cliente_creado.accesos_restantes = accesos_dict.get(cliente_creado.sub_plan, 0)
                 cliente_creado.save()
                 form.save_m2m()
-                mensaje = f"✅ El cliente {cliente_creado.nombre} ha sido creado correctamente."
+                mensaje = f"✅ El cliente {cliente_creado.nombre} {cliente_creado.apellido} ha sido creado correctamente."
                 form = ClienteForm()
     else:
         form = ClienteForm()
@@ -176,7 +176,7 @@ def activar_plan_cliente(request, cliente_id):
 
 
 @admin_required
-@safe_view
+
 def asistencia_cliente(request):
     contexto = {
         "mostrar_modal": False,
@@ -200,16 +200,6 @@ def asistencia_cliente(request):
 
         hoy = timezone.localdate()
 
-        # Resetear accesos si es un nuevo mes
-        if not cliente.ultimo_reset_mes or cliente.ultimo_reset_mes.month != hoy.month or cliente.ultimo_reset_mes.year != hoy.year:
-            if cliente.plan_personalizado_activo:
-                cliente.accesos_restantes = cliente.plan_personalizado_activo.accesos_por_mes
-            elif cliente.sub_plan and cliente.sub_plan != "Titanio":
-                accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
-                cliente.accesos_restantes = accesos_dict.get(cliente.sub_plan, 0)
-            cliente.ultimo_reset_mes = hoy
-            cliente.save()
-
         # Validar plan vencido
         if cliente.estado_plan == "vencido":
             contexto["plan_vencido"] = True
@@ -230,62 +220,100 @@ def asistencia_cliente(request):
             if confirmar:
                 plan_id = request.POST.get("plan_personalizado")
                 cliente.plan_personalizado_activo = cliente.planes_personalizados.filter(id=plan_id).first()
-                cliente.accesos_restantes = cliente.plan_personalizado_activo.accesos_por_mes
-                cliente.save()
             elif cliente.planes_personalizados.count() == 1:
                 cliente.plan_personalizado_activo = cliente.planes_personalizados.first()
-                cliente.accesos_restantes = cliente.plan_personalizado_activo.accesos_por_mes
-                cliente.save()
+
+            cliente.save()
 
         plan_activo = cliente.plan_personalizado_activo
-
-        if plan_activo and plan_activo.nombre_plan == "Ninguno":
-                plan_activo = None
-                cliente.plan_personalizado_activo = None
-
-                if cliente.sub_plan and cliente.sub_plan != "Titanio":
-                    accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
-               
-                    cliente.accesos_restantes = accesos_dict.get(cliente.sub_plan, 0)
-
-                cliente.save()
-
         plan_libre = False
         plan_full = False
+
+        # Detectar si plan es libre o full
         if plan_activo:
             if plan_activo.nombre_plan in ["Plan libre semi personalizado", "Plan libre personalizado"]:
                 plan_libre = True
-            if plan_activo.accesos_por_mes == 0:
+            elif plan_activo.accesos_por_mes == 0:
                 plan_full = True
 
-     
-        accesos_disponibles = True
-        if cliente.sub_plan and cliente.sub_plan != "Titanio":
-            if cliente.accesos_restantes <= 0:
-                accesos_disponibles = False
-        if plan_activo and not plan_libre and cliente.accesos_restantes <= 0:
-            accesos_disponibles = False
+        # Calcular accesos restantes
+        cliente.accesos_restantes = 0
+
+        if plan_activo and (plan_activo.accesos_por_mes > 0 or plan_libre):
+            # Usar plan personalizado solo si tiene accesos o es plan libre
+            usados_mes = Asistencia.objects.filter(
+                cliente=cliente,
+                fecha__date__month=hoy.month,
+                fecha__date__year=hoy.year,
+                tipo_asistencia="plan_personalizado"
+            ).count()
+            if plan_libre or plan_full:
+                cliente.accesos_restantes = float('inf')
+            else:
+                cliente.accesos_restantes = max(plan_activo.accesos_por_mes - usados_mes, 0)
+            tipo_asistencia = "plan_personalizado"
+        elif cliente.sub_plan:
+            # Si no hay plan válido, usar subplan
+            if cliente.sub_plan == "Titanio":
+                cliente.accesos_restantes = float('inf')  # Acceso ilimitado
+            else:
+                accesos_dict = {'Bronce': 4, 'Hierro': 8, 'Acero': 12}
+                usados_mes = Asistencia.objects.filter(
+                    cliente=cliente,
+                    fecha__date__month=hoy.month,
+                    fecha__date__year=hoy.year,
+                    tipo_asistencia="subplan"
+                ).count()
+                cliente.accesos_restantes = max(accesos_dict.get(cliente.sub_plan, 0) - usados_mes, 0)
+            tipo_asistencia = "subplan"
+
+        cliente.save()
+
+        # Verificar accesos disponibles
+        accesos_disponibles = False
+        if plan_libre or plan_full or cliente.sub_plan == "Titanio":
+            accesos_disponibles = True
+        elif cliente.accesos_restantes > 0:
+            accesos_disponibles = True
 
         if not accesos_disponibles:
             contexto["sin_accesos"] = True
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-     
+        # Verificar asistencia del día
         if Asistencia.objects.filter(cliente=cliente, fecha__date=hoy).exists():
             contexto["asistencia_ya_registrada"] = True
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-        # Registrar asistencia
-        asistencia = Asistencia(cliente=cliente)
-        asistencia.save()
+        # Registrar asistencia con tipo correcto
+        Asistencia.objects.create(cliente=cliente, tipo_asistencia=tipo_asistencia)
 
-        # Descontar accesos
-        if cliente.sub_plan and cliente.sub_plan != "Titanio":
-            cliente.accesos_restantes -= 1
-        elif plan_activo and not plan_libre:
-            cliente.accesos_restantes -= 1
+        # Recalcular accesos restantes después de registrar
+        if tipo_asistencia == "plan_personalizado":
+            usados_mes = Asistencia.objects.filter(
+                cliente=cliente,
+                fecha__date__month=hoy.month,
+                fecha__date__year=hoy.year,
+                tipo_asistencia="plan_personalizado"
+            ).count()
+            if plan_libre or plan_full:
+                cliente.accesos_restantes = float('inf')
+            else:
+                cliente.accesos_restantes = max(plan_activo.accesos_por_mes - usados_mes, 0)
+        elif tipo_asistencia == "subplan":
+            if cliente.sub_plan == "Titanio":
+                cliente.accesos_restantes = float('inf')
+            else:
+                accesos_dict = {'Bronce': 4, 'Hierro': 8, 'Acero': 12}
+                usados_mes = Asistencia.objects.filter(
+                    cliente=cliente,
+                    fecha__date__month=hoy.month,
+                    fecha__date__year=hoy.year,
+                    tipo_asistencia="subplan"
+                ).count()
+                cliente.accesos_restantes = max(accesos_dict.get(cliente.sub_plan, 0) - usados_mes, 0)
 
         cliente.save()
 
