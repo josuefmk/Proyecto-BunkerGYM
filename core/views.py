@@ -104,7 +104,7 @@ def registro_cliente(request):
     else:
         form = ClienteForm()
 
-    return render(request, 'core/registroCliente.html', {
+    return render(request, 'core/RegistroCliente.html', {
         'form': form,
         'mensaje': mensaje,
         'cliente': cliente_creado,
