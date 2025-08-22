@@ -240,12 +240,11 @@ def asistencia_cliente(request):
 
                 if cliente.sub_plan and cliente.sub_plan != "Titanio":
                     accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
-                    # ✅ Siempre re-asignamos accesos al sub_plan cuando el personalizado es "Ninguno"
+               
                     cliente.accesos_restantes = accesos_dict.get(cliente.sub_plan, 0)
 
                 cliente.save()
 
-        # Verificar planes libres o full
         plan_libre = False
         plan_full = False
         if plan_activo:
@@ -254,7 +253,7 @@ def asistencia_cliente(request):
             if plan_activo.accesos_por_mes == 0:
                 plan_full = True
 
-        # Validación de accesos disponibles
+     
         accesos_disponibles = True
         if cliente.sub_plan and cliente.sub_plan != "Titanio":
             if cliente.accesos_restantes <= 0:
@@ -267,7 +266,7 @@ def asistencia_cliente(request):
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-        # Evitar doble registro en el mismo día
+     
         if Asistencia.objects.filter(cliente=cliente, fecha__date=hoy).exists():
             contexto["asistencia_ya_registrada"] = True
             contexto["cliente"] = cliente
