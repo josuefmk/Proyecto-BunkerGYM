@@ -10,10 +10,8 @@
   </div>
 {% endif %}
 
-
-
 <div class="form-container">
-    <form method="POST" class="formulario">
+    <form method="POST" class="formulario" onsubmit="return validarFormulario(event)">
         {% csrf_token %}
 
         <label>Nombre:</label>
@@ -23,13 +21,14 @@
         <input type="text" name="apellido" value="{{ cliente.apellido }}" required>
 
         <label>RUT:</label>
-        <input type="text" name="rut" value="{{ cliente.rut }}" required>
+        <input type="text" id="rutInput" placeholder="Formato: 12345678-9 o 12345678-K" name="rut" value="{{ cliente.rut }}" required>
+      
 
         <label>Correo:</label>
-        <input type="email" name="correo" value="{{ cliente.correo }}" required>
+        <input type="email" id="correoInput" name="correo" value="{{ cliente.correo }}" required>
 
         <label>Teléfono:</label>
-        <input type="text" name="telefono" value="{{ cliente.telefono }}" required>
+        <input type="text" id="telefonoInput" placeholder="9 12455434" name="telefono" value="{{ cliente.telefono }}" required>
 
         <button type="submit" class="btn-global" style="margin-top: 15px; margin-bottom: 10px;">💾 Guardar Cambios</button>
         <a href="{% url 'renovarCliente' %}" class="btn-global">🔙 Volver</a>
@@ -55,4 +54,7 @@
     color: #721c24;
 }
 </style>
+
+
+
 {% endblock %}

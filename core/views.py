@@ -1,3 +1,4 @@
+import re
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from psycopg import logger
@@ -24,7 +25,7 @@ import calendar
 from collections import defaultdict
 from django.template.loader import render_to_string
 import locale
-
+from .utils import validar_rut, validar_correo, validar_telefono
 
 def safe_view(view_func):
 
@@ -176,7 +177,6 @@ def activar_plan_cliente(request, cliente_id):
 
 
 @admin_required
-
 def asistencia_cliente(request):
     contexto = {
         "mostrar_modal": False,
@@ -216,13 +216,12 @@ def asistencia_cliente(request):
                 contexto["planes_personalizados"] = cliente.planes_personalizados.all()
                 contexto["cliente"] = cliente
                 return render(request, "core/AsistenciaCliente.html", contexto)
-            
+
             if confirmar:
                 plan_id = request.POST.get("plan_personalizado")
                 cliente.plan_personalizado_activo = cliente.planes_personalizados.filter(id=plan_id).first()
             elif cliente.planes_personalizados.count() == 1:
                 cliente.plan_personalizado_activo = cliente.planes_personalizados.first()
-
             cliente.save()
 
         plan_activo = cliente.plan_personalizado_activo
@@ -236,37 +235,47 @@ def asistencia_cliente(request):
             elif plan_activo.accesos_por_mes == 0:
                 plan_full = True
 
-        # Calcular accesos restantes
-        cliente.accesos_restantes = 0
+        # Inicializar accesos separados
+        accesos_restantes_subplan = None
+        accesos_restantes_personalizado = None
+        tipo_asistencia = None
 
-        if plan_activo and (plan_activo.accesos_por_mes > 0 or plan_libre):
-            # Usar plan personalizado solo si tiene accesos o es plan libre
-            usados_mes = Asistencia.objects.filter(
+        # --- Calcular accesos Plan Personalizado ---
+        if plan_activo and (plan_activo.accesos_por_mes > 0 or plan_libre or plan_full):
+            usados_mes_personalizado = Asistencia.objects.filter(
                 cliente=cliente,
                 fecha__date__month=hoy.month,
                 fecha__date__year=hoy.year,
                 tipo_asistencia="plan_personalizado"
             ).count()
             if plan_libre or plan_full:
-                cliente.accesos_restantes = float('inf')
+                accesos_restantes_personalizado = float("inf")
             else:
-                cliente.accesos_restantes = max(plan_activo.accesos_por_mes - usados_mes, 0)
+                accesos_restantes_personalizado = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
             tipo_asistencia = "plan_personalizado"
-        elif cliente.sub_plan:
-            # Si no hay plan válido, usar subplan
+
+        # --- Calcular accesos SubPlan ---
+        if cliente.sub_plan:
             if cliente.sub_plan == "Titanio":
-                cliente.accesos_restantes = float('inf')  # Acceso ilimitado
+                accesos_restantes_subplan = float("inf")
             else:
-                accesos_dict = {'Bronce': 4, 'Hierro': 8, 'Acero': 12}
-                usados_mes = Asistencia.objects.filter(
+                accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
+                usados_mes_subplan = Asistencia.objects.filter(
                     cliente=cliente,
                     fecha__date__month=hoy.month,
                     fecha__date__year=hoy.year,
                     tipo_asistencia="subplan"
                 ).count()
-                cliente.accesos_restantes = max(accesos_dict.get(cliente.sub_plan, 0) - usados_mes, 0)
-            tipo_asistencia = "subplan"
+                accesos_restantes_subplan = max(accesos_dict.get(cliente.sub_plan, 0) - usados_mes_subplan, 0)
+            # Si no hay plan personalizado activo, se usa el subplan
+            if not tipo_asistencia:
+                tipo_asistencia = "subplan"
 
+        # Guardar accesos restantes del último tipo usado
+        if tipo_asistencia == "plan_personalizado" and accesos_restantes_personalizado is not None:
+            cliente.accesos_restantes = accesos_restantes_personalizado
+        elif tipo_asistencia == "subplan" and accesos_restantes_subplan is not None:
+            cliente.accesos_restantes = accesos_restantes_subplan
         cliente.save()
 
         # Verificar accesos disponibles
@@ -292,38 +301,41 @@ def asistencia_cliente(request):
 
         # Recalcular accesos restantes después de registrar
         if tipo_asistencia == "plan_personalizado":
-            usados_mes = Asistencia.objects.filter(
+            usados_mes_personalizado = Asistencia.objects.filter(
                 cliente=cliente,
                 fecha__date__month=hoy.month,
                 fecha__date__year=hoy.year,
                 tipo_asistencia="plan_personalizado"
             ).count()
             if plan_libre or plan_full:
-                cliente.accesos_restantes = float('inf')
+                accesos_restantes_personalizado = float("inf")
             else:
-                cliente.accesos_restantes = max(plan_activo.accesos_por_mes - usados_mes, 0)
+                accesos_restantes_personalizado = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
         elif tipo_asistencia == "subplan":
             if cliente.sub_plan == "Titanio":
-                cliente.accesos_restantes = float('inf')
+                accesos_restantes_subplan = float("inf")
             else:
-                accesos_dict = {'Bronce': 4, 'Hierro': 8, 'Acero': 12}
-                usados_mes = Asistencia.objects.filter(
+                accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
+                usados_mes_subplan = Asistencia.objects.filter(
                     cliente=cliente,
                     fecha__date__month=hoy.month,
                     fecha__date__year=hoy.year,
                     tipo_asistencia="subplan"
                 ).count()
-                cliente.accesos_restantes = max(accesos_dict.get(cliente.sub_plan, 0) - usados_mes, 0)
-
+                accesos_restantes_subplan = max(accesos_dict.get(cliente.sub_plan, 0) - usados_mes_subplan, 0)
         cliente.save()
 
+        # Enviar al contexto ambos accesos separados
         contexto.update({
             "mostrar_modal": True,
             "cliente": cliente,
             "vencimiento_plan": cliente.fecha_fin_plan,
             "plan_libre": plan_libre,
             "plan_full": plan_full,
+            "accesos_restantes_subplan": accesos_restantes_subplan,
+            "accesos_restantes_personalizado": accesos_restantes_personalizado,
         })
+
         return render(request, "core/AsistenciaCliente.html", contexto)
 
     return render(request, "core/AsistenciaCliente.html", contexto)
@@ -386,18 +398,21 @@ def renovarCliente(request):
         if 'renovar_rut' in request.POST:
             rut_renovar = request.POST.get('renovar_rut')
             metodo_pago = request.POST.get('metodo_pago')
-            nuevo_plan_id = request.POST.get('tipo_plan')
-            nuevo_sub_plan = request.POST.get('sub_plan')
+            nuevo_plan_id = request.POST.get('nuevo_plan')
+            nuevo_sub_plan = request.POST.get('nuevo_sub_plan')
+
             cliente_renovado = Cliente.objects.filter(rut=rut_renovar).first()
 
             if cliente_renovado:
                 plan_anterior = cliente_renovado.mensualidad_id
                 cliente_renovado.metodo_pago = metodo_pago
 
+                # Asignar solo al confirmar renovación
                 if nuevo_plan_id:
                     mensualidad_obj = Mensualidad.objects.get(pk=nuevo_plan_id)
                     cliente_renovado.mensualidad = mensualidad_obj
                     cliente_renovado.tipo_publico = mensualidad_obj.tipo
+
                 if nuevo_sub_plan:
                     cliente_renovado.sub_plan = nuevo_sub_plan
 
@@ -433,7 +448,6 @@ def renovarCliente(request):
     if rut_buscado:
         clientes = Cliente.objects.filter(rut__icontains=rut_buscado).prefetch_related("planes_personalizados")
     else:
-
         clientes = Cliente.objects.filter(
             Q(fecha_fin_plan__gte=hoy - timedelta(days=100)) | Q(fecha_fin_plan__isnull=True)
         ).prefetch_related("planes_personalizados")
@@ -446,6 +460,7 @@ def renovarCliente(request):
         'planes_personalizados': PlanPersonalizado.objects.all(),
         'tipos_mensualidad': tipos_mensualidad
     })
+
 @admin_required
 def cambiar_sub_plan(request):
     if request.method == 'POST':
@@ -489,7 +504,6 @@ def historial_cliente(request):
     except (TypeError, ValueError):
         month = now.month
 
-  
     try:
         locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8') 
     except locale.Error:
@@ -515,16 +529,16 @@ def historial_cliente(request):
                 fecha__lte=fin_mes
             ).order_by('fecha')
 
-            from collections import defaultdict
-            asistencias_dict = defaultdict(list)
+            asistencias_dict_temp = defaultdict(list)
 
             for asistencia in asistencias:
                 fecha_local = asistencia.fecha.astimezone(zona_chile)
                 dia = fecha_local.day
                 hora = fecha_local.strftime("%H:%M:%S")
-                asistencias_dict[dia].append(hora)
+                asistencias_dict_temp[dia].append(hora)
 
-            asistencias_dict = dict(asistencias_dict)
+            # Convertir claves a string para JS
+            asistencias_dict = {str(k): v for k, v in asistencias_dict_temp.items()}
 
         except Cliente.DoesNotExist:
             rut_invalido = True
@@ -541,8 +555,13 @@ def historial_cliente(request):
     }
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-        html = render_to_string('core/calendario_parcial.html', context, request=request)
-        return JsonResponse({'html': html})
+        html_calendario = render_to_string('core/calendario_parcial.html', context, request=request)
+        html_cliente = render_to_string('core/cliente_info.html', context, request=request)
+        return JsonResponse({
+            'calendario': html_calendario,
+            'cliente': html_cliente,
+            'asistencias': asistencias_dict 
+        })
     
     return render(request, 'core/historial_cliente.html', context)
 
@@ -557,20 +576,38 @@ def modificar_cliente(request, cliente_id):
         correo = request.POST.get('correo')
         telefono = request.POST.get('telefono')
 
+    
         if not nombre or not apellido or not rut or not correo or not telefono:
             messages.error(request, "⚠️ Todos los campos obligatorios deben estar completos.")
-        else:
-            try:
-                cliente.nombre = nombre
-                cliente.apellido = apellido
-                cliente.rut = rut
-                cliente.correo = correo
-                cliente.telefono = telefono
-                cliente.save()
-                messages.success(request, "✅ Cliente modificado exitosamente.")
-                return redirect('renovarCliente')  
-            except Exception as e:
-                messages.error(request, f"❌ Error al modificar el cliente: {str(e)}")
+            return render(request, 'core/modificar_cliente.html', {'cliente': cliente})
+
+     
+        if not validar_rut(rut):
+            messages.error(request, "❌ El RUT ingresado no es válido. Formato: 12345678-9 o 12345678-K")
+            return render(request, 'core/modificar_cliente.html', {'cliente': cliente})
+
+    
+        if not validar_correo(correo):
+            messages.error(request, "❌ El correo ingresado no tiene un formato válido.")
+            return render(request, 'core/modificar_cliente.html', {'cliente': cliente})
+
+     
+        if not validar_telefono(telefono):
+            messages.error(request, "❌ El teléfono debe ser chileno válido (ej: +569XXXXXXXX o 912345678).")
+            return render(request, 'core/modificar_cliente.html', {'cliente': cliente})
+
+   
+        try:
+            cliente.nombre = nombre
+            cliente.apellido = apellido
+            cliente.rut = rut
+            cliente.correo = correo
+            cliente.telefono = telefono
+            cliente.save()
+            messages.success(request, "✅ Cliente modificado exitosamente.")
+            return redirect('renovarCliente')
+        except Exception as e:
+            messages.error(request, f"❌ Error al modificar el cliente: {str(e)}")
 
     return render(request, 'core/modificar_cliente.html', {'cliente': cliente})
 

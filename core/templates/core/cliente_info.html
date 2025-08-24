@@ -1,0 +1,12 @@
+{% if cliente %}
+<div class="cliente-info">
+    <h3>Información del Cliente</h3>
+    <p><strong>Nombre Completo:</strong> {{ cliente.nombre }} {{ cliente.apellido }}</p>
+    <p><strong>RUT:</strong> {{ cliente.rut }}</p>
+    <p><strong>Email:</strong> {{ cliente.correo }}</p>
+    <p><strong>Teléfono:</strong> {{ cliente.telefono }}</p>
+    <p><strong>Plan Actual:</strong> {{ cliente.mensualidad }} {{ cliente.sub_plan }}</p>
+    <p><strong>Días Restantes:</strong> {{ cliente.dias_restantes }}</p>
+</div>
+{% endif %}
+                    

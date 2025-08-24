@@ -66,35 +66,27 @@
 
                 <!-- Tipo de plan -->
                 <td>
-                    <form method="post" action="{% url 'cambiar_tipo_plan_mensual' %}" id="form-plan-{{ cliente.rut }}">
-                        {% csrf_token %}
-                        <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
-                        <select name="nuevo_plan" onchange="handleSelectChange(this, '{{ cliente.rut }}')" class="select-bonito">
-                            <option value="">-- Selecciona Mensualidad --</option>
-                            {% for mensualidad in tipos_mensualidad %}
-                                <option value="{{ mensualidad.id }}" {% if cliente.mensualidad and cliente.mensualidad.id == mensualidad.id %}selected{% endif %}>
-                                    {{ mensualidad.tipo }} + Plan {{ mensualidad.duracion }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </form>
-                </td>
+            <select name="nuevo_plan" id="plan-{{ cliente.rut }}" class="select-bonito">
+                <option value="">-- Selecciona Mensualidad --</option>
+                {% for mensualidad in tipos_mensualidad %}
+                    <option value="{{ mensualidad.id }}" {% if cliente.mensualidad and cliente.mensualidad.id == mensualidad.id %}selected{% endif %}>
+                        {{ mensualidad.tipo }} + Plan {{ mensualidad.duracion }}
+                    </option>
+                {% endfor %}
+            </select>
+        </td>
 
                 <!-- SubPlan -->
-                <td>
-                    <form method="post" action="{% url 'cambiar_sub_plan' %}" id="form-subplan-{{ cliente.rut }}">
-                        {% csrf_token %}
-                        <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
-                        <select name="nuevo_sub_plan" onchange="confirmarCambioPlan(this, '{{ cliente.sub_plan|default:'' }}')" class="select-bonito">
-                            <option value="">-- Selecciona SubPlan --</option>
-                            {% for key, value in cliente.SUB_PLANES %}
-                                <option value="{{ key }}" {% if cliente.sub_plan == key %}selected{% endif %}>{{ value }}</option>
-                            {% endfor %}
-                        </select>
-                    </form>
-                </td>
-
-                <!-- Plan personalizado -->
+                 <td>
+                <select name="nuevo_sub_plan" id="subplan-{{ cliente.rut }}" 
+                        class="select-bonito" 
+                        onchange="confirmarCambioSubplan('{{ cliente.rut }}')">
+                    <option value="">-- Selecciona SubPlan --</option>
+                    {% for key, value in cliente.SUB_PLANES %}
+                        <option value="{{ key }}" {% if cliente.sub_plan == key %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+        </td>          <!-- Plan personalizado -->
 
 <td>
     <form method="post" action="{% url 'cambiar_planes_personalizados' %}" id="form-plan-personalizado-{{ cliente.rut }}">
@@ -199,20 +191,27 @@
             {% csrf_token %}
             <input type="hidden" id="rut-renovar" name="renovar_rut">
             <input type="hidden" id="metodo-pago-hidden" name="metodo_pago">
+            <input type="hidden" id="nuevo-plan-hidden" name="nuevo_plan">
+            <input type="hidden" id="nuevo-subplan-hidden" name="nuevo_sub_plan">
             <button type="submit">Sí, renovar</button>
             <button type="button" onclick="cerrarModal()">Cancelar</button>
         </form>
     </div>
 </div>
-
-<!-- MODAL DE CONFIRMACIÓN CAMBIO DE PLAN/SUBPLAN -->
-<div id="modal-cambio-plan" class="modal-renovar" style="display: none;">
+<!-- MODAL DE CONFIRMACIÓN DE CAMBIO DE SUBPLAN -->
+<div id="modal-cambio-subplan" class="modal-renovar" style="display: none;">
     <div class="modal-content-renovar">
-        <p id="mensaje-cambio-plan"></p>
-        <div class="modal-cliente-actions">
-            <button type="button" class="btn-global" onclick="confirmarEnvioCambio()">✅ Sí, cambiar</button>
-            <button type="button" class="btn-cliente-cancelar" onclick="cerrarModalCambio()">Cancelar</button>
-        </div>
+        <h2>Confirmar cambio de SubPlan</h2>
+        <p id="mensaje-cambio-subplan"></p>
+      <form id="form-cambio-subplan" method="post" action="{% url 'cambiar_sub_plan' %}">
+    {% csrf_token %}
+    <input type="hidden" name="rut_cliente" id="rut-subplan-hidden">
+    <input type="hidden" name="nuevo_sub_plan" id="nuevo-subplan-hidden-modal">
+    <div class="modal-cliente-actions">
+        <button type="submit" class="btn-global">✅ Sí, cambiar</button>
+        <button type="button" onclick="cerrarModalSubplan()" class="btn-cliente-cancelar">Cancelar</button>
+    </div>
+</form>
     </div>
 </div>
 
@@ -313,16 +312,36 @@ function mostrarConfirmacion(event) {
         return;
     }
 
+    // Guardamos valores
     document.getElementById('rut-renovar').value = rut;
     document.getElementById('metodo-pago-hidden').value = metodo;
+    document.getElementById('nuevo-plan-hidden').value = document.getElementById(`plan-${rut}`).value;
+    document.getElementById('nuevo-subplan-hidden').value = document.getElementById(`subplan-${rut}`).value;
 
     cerrarModalMetodo();
     document.getElementById('modal-confirmar').style.display = 'flex';
 }
 
-function cerrarModal() {
-    document.getElementById('modal-confirmar').style.display = 'none';
+function confirmarCambioSubplan(rut) {
+    const subplanSelect = document.getElementById(`subplan-${rut}`);
+    const subplanTexto = subplanSelect.options[subplanSelect.selectedIndex].text;
+    const subplanValor = subplanSelect.value;
+
+    if (!subplanValor) return; 
+
+    document.getElementById('mensaje-cambio-subplan').innerText =
+        `¿Confirma que desea asignar el SubPlan: "${subplanTexto}"?`;
+
+    document.getElementById('rut-subplan-hidden').value = rut;
+    document.getElementById('nuevo-subplan-hidden-modal').value = subplanValor;
+
+    document.getElementById("modal-cambio-subplan").style.display = 'flex';
 }
+
+function cerrarModalSubplan() {
+    document.getElementById("modal-cambio-subplan").style.display = 'none';
+}
+
 
 function validarFormulario(event) {
     const rut = document.getElementById('rutInput').value.trim();

@@ -19,22 +19,25 @@
             <p>El plan le vence el <strong>{{ vencimiento_plan|date:"d" }} de {{ vencimiento_plan|date:"F" }}</strong></p>
 
             {# SubPlan normal (si no es Titanio) #}
-            {% if cliente.sub_plan and cliente.sub_plan != "Titanio" %}
-                <p>Accesos restantes este mes: <strong>{{ cliente.accesos_restantes }}</strong></p>
+           {% if cliente.sub_plan %}
+            <p>SubPlan: <strong>{{ cliente.sub_plan }}</strong></p>
+            {% if cliente.sub_plan == "Titanio" %}
+                <p>Acceso ilimitado</p>
+            {% else %}
+                <p>Accesos restantes SubPlan: <strong>{{ accesos_restantes_subplan }}</strong></p>
             {% endif %}
+    {% endif %}
 
-            {# Plan personalizado activo #}
+         {# Plan personalizado activo #}
             {% if cliente.plan_personalizado_activo and cliente.plan_personalizado_activo.nombre_plan != "Ninguno" %}
-                {% if plan_libre %}
-                    <p>Acceso ilimitado este mes</p>
-                    <p>Plan usado: <strong>{{ cliente.plan_personalizado_activo.nombre_plan }}</strong></p>
+                <p>Plan personalizado: <strong>{{ cliente.plan_personalizado_activo.nombre_plan }}</strong></p>
+                {% if plan_libre or plan_full %}
+                    <p>Acceso ilimitado</p>
                 {% else %}
-                    <p>Plan usado: <strong>{{ cliente.plan_personalizado_activo.nombre_plan }}</strong></p>
+                    <p>Accesos restantes Plan Personalizado: <strong>{{ accesos_restantes_personalizado }}</strong></p>
                 {% endif %}
             {% endif %}
-        </div>
-    </div>
-    {% endif %}
+            {% endif %}
 
     {% if planes_personalizados and planes_personalizados|length > 1 and not mostrar_modal %}
     <div class="modal-custom">
