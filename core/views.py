@@ -116,44 +116,7 @@ def registro_cliente(request):
         'cliente': cliente_creado,
     })
 
-""" #HUELLA COMENTADA
-@csrf_exempt
-def api_registrar_asistencia(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "Método no permitido"}, status=405)
-    try:
-        data = json.loads(request.body)
-        cliente_id = data.get("cliente_id")
 
-        cliente = Cliente.objects.filter(id=cliente_id).first()
-        if not cliente:
-            return JsonResponse({"error": "Cliente no encontrado"}, status=404)
-
-        hoy = timezone.now().date()
-        if Asistencia.objects.filter(cliente=cliente, fecha=hoy).exists():
-            return JsonResponse({"mensaje": "Asistencia ya registrada hoy"}, status=200)
-
-        # Verificar vencimiento de plan (ajustar campo según tu modelo)
-        vencimiento_plan = cliente.fecha_vencimiento_plan
-        if vencimiento_plan and vencimiento_plan < hoy:
-            return JsonResponse({"error": "Plan vencido"}, status=403)
-
-        Asistencia.objects.create(cliente=cliente)
-
-        dias_restantes = (vencimiento_plan - hoy).days if vencimiento_plan else None
-        return JsonResponse({
-            "mensaje": "Asistencia registrada",
-            "cliente": {
-                "nombre": cliente.nombre,
-                "apellido": cliente.apellido,
-            },
-            "vencimiento_plan": vencimiento_plan.strftime("%Y-%m-%d") if vencimiento_plan else None,
-            "dias_restantes": dias_restantes,
-        })
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=400)
-...
-"""
 
 @admin_required
 def activar_plan_cliente(request, cliente_id):
@@ -240,7 +203,7 @@ def asistencia_cliente(request):
         accesos_restantes_personalizado = None
         tipo_asistencia = None
 
-        # --- Calcular accesos Plan Personalizado ---
+        # Calcular accesos Plan Personalizado 
         if plan_activo and (plan_activo.accesos_por_mes > 0 or plan_libre or plan_full):
             usados_mes_personalizado = Asistencia.objects.filter(
                 cliente=cliente,
@@ -254,7 +217,7 @@ def asistencia_cliente(request):
                 accesos_restantes_personalizado = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
             tipo_asistencia = "plan_personalizado"
 
-        # --- Calcular accesos SubPlan ---
+        #  Calcular accesos SubPlan 
         if cliente.sub_plan:
             if cliente.sub_plan == "Titanio":
                 accesos_restantes_subplan = float("inf")
@@ -325,7 +288,7 @@ def asistencia_cliente(request):
                 accesos_restantes_subplan = max(accesos_dict.get(cliente.sub_plan, 0) - usados_mes_subplan, 0)
         cliente.save()
 
-        # Enviar al contexto ambos accesos separados
+       
         contexto.update({
             "mostrar_modal": True,
             "cliente": cliente,
@@ -519,7 +482,7 @@ def historial_cliente(request):
     zona_chile = pytz.timezone('America/Santiago')
     now = timezone.localtime()
 
-    # Año y mes por defecto si no vienen
+
     try:
         year = int(year)
     except (TypeError, ValueError):
@@ -530,7 +493,7 @@ def historial_cliente(request):
     except (TypeError, ValueError):
         month = now.month
 
-    # Nombre del mes en español
+    
     try:
         locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
     except locale.Error:
@@ -540,8 +503,8 @@ def historial_cliente(request):
 
     cliente = None
     rut_invalido = False
-    asistencias_dict = {}  # Ingresos al gym
-    sesiones_dict = {}     # Sesiones Nutricional/Kinesiología
+    asistencias_dict = {}  
+    sesiones_dict = {}     
 
     dias_mes = list(range(1, calendar.monthrange(year, month)[1] + 1))
 

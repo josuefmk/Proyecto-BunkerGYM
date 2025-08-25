@@ -120,35 +120,27 @@
         <!-- Método de pago -->
         <td>{{ cliente.metodo_pago }}</td>
 
-       <!-- Sesiones -->
-<!-- Sesiones -->
-<td>
-    {% if cliente.sub_plan == 'Titanio' %}
-        <form method="post" action="{% url 'registrar_sesion' %}" id="form-sesion-{{ cliente.rut }}">
-            {% csrf_token %}
-            <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
-            <input type="hidden" name="tipo_sesion" id="tipo-sesion-{{ cliente.rut }}">
-            <input type="hidden" name="fecha_sesion" id="fecha-sesion-{{ cliente.rut }}">
 
-            <select class="select-bonito" onchange="abrirModalSesion(this, '{{ cliente.rut }}')">
-            <option value="">-- Selecciona Sesión --</option>
-            <option value="ninguno" {% if cliente.ultima_sesion_tipo == 'ninguno' %}selected{% endif %}>Ninguno</option>
-            <option value="nutricional" {% if cliente.ultima_sesion_tipo == 'nutricional' %}selected{% endif %}>Asistió Sesión Nutricional</option>
-            <option value="kinesiologia" {% if cliente.ultima_sesion_tipo == 'kinesiologia' %}selected{% endif %}>Asistió Sesión Kinesiología</option>
-          </select>   
-        </form>
-    {% else %}
-        {% if cliente.sesiones.exists %}
-            <div class="sesion-list">
-                {% for sesion in cliente.sesiones.all %}
-                    <div>{{ sesion.get_tipo_sesion_display }} - {{ sesion.fecha|date:"d/m/Y" }}</div>
-                {% endfor %}
-            </div>
+        <!-- Sesiones -->
+    <td>
+        {% if cliente.sub_plan == 'Titanio' %}
+            <form method="post" action="{% url 'registrar_sesion' %}" id="form-sesion-{{ cliente.rut }}">
+                {% csrf_token %}
+                <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
+                <input type="hidden" name="tipo_sesion" id="tipo-sesion-{{ cliente.rut }}">
+                <input type="hidden" name="fecha_sesion" id="fecha-sesion-{{ cliente.rut }}">
+
+                <select class="select-bonito" onchange="abrirModalSesion(this, '{{ cliente.rut }}')">
+                    <option value="">-- Selecciona Sesión --</option>
+                    <option value="ninguno" {% if cliente.ultima_sesion_tipo == 'ninguno' %}selected{% endif %}>Ninguno</option>
+                    <option value="nutricional" {% if cliente.ultima_sesion_tipo == 'nutricional' %}selected{% endif %}>Asistió Sesión Nutricional</option>
+                    <option value="kinesiologia" {% if cliente.ultima_sesion_tipo == 'kinesiologia' %}selected{% endif %}>Asistió Sesión Kinesiología</option>
+                </select>   
+            </form>
         {% else %}
             <span>No aplica</span>
         {% endif %}
-    {% endif %}
-</td>
+    </td>
         <!-- Botón renovar -->
         <td>
             <button type="button" class="btn-global" onclick="confirmarRenovacion('{{ cliente.rut }}')">Renovar</button>
@@ -165,101 +157,101 @@
         </td>
     </tr>
     {% endfor %}
-</tbody>
-    </table>
-{% else %}
-    <p style="text-align: center; font-size: 18px; color: black;">
-        No se encontró el RUT del Cliente.
-    </p>
-{% endif %}
+    </tbody>
+        </table>
+    {% else %}
+        <p style="text-align: center; font-size: 18px; color: black;">
+            No se encontró el RUT del Cliente.
+        </p>
+    {% endif %}
 <!-- MODAL PARA LA FECHA DE SESIONES -->
-<div id="modal-sesion" class="modal-renovar" style="display:none;">
-  <div class="modal-content-renovar">
-    <h2>Registrar Sesión</h2>
-    <p id="texto-modal-sesion"></p>
-    <form id="form-modal-sesion" onsubmit="guardarSesion(event)">
-        <input type="hidden" id="modal-rut">
-        <input type="hidden" id="modal-tipo-sesion">
+    <div id="modal-sesion" class="modal-renovar" style="display:none;">
+    <div class="modal-content-renovar">
+        <h2>Registrar Sesión</h2>
+        <p id="texto-modal-sesion"></p>
+        <form id="form-modal-sesion" onsubmit="guardarSesion(event)">
+            <input type="hidden" id="modal-rut">
+            <input type="hidden" id="modal-tipo-sesion">
 
-        <label for="modal-fecha">Selecciona la fecha:</label>
-        <input type="date" id="modal-fecha" required>
+            <label for="modal-fecha">Selecciona la fecha:</label>
+            <input type="date" id="modal-fecha" required>
 
-        <div class="modal-cliente-actions" style="margin-top:10px;">
-            <button type="submit" class="btn-global">Guardar</button>
-            <button type="button" class="btn-cliente-cancelar" onclick="cerrarModalSesion()">Cancelar</button>
-        </div>
-    </form>
-  </div>
-</div>
+            <div class="modal-cliente-actions" style="margin-top:10px;">
+                <button type="submit" class="btn-global">Guardar</button>
+                <button type="button" class="btn-cliente-cancelar" onclick="cerrarModalSesion()">Cancelar</button>
+            </div>
+        </form>
+    </div>
+    </div>
 
 
 <!-- MODAL PARA ELIMINAR CLIENTE -->
-<div id="modalEliminarCliente" class="modal modal-error" style="display: none;">
-  <div class="modal-cliente-content">
-    <button type="button" class="modal-close" onclick="cerrarModalCliente()">&times;</button>
-    <h2>Eliminar cliente</h2>
-    <p id="mensaje-modal-cliente">¿Estás seguro que deseas eliminar a este cliente?</p>
-    <form id="formEliminarCliente" method="POST">
-      {% csrf_token %}
-      <div class="modal-cliente-actions">
-        <button type="submit" class="btn-cliente-eliminar">🗑️ Sí, eliminar</button>
-        <button type="button" onclick="cerrarModalCliente()" class="btn-cliente-cancelar">Cancelar</button>
-      </div>
-    </form>
-  </div>
-</div>
+    <div id="modalEliminarCliente" class="modal modal-error" style="display: none;">
+    <div class="modal-cliente-content">
+        <button type="button" class="modal-close" onclick="cerrarModalCliente()">&times;</button>
+        <h2>Eliminar cliente</h2>
+        <p id="mensaje-modal-cliente">¿Estás seguro que deseas eliminar a este cliente?</p>
+        <form id="formEliminarCliente" method="POST">
+        {% csrf_token %}
+        <div class="modal-cliente-actions">
+            <button type="submit" class="btn-cliente-eliminar">🗑️ Sí, eliminar</button>
+            <button type="button" onclick="cerrarModalCliente()" class="btn-cliente-cancelar">Cancelar</button>
+        </div>
+        </form>
+    </div>
+    </div>
 
 <!-- MODAL PARA ELEGIR MÉTODO DE PAGO -->
-<div id="modal-metodo-pago" class="modal-renovar" style="display: none;">
-    <div class="modal-content-renovar">
-        <p>Selecciona el método de pago:</p>
-        <form id="form-metodo-pago" onsubmit="mostrarConfirmacion(event)">
-            <input type="hidden" id="rut-metodo" name="rut">
-            <select id="metodo-pago" class="select-bonito" required>
-                <option value="">-- Selecciona --</option>
-                <option value="Efectivo">Efectivo</option>
-                <option value="Debito">Débito</option>
-                <option value="Credito">Crédito</option>
-                <option value="Transferencia">Transferencia</option>
-            </select>
-            <br><br>
-            <button type="submit">Continuar</button>
-            <button type="button" onclick="cerrarModalMetodo()">Cancelar</button>
-        </form>
+    <div id="modal-metodo-pago" class="modal-renovar" style="display: none;">
+        <div class="modal-content-renovar">
+            <p>Selecciona el método de pago:</p>
+            <form id="form-metodo-pago" onsubmit="mostrarConfirmacion(event)">
+                <input type="hidden" id="rut-metodo" name="rut">
+                <select id="metodo-pago" class="select-bonito" required>
+                    <option value="">-- Selecciona --</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Debito">Débito</option>
+                    <option value="Credito">Crédito</option>
+                    <option value="Transferencia">Transferencia</option>
+                </select>
+                <br><br>
+                <button type="submit">Continuar</button>
+                <button type="button" onclick="cerrarModalMetodo()">Cancelar</button>
+            </form>
+        </div>
     </div>
-</div>
 
 <!-- MODAL DE CONFIRMACIÓN DE RENOVACIÓN -->
-<div id="modal-confirmar" class="modal-renovar" style="display: none;">
-    <div class="modal-content-renovar">
-        <p>¿Estás seguro que deseas renovar el plan?</p>
-        <form method="post" action="{% url 'renovarCliente' %}">
-            {% csrf_token %}
-            <input type="hidden" id="rut-renovar" name="renovar_rut">
-            <input type="hidden" id="metodo-pago-hidden" name="metodo_pago">
-            <input type="hidden" id="nuevo-plan-hidden" name="nuevo_plan">
-            <input type="hidden" id="nuevo-subplan-hidden" name="nuevo_sub_plan">
-            <button type="submit">Sí, renovar</button>
-            <button type="button" onclick="cerrarModal()">Cancelar</button>
-        </form>
+    <div id="modal-confirmar" class="modal-renovar" style="display: none;">
+        <div class="modal-content-renovar">
+            <p>¿Estás seguro que deseas renovar el plan?</p>
+            <form method="post" action="{% url 'renovarCliente' %}">
+                {% csrf_token %}
+                <input type="hidden" id="rut-renovar" name="renovar_rut">
+                <input type="hidden" id="metodo-pago-hidden" name="metodo_pago">
+                <input type="hidden" id="nuevo-plan-hidden" name="nuevo_plan">
+                <input type="hidden" id="nuevo-subplan-hidden" name="nuevo_sub_plan">
+                <button type="submit">Sí, renovar</button>
+                <button type="button" onclick="cerrarModal()">Cancelar</button>
+            </form>
+        </div>
     </div>
-</div>
 <!-- MODAL DE CONFIRMACIÓN DE CAMBIO DE SUBPLAN -->
-<div id="modal-cambio-subplan" class="modal-renovar" style="display: none;">
-    <div class="modal-content-renovar">
-        <h2>Confirmar cambio de SubPlan</h2>
-        <p id="mensaje-cambio-subplan"></p>
-      <form id="form-cambio-subplan" method="post" action="{% url 'cambiar_sub_plan' %}">
-    {% csrf_token %}
-    <input type="hidden" name="rut_cliente" id="rut-subplan-hidden">
-    <input type="hidden" name="nuevo_sub_plan" id="nuevo-subplan-hidden-modal">
-    <div class="modal-cliente-actions">
-        <button type="submit" class="btn-global">✅ Sí, cambiar</button>
-        <button type="button" onclick="cerrarModalSubplan()" class="btn-cliente-cancelar">Cancelar</button>
+    <div id="modal-cambio-subplan" class="modal-renovar" style="display: none;">
+        <div class="modal-content-renovar">
+            <h2>Confirmar cambio de SubPlan</h2>
+            <p id="mensaje-cambio-subplan"></p>
+        <form id="form-cambio-subplan" method="post" action="{% url 'cambiar_sub_plan' %}">
+        {% csrf_token %}
+        <input type="hidden" name="rut_cliente" id="rut-subplan-hidden">
+        <input type="hidden" name="nuevo_sub_plan" id="nuevo-subplan-hidden-modal">
+        <div class="modal-cliente-actions">
+            <button type="submit" class="btn-global">✅ Sí, cambiar</button>
+            <button type="button" onclick="cerrarModalSubplan()" class="btn-cliente-cancelar">Cancelar</button>
+        </div>
+    </form>
+        </div>
     </div>
-</form>
-    </div>
-</div>
 
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -424,7 +416,6 @@ function abrirModalSesion(select, rut) {
     const tipo = select.value;
     if (!tipo) return;
 
-    // Guardar valores en el modal
     document.getElementById("modal-rut").value = rut;
     document.getElementById("modal-tipo-sesion").value = tipo;
 
@@ -435,10 +426,10 @@ function abrirModalSesion(select, rut) {
 
     document.getElementById("texto-modal-sesion").innerText = texto;
 
-    // Mostrar modal
+  
     document.getElementById("modal-sesion").style.display = "flex";
 
-    // Resetear fecha
+    
     document.getElementById("modal-fecha").value = "";
 }
 
@@ -458,20 +449,18 @@ function guardarSesion(event) {
         return;
     }
 
-    // Pasar valores al formulario del cliente
+
     document.getElementById(`tipo-sesion-${rut}`).value = tipo;
     document.getElementById(`fecha-sesion-${rut}`).value = fecha;
 
-    // Cambiar el select para mostrar la opción seleccionada
     const select = document.querySelector(`#form-sesion-${rut} .select-bonito`);
     if (select) {
         select.value = tipo;
     }
 
-    // Enviar formulario
+ 
     document.getElementById(`form-sesion-${rut}`).submit();
 
-    // Cerrar modal
     cerrarModalSesion();
 }
 
