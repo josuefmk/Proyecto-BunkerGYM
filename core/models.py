@@ -61,8 +61,22 @@ class PlanPersonalizado(models.Model):
     accesos_por_mes = models.IntegerField(default=0)
     def __str__(self):
         return self.nombre_plan
-
-
+    
+# --------------------------
+# Modelo: Sesiones
+# --------------------------
+class Sesion(models.Model):
+    TIPO_SESION = [
+        ('nutricional', 'Asistió Sesión Nutricional'),
+        ('kinesiologia', 'Asistió Sesión Kinesiología'),
+    ]
+    cliente = models.ForeignKey('Cliente', on_delete=models.CASCADE, related_name="sesiones")
+    tipo_sesion = models.CharField(max_length=20, choices=TIPO_SESION)
+    fecha = models.DateField()
+  
+    
+    def __str__(self):
+        return f"{self.cliente.nombre} - {self.get_tipo_sesion_display()} ({self.fecha})"
 
 # --------------------------
 # Modelo: Precios
@@ -201,6 +215,11 @@ class Cliente(models.Model):
         self.asignar_precio()
 
         super().save(*args, **kwargs)
+    @property
+    def ultima_sesion_tipo(self):
+            if self.sesiones.exists():
+                return self.sesiones.last().tipo_sesion
+            return ""
 
     @property
     def estado_plan(self):

@@ -3,7 +3,7 @@ from django.shortcuts import render, redirect
 from django.utils import timezone
 from psycopg import logger
 from pyparsing import wraps
-from .models import Cliente, Asistencia, Admin, Mensualidad, PlanPersonalizado, Precios,Producto, Venta
+from .models import Cliente, Asistencia, Admin, Mensualidad, PlanPersonalizado, Precios,Producto, Sesion, Venta
 from .forms import ClienteForm, DescuentoUpdateForm, PrecioUpdateForm,ProductoForm
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -462,6 +462,30 @@ def renovarCliente(request):
     })
 
 @admin_required
+def registrar_sesion(request):
+    if request.method == "POST":
+        rut = request.POST.get('rut_cliente')
+        tipo_sesion = request.POST.get('tipo_sesion')
+        fecha = request.POST.get('fecha_sesion')
+
+        cliente = Cliente.objects.filter(rut=rut).first()
+        if not cliente:
+            messages.error(request, "Cliente no encontrado.")
+        elif cliente.sub_plan != 'Titanio':
+            messages.error(request, "Solo clientes con SubPlan Titanio pueden registrar sesiones.")
+        elif not tipo_sesion or not fecha:
+            messages.error(request, "Debe seleccionar tipo de sesión y fecha.")
+        else:
+            Sesion.objects.create(
+                cliente=cliente,
+                tipo_sesion=tipo_sesion,
+                fecha=fecha
+            )
+            messages.success(request, f"Sesión {tipo_sesion} registrada para {cliente.nombre} {cliente.apellido}.")
+
+    return redirect('renovarCliente')
+
+@admin_required
 def cambiar_sub_plan(request):
     if request.method == 'POST':
         rut_cliente = request.POST.get('rut_cliente')
@@ -485,6 +509,7 @@ def cambiar_sub_plan(request):
 
     return redirect(f'{reverse("renovarCliente")}?rut={rut_cliente}')
 
+
 @admin_required
 def historial_cliente(request):
     rut = request.GET.get('rut') or request.POST.get('rut')
@@ -494,6 +519,7 @@ def historial_cliente(request):
     zona_chile = pytz.timezone('America/Santiago')
     now = timezone.localtime()
 
+    # Año y mes por defecto si no vienen
     try:
         year = int(year)
     except (TypeError, ValueError):
@@ -504,41 +530,57 @@ def historial_cliente(request):
     except (TypeError, ValueError):
         month = now.month
 
+    # Nombre del mes en español
     try:
-        locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8') 
+        locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
     except locale.Error:
-        locale.setlocale(locale.LC_TIME, 'Spanish_Spain.1252') 
+        locale.setlocale(locale.LC_TIME, 'Spanish_Spain.1252')
 
     current_month_name = datetime(year, month, 1).strftime('%B').capitalize()
 
     cliente = None
     rut_invalido = False
-    asistencias_dict = {}
+    asistencias_dict = {}  # Ingresos al gym
+    sesiones_dict = {}     # Sesiones Nutricional/Kinesiología
 
     dias_mes = list(range(1, calendar.monthrange(year, month)[1] + 1))
 
     if rut:
         try:
             cliente = Cliente.objects.get(rut=rut)
-            inicio_mes = datetime(year, month, 1, tzinfo=zona_chile)
-            fin_mes = datetime(year, month, calendar.monthrange(year, month)[1], 23, 59, 59, tzinfo=zona_chile)
 
+            inicio_mes = datetime(year, month, 1, tzinfo=zona_chile)
+            fin_mes = datetime(year, month, calendar.monthrange(year, month)[1],
+                               23, 59, 59, tzinfo=zona_chile)
+
+            # Asistencias al gym
             asistencias = Asistencia.objects.filter(
                 cliente=cliente,
                 fecha__gte=inicio_mes,
                 fecha__lte=fin_mes
             ).order_by('fecha')
 
-            asistencias_dict_temp = defaultdict(list)
+            asistencias_temp = defaultdict(list)
+            for a in asistencias:
+                dia = a.fecha.day
+                hora = a.fecha.strftime("%H:%M:%S")
+                asistencias_temp[dia].append(hora)
+            asistencias_dict = {dia: horas for dia, horas in asistencias_temp.items()}
 
-            for asistencia in asistencias:
-                fecha_local = asistencia.fecha.astimezone(zona_chile)
-                dia = fecha_local.day
-                hora = fecha_local.strftime("%H:%M:%S")
-                asistencias_dict_temp[dia].append(hora)
+            # Sesiones Nutricional / Kinesiología
+            sesiones = Sesion.objects.filter(
+                cliente=cliente,
+                fecha__gte=inicio_mes,
+                fecha__lte=fin_mes
+            ).order_by('fecha')
 
-            # Convertir claves a string para JS
-            asistencias_dict = {str(k): v for k, v in asistencias_dict_temp.items()}
+            sesiones_temp = defaultdict(list)
+            for s in sesiones:
+                dia = s.fecha.day
+                tipo = s.get_tipo_sesion_display()
+                hora = s.fecha.strftime("%H:%M:%S") if hasattr(s, 'fecha') else ''
+                sesiones_temp[dia].append(f"{tipo} ({hora})")
+            sesiones_dict = {dia: items for dia, items in sesiones_temp.items()}
 
         except Cliente.DoesNotExist:
             rut_invalido = True
@@ -549,8 +591,9 @@ def historial_cliente(request):
         'dias_mes': dias_mes,
         'current_year': year,
         'current_month': month,
-        'current_month_name': current_month_name,  
+        'current_month_name': current_month_name,
         'asistencias_dict': asistencias_dict,
+        'sesiones_dict': sesiones_dict,
         'rut': rut or '',
     }
 
@@ -560,9 +603,10 @@ def historial_cliente(request):
         return JsonResponse({
             'calendario': html_calendario,
             'cliente': html_cliente,
-            'asistencias': asistencias_dict 
+            'asistencias': asistencias_dict,
+            'sesiones': sesiones_dict,
         })
-    
+
     return render(request, 'core/historial_cliente.html', context)
 
 @admin_required

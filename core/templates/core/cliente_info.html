@@ -7,6 +7,22 @@
     <p><strong>Teléfono:</strong> {{ cliente.telefono }}</p>
     <p><strong>Plan Actual:</strong> {{ cliente.mensualidad }} {{ cliente.sub_plan }}</p>
     <p><strong>Días Restantes:</strong> {{ cliente.dias_restantes }}</p>
+
+    <!-- Historial de sesiones -->
+    {% if sesiones_dict %}
+        <h4>Historial de Sesiones del Mes</h4>
+        <ul>
+        {% for dia, sesiones in sesiones_dict.items %}
+            <li>
+                <strong>Día {{ dia }}:</strong>
+                {{ sesiones|join:", " }}
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No hay sesiones registradas para este mes.</p>
+    {% endif %}
+
+  
 </div>
 {% endif %}
-                    

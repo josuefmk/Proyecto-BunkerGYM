@@ -27,84 +27,85 @@
 
 <script>
 (function() {
-    const calendarioContainer = document.getElementById('calendario-container');
-    const rutInput = document.getElementById('rut');
+    const form = document.getElementById('form-rut');
     let year = {{ current_year }};
     let month = {{ current_month }};
-    let asistencias = {{ asistencias_dict|safe }};
+    let asistencias = JSON.parse(document.getElementById('asistencias-data').textContent);
+    let sesiones = JSON.parse(document.getElementById('sesiones-data').textContent);
 
-    function agregarEventos(asistencias) {
-        const btnPrev = document.getElementById('prev-month');
-        const btnNext = document.getElementById('next-month');
+    function agregarEventos() {
         const detallesHoras = document.getElementById('detalles-horas');
 
-        // Navegación de meses
-        if (btnPrev) {
-            btnPrev.onclick = () => {
-                month--;
-                if (month < 1) { month = 12; year--; }
-                cargarCalendario();
-            };
-        }
+        document.querySelectorAll('.calendar-day.has-assistance, .calendar-day.has-session, .calendar-day.has-both')
+            .forEach(div => {
+                div.onclick = () => {
+                    const dia = div.getAttribute('data-day');
+                    const diasAsistencias = asistencias[dia] || [];
+                    const diasSesiones = sesiones[dia] || [];
 
-        if (btnNext) {
-            btnNext.onclick = () => {
-                month++;
-                if (month > 12) { month = 1; year++; }
-                cargarCalendario();
-            };
-        }
+                    let html = `<strong>Detalles del día ${dia}:</strong><br>`;
 
-        // Asignar eventos a cada día con asistencia
-        calendarioContainer.querySelectorAll('.calendar-day.has-assistance').forEach(div => {
-            div.onclick = () => {
-                const dia = div.getAttribute('data-day');
-                const horas = asistencias[dia];
-                if (horas && horas.length > 0) {
-                    detallesHoras.innerHTML = `<strong>Asistencias del día ${dia}:</strong><br>` +
-                        horas.map(h => `• ${h}`).join('<br>');
-                } else {
-                    detallesHoras.innerHTML = `<strong>No hay asistencias registradas para el día ${dia}.</strong>`;
-                }
-                detallesHoras.scrollIntoView({behavior: "smooth"});
-            };
-        });
+                    if (diasAsistencias.length) {
+                        diasAsistencias.forEach(hora => {
+                            html += `• Ingresó al gimnasio a las ${hora}<br>`;
+                        });
+                    }
+                    if (diasSesiones.length) {
+                        diasSesiones.forEach(s => {
+                            html += `• Sesión: ${s}<br>`;
+                        });
+                    }
+                    if (!diasAsistencias.length && !diasSesiones.length) {
+                        html += 'No hay registros.';
+                    }
+
+                    detallesHoras.innerHTML = html;
+                };
+            });
     }
 
     function cargarCalendario() {
-        if (!rutInput.value.trim()) {
-            alert('Ingrese un RUT para consultar.');
-            return;
-        }
+        const rut = document.getElementById('rut').value.trim();
+        if (!rut) return alert('Ingrese un RUT para consultar.');
 
-        fetch(`${window.location.pathname}?rut=${rutInput.value.trim()}&month=${month}&year=${year}`, {
+        fetch(`${window.location.pathname}?rut=${rut}&month=${month}&year=${year}`, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(res => res.json())
         .then(data => {
-            // Actualizar HTML del cliente y calendario
             document.getElementById('cliente-container').innerHTML = data.cliente;
-            calendarioContainer.innerHTML = data.calendario;
+            document.getElementById('calendario-container').innerHTML = data.calendario;
 
-            // Actualizar asistencias desde la respuesta AJAX
+          
             asistencias = data.asistencias;
+            sesiones = data.sesiones;
 
-            // Reasignar eventos
-            agregarEventos(asistencias);
+            agregarEventos(); 
         })
         .catch(() => alert('Error cargando el calendario'));
     }
 
-    // Inicializar eventos en la carga de la página
-    agregarEventos(asistencias);
-
-    // Formulario de búsqueda por RUT
-    document.getElementById('form-rut').onsubmit = function(e) {
+    form.onsubmit = function(e) {
         e.preventDefault();
         year = new Date().getFullYear();
         month = new Date().getMonth() + 1;
         cargarCalendario();
     };
+
+    document.addEventListener('click', (e) => {
+        if (e.target.id === 'prev-month') {
+            month--;
+            if (month < 1) { month = 12; year--; }
+            cargarCalendario();
+        }
+        if (e.target.id === 'next-month') {
+            month++;
+            if (month > 12) { month = 1; year++; }
+            cargarCalendario();
+        }
+    });
+
+    agregarEventos(); 
 })();
 </script>
 

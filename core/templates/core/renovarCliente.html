@@ -53,19 +53,20 @@
                 <th>Plan Personalizado</th>
                 <th>Estado De Plan</th>
                 <th>Método de pago</th>
+                <th>Sesiones</th>
                 <th>Renovar</th>
                 <th>Modificar Cliente</th>
                 <th>Eliminar Cliente</th>
             </tr>
         </thead>
-        <tbody>
-            {% for cliente in clientes %}
-            <tr>
-                <td>{{ cliente.nombre }} {{ cliente.apellido }}</td>
-                <td>{{ cliente.rut }}</td>
+      <tbody>
+    {% for cliente in clientes %}
+    <tr>
+        <td>{{ cliente.nombre }} {{ cliente.apellido }}</td>
+        <td>{{ cliente.rut }}</td>
 
-                <!-- Tipo de plan -->
-                <td>
+        <!-- Tipo de plan -->
+        <td>
             <select name="nuevo_plan" id="plan-{{ cliente.rut }}" class="select-bonito">
                 <option value="">-- Selecciona Mensualidad --</option>
                 {% for mensualidad in tipos_mensualidad %}
@@ -76,76 +77,121 @@
             </select>
         </td>
 
-                <!-- SubPlan -->
-                 <td>
-                <select name="nuevo_sub_plan" id="subplan-{{ cliente.rut }}" 
-                        class="select-bonito" 
-                        onchange="confirmarCambioSubplan('{{ cliente.rut }}')">
-                    <option value="">-- Selecciona SubPlan --</option>
-                    {% for key, value in cliente.SUB_PLANES %}
-                        <option value="{{ key }}" {% if cliente.sub_plan == key %}selected{% endif %}>{{ value }}</option>
+        <!-- SubPlan -->
+        <td>
+            <select name="nuevo_sub_plan" id="subplan-{{ cliente.rut }}" class="select-bonito" onchange="confirmarCambioSubplan('{{ cliente.rut }}')">
+                <option value="">-- Selecciona SubPlan --</option>
+                {% for key, value in cliente.SUB_PLANES %}
+                    <option value="{{ key }}" {% if cliente.sub_plan == key %}selected{% endif %}>{{ value }}</option>
+                {% endfor %}
+            </select>
+        </td>
+
+        <!-- Plan personalizado -->
+        <td>
+            <form method="post" action="{% url 'cambiar_planes_personalizados' %}" id="form-plan-personalizado-{{ cliente.rut }}">
+                {% csrf_token %}
+                <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
+                <select name="nuevo_planes_personalizados" class="select2 select-plan-personalizado" multiple="multiple" data-rut="{{ cliente.rut }}" style="width: 180px;">
+                    {% for plan in planes_personalizados %}
+                        <option value="{{ plan.id }}" {% if plan in cliente.planes_personalizados.all %}selected{% endif %}>{{ plan.nombre_plan }}</option>
                     {% endfor %}
                 </select>
-        </td>          <!-- Plan personalizado -->
+            </form>
+        </td>
 
+        <!-- Estado del plan -->
+        <td>
+            {% if cliente.estado_plan == 'pendiente' %}
+                <span style="color: #0d6efd; font-weight: bold;">
+                    Pendiente (Plan comienza el {{ cliente.fecha_inicio_plan|date:"d \d\e F \d\e Y" }})
+                </span>
+            {% elif cliente.estado_plan == 'vencido' %}
+                <span style="color: #dc3545; font-weight: bold;">
+                    Vencido ({{ cliente.dias_restantes|floatformat:0 }} días)
+                </span>
+            {% else %}
+                <span style="color: #198754; font-weight: bold;">
+                    Activo ({{ cliente.dias_restantes }} días)
+                </span>
+            {% endif %}
+        </td>
+
+        <!-- Método de pago -->
+        <td>{{ cliente.metodo_pago }}</td>
+
+       <!-- Sesiones -->
+<!-- Sesiones -->
 <td>
-    <form method="post" action="{% url 'cambiar_planes_personalizados' %}" id="form-plan-personalizado-{{ cliente.rut }}">
-        {% csrf_token %}
-        <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
-        <select name="nuevo_planes_personalizados"
-                class="select2 select-plan-personalizado"
-                multiple="multiple"
-                data-rut="{{ cliente.rut }}"
-                style="width: 180px;">
-            {% for plan in planes_personalizados %}
-                <option value="{{ plan.id }}"
-                    {% if plan in cliente.planes_personalizados.all %}selected{% endif %}>
-                    {{ plan.nombre_plan }}
-                </option>
-            {% endfor %}
-        </select>
-    </form>
+    {% if cliente.sub_plan == 'Titanio' %}
+        <form method="post" action="{% url 'registrar_sesion' %}" id="form-sesion-{{ cliente.rut }}">
+            {% csrf_token %}
+            <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
+            <input type="hidden" name="tipo_sesion" id="tipo-sesion-{{ cliente.rut }}">
+            <input type="hidden" name="fecha_sesion" id="fecha-sesion-{{ cliente.rut }}">
+
+            <select class="select-bonito" onchange="abrirModalSesion(this, '{{ cliente.rut }}')">
+            <option value="">-- Selecciona Sesión --</option>
+            <option value="ninguno" {% if cliente.ultima_sesion_tipo == 'ninguno' %}selected{% endif %}>Ninguno</option>
+            <option value="nutricional" {% if cliente.ultima_sesion_tipo == 'nutricional' %}selected{% endif %}>Asistió Sesión Nutricional</option>
+            <option value="kinesiologia" {% if cliente.ultima_sesion_tipo == 'kinesiologia' %}selected{% endif %}>Asistió Sesión Kinesiología</option>
+          </select>   
+        </form>
+    {% else %}
+        {% if cliente.sesiones.exists %}
+            <div class="sesion-list">
+                {% for sesion in cliente.sesiones.all %}
+                    <div>{{ sesion.get_tipo_sesion_display }} - {{ sesion.fecha|date:"d/m/Y" }}</div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <span>No aplica</span>
+        {% endif %}
+    {% endif %}
 </td>
-                <!-- Estado del plan -->
-                <td>
-                    {% if cliente.estado_plan == 'pendiente' %}
-                        <span style="color: #0d6efd; font-weight: bold;">
-                            Pendiente (Plan comienza el {{ cliente.fecha_inicio_plan|date:"d \d\e F \d\e Y" }})
-                        </span>
-                    {% elif cliente.estado_plan == 'vencido' %}
-                        <span style="color: #dc3545; font-weight: bold;">
-                            Vencido ({{ cliente.dias_restantes|floatformat:0 }} días)
-                        </span>
-                    {% else %}
-                        <span style="color: #198754; font-weight: bold;">
-                            Activo ({{ cliente.dias_restantes }} días)
-                        </span>
-                    {% endif %}
-                </td>
+        <!-- Botón renovar -->
+        <td>
+            <button type="button" class="btn-global" onclick="confirmarRenovacion('{{ cliente.rut }}')">Renovar</button>
+        </td>
 
-                <td>{{ cliente.metodo_pago }}</td>
+        <!-- Botón editar cliente -->
+        <td>
+            <button type="button" class="btn-global" onclick="window.location.href='{% url 'modificar_cliente' cliente.id %}'">Editar</button>
+        </td>
 
-                <!-- Botón renovar que abre modal método pago -->
-                <td>
-                    <button type="button" class="btn-global" onclick="confirmarRenovacion('{{ cliente.rut }}')">Renovar</button>
-                </td>
-
-                <td>
-                    <button type="button" class="btn-global" onclick="window.location.href='{% url 'modificar_cliente' cliente.id %}'">Editar</button>
-                </td>
-
-                <td>
-                    <button type="button" class="btn-global" onclick="abrirModalCliente({{ cliente.id }}, '{{ cliente.nombre }} {{ cliente.apellido }}')">Eliminar</button>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
+        <!-- Botón eliminar cliente -->
+        <td>
+            <button type="button" class="btn-global" onclick="abrirModalCliente({{ cliente.id }}, '{{ cliente.nombre }} {{ cliente.apellido }}')">Eliminar</button>
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
     </table>
 {% else %}
     <p style="text-align: center; font-size: 18px; color: black;">
         No se encontró el RUT del Cliente.
     </p>
 {% endif %}
+<!-- MODAL PARA LA FECHA DE SESIONES -->
+<div id="modal-sesion" class="modal-renovar" style="display:none;">
+  <div class="modal-content-renovar">
+    <h2>Registrar Sesión</h2>
+    <p id="texto-modal-sesion"></p>
+    <form id="form-modal-sesion" onsubmit="guardarSesion(event)">
+        <input type="hidden" id="modal-rut">
+        <input type="hidden" id="modal-tipo-sesion">
+
+        <label for="modal-fecha">Selecciona la fecha:</label>
+        <input type="date" id="modal-fecha" required>
+
+        <div class="modal-cliente-actions" style="margin-top:10px;">
+            <button type="submit" class="btn-global">Guardar</button>
+            <button type="button" class="btn-cliente-cancelar" onclick="cerrarModalSesion()">Cancelar</button>
+        </div>
+    </form>
+  </div>
+</div>
+
 
 <!-- MODAL PARA ELIMINAR CLIENTE -->
 <div id="modalEliminarCliente" class="modal modal-error" style="display: none;">
@@ -373,6 +419,64 @@ function abrirModalCliente(clienteId, nombreCompleto) {
 function cerrarModalCliente() {
     document.getElementById('modalEliminarCliente').style.display = 'none';
 }
+
+function abrirModalSesion(select, rut) {
+    const tipo = select.value;
+    if (!tipo) return;
+
+    // Guardar valores en el modal
+    document.getElementById("modal-rut").value = rut;
+    document.getElementById("modal-tipo-sesion").value = tipo;
+
+    let texto = "";
+    if (tipo === "ninguno") texto = "Asignar sesión: No Asistio";
+    if (tipo === "nutricional") texto = "Asignar sesión: Nutricional";
+    if (tipo === "kinesiologia") texto = "Asignar sesión: Kinesiología";
+
+    document.getElementById("texto-modal-sesion").innerText = texto;
+
+    // Mostrar modal
+    document.getElementById("modal-sesion").style.display = "flex";
+
+    // Resetear fecha
+    document.getElementById("modal-fecha").value = "";
+}
+
+function cerrarModalSesion() {
+    document.getElementById("modal-sesion").style.display = "none";
+}
+
+function guardarSesion(event) {
+    event.preventDefault();
+
+    const rut = document.getElementById("modal-rut").value;
+    const tipo = document.getElementById("modal-tipo-sesion").value;
+    const fecha = document.getElementById("modal-fecha").value;
+
+    if (!fecha) {
+        alert("Selecciona una fecha");
+        return;
+    }
+
+    // Pasar valores al formulario del cliente
+    document.getElementById(`tipo-sesion-${rut}`).value = tipo;
+    document.getElementById(`fecha-sesion-${rut}`).value = fecha;
+
+    // Cambiar el select para mostrar la opción seleccionada
+    const select = document.querySelector(`#form-sesion-${rut} .select-bonito`);
+    if (select) {
+        select.value = tipo;
+    }
+
+    // Enviar formulario
+    document.getElementById(`form-sesion-${rut}`).submit();
+
+    // Cerrar modal
+    cerrarModalSesion();
+}
+
+
+
 </script>
 
 {% endblock %}

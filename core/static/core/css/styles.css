@@ -995,18 +995,35 @@ main.contenido.historia-cliente {
         background-color: #f9f9f9;
         user-select: none;
     }
-    .calendar-day.has-assistance {
-        background-color: #4CAF50;
+
+.calendar-day.has-assistance {
+    background-color: #007bff; 
+    color: white;
+     font-weight: bold;
+        cursor: pointer;
+        position: relative;
+}
+
+.calendar-day.has-session {
+     background-color: #4CAF50;
         color: white;
         font-weight: bold;
         cursor: pointer;
         position: relative;
-    }
-    .calendar-day.has-assistance:hover {
-        background-color: #45a049;
-    }
+}
 
-
+.calendar-day.has-both {
+    background-color: #6f42c1; 
+    color: white;
+     font-weight: bold;
+        cursor: pointer;
+        position: relative;
+}
+.calendar-day.has-assistance:hover,
+.calendar-day.has-session:hover,
+.calendar-day.has-both:hover {
+    opacity: 0.85;
+}
 
 .modal-custom {
     position: fixed;
@@ -1157,6 +1174,8 @@ main.contenido.historia-cliente {
     background-color: #0d6efd !important;
     color: #fff !important;
 }
+
+
 
 @keyframes fadeIn {
     from { opacity: 0; }

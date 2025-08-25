@@ -16,6 +16,7 @@ urlpatterns = [
     path('cambiar-tipo-plan-mensual/', views.cambiar_tipo_plan_mensual, name='cambiar_tipo_plan_mensual'),
     path('cambiar-plans-personalizados/', views.cambiar_planes_personalizados, name='cambiar_planes_personalizados'),
     path("cambiar-subplan/", views.cambiar_sub_plan, name="cambiar_sub_plan"),
+    path('registrar_sesion/', views.registrar_sesion, name='registrar_sesion'),
     path('productos/', views.productos, name='productos'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('productos/agregar/', views.agregar_producto, name='agregar_producto'),

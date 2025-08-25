@@ -1,8 +1,10 @@
+{% load static %}
 {% load myfilters %}
-<div class="historial-asistencia" id="historial-asistencia">
+
+<div class="historial-asistencia">
     <h3>Historial de Asistencia</h3>
 
-    <div style="margin-bottom: 15px;">
+    <div class="month-nav" style="margin-bottom: 15px;">
         <button id="prev-month" class="btn-month">&lt;</button>
         <span id="mes-ano">{{ current_month_name }} del {{ current_year }}</span>
         <button id="next-month" class="btn-month">&gt;</button>
@@ -18,25 +20,81 @@
         <div class="calendar-day-header">Sáb</div>
 
         {% for day in dias_mes %}
-            {% if day|stringformat:"s" in asistencias_dict %}
-                <div class="calendar-day has-assistance"
-                     data-day="{{ day }}"
-                     tabindex="0"
-                     role="button"
-                     aria-pressed="false"
-                     title="Ingresos: {{ asistencias_dict|dict_get:day|join:', ' }}">
-                    {{ day }}
-                </div>
-            {% else %}
-                <div class="calendar-day">{{ day }}</div>
-            {% endif %}
+            {% with ingresos=asistencias_dict|dict_get:day sesiones=sesiones_dict|dict_get:day %}
+                {% if ingresos and sesiones %}
+                    <div class="calendar-day has-both" data-day="{{ day }}"
+                         title="Ingresos: {{ ingresos|join:', ' }} | Sesiones: {{ sesiones|join:', ' }}">
+                        {{ day }} <span class="icon-both">★</span>
+                    </div>
+                {% elif ingresos %}
+                    <div class="calendar-day has-assistance" data-day="{{ day }}"
+                         title="Ingresos: {{ ingresos|join:', ' }}">
+                        {{ day }}
+                    </div>
+                {% elif sesiones %}
+                    <div class="calendar-day has-session" data-day="{{ day }}"
+                         title="Sesiones: {{ sesiones|join:', ' }}">
+                        {{ day }}
+                    </div>
+                {% else %}
+                    <div class="calendar-day" data-day="{{ day }}" title="No hay registros">
+                        {{ day }}
+                    </div>
+                {% endif %}
+            {% endwith %}
         {% endfor %}
     </div>
 
     <div id="detalles-horas" style="margin-top: 20px; font-family: monospace;"></div>
 </div>
 
-<!-- JSON seguro para JS -->
-<script id="asistencias-data" type="application/json">
-    {{ asistencias_dict|json_script:"asistencias-data" }}
-</script>
+<!-- JSON seguro para JS, fuera del contenedor reemplazado -->
+{{ asistencias_dict|json_script:"asistencias-data" }}
+{{ sesiones_dict|json_script:"sesiones-data" }}
+
+<style>
+.calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 50px);
+    gap: 5px;
+    justify-content: center;
+}
+.calendar-day-header {
+    font-weight: bold;
+    text-align: center;
+}
+.calendar-day {
+    padding: 12px 0;
+    border: 1px solid #ccc;
+    text-align: center;
+    border-radius: 6px;
+    background-color: #f9f9f9;
+    user-select: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+.calendar-day:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.calendar-day.has-assistance {
+    background: linear-gradient(135deg, #4dabf7, #007bff);
+    color: white;
+    cursor: pointer;
+}
+.calendar-day.has-session {
+    background: linear-gradient(135deg, #81c784, #4CAF50);
+    color: white;
+    cursor: pointer;
+}
+.calendar-day.has-both {
+    background: linear-gradient(135deg, #9c64b8, #6f42c1);
+    color: white;
+    cursor: pointer;
+}
+.icon-both {
+    font-size: 0.7em;
+    margin-left: 3px;
+    color: #fffacd;
+}
+</style>
