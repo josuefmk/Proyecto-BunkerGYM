@@ -277,7 +277,7 @@ class Cliente(models.Model):
         super().save()
 
     def __str__(self):
-        return f"{self.nombre} {self.apellido}"
+        return f"{self.nombre} {self.apellido} - {self.rut}"
 
 
 class Asistencia(models.Model):

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Contrato de Alumno - Bunker Gym</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.6; color: #000; margin: 40px; }
+        h1, h2, h3 { text-align: center; margin-top: 20px; margin-bottom: 10px; }
+        p { margin: 4px 0; text-align: justify; }
+        .seccion { margin-top: 15px; }
+        .firma { margin-top: 50px; text-align: center; }
+        .datos span { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>CONTRATO DE ALUMNO</h1>
+    <p>En Viña del Mar, a {{ fecha_envio }}</p>
+
+    <div class="seccion">
+        <h3>Datos del Alumno</h3>
+        <p><span>Nombre completo:</span> {{ cliente.nombre }} {{ cliente.apellido }}</p>
+        <p><span>RUN:</span> {{ cliente.rut }}</p>
+        <p><span>Número de contacto:</span> {{ cliente.telefono }}</p>
+        <p><span>Correo electrónico:</span> {{ cliente.correo }}</p>
+    </div>
+
+    <div class="seccion">
+        <h3>Datos del Plan Contratado</h3>
+        <p><span>Nombre del plan contratado:</span> {{ cliente.mensualidad.nombre }}</p>
+        <p><span>Tipo de plan:</span> {{ cliente.sub_plan }}</p>
+        <p><span>Fecha de inicio:</span> {{ cliente.fecha_inicio_plan }}</p>
+        <p><span>Fecha de cobro mensualidad:</span>{{ cliente.fecha_fin_plan }}</p>
+    </div>
+
+    <div class="seccion">
+        <h3>PRIMERO: Prestador de los servicios</h3>
+        <p>
+            LIZAMA & ANTONSEN SPA, RUT N° 78.189.381-1, representada por Oscar Ignacio Lizama Sánchez,
+            ambos domiciliados para estos efectos en Viña del Mar, región de Valparaíso, en adelante el “prestador”.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 1°: DERECHOS DE LOS ALUMNOS</h3>
+        <p>
+            El Plan contratado da derecho a cada Alumno a hacer uso en forma ilimitada de las instalaciones,
+            clases o actividades de carácter general que ofrece BUNKER en la o las sedes expresamente contratadas,
+            durante los días de funcionamiento y en el horario de atención de cada sede.
+        </p>
+        <p>
+            Se exceptúan expresamente de este punto los planes o clases con horario restringido, los entrenamientos
+            personalizados y las actividades especiales por constituir prestaciones adicionales, como Artes Marciales,
+            Pilates, Yoga y las demás clases o actividades así calificadas por BUNKER e informadas a sus alumnos,
+            las cuales podrán tener un costo adicional.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 2°: PLANES DE ENTRENAMIENTO Y SU PAGO</h3>
+        <p>
+            Todo Alumno deberá pagar oportunamente la suma de dinero que corresponda al precio del Plan de
+            Entrenamiento de acuerdo con la forma de pago contratada en su Contrato Individual de Alumno o
+            Convenio Corporativo.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 3°: VIGENCIA DEL CONTRATO INDIVIDUAL DE ALUMNO</h3>
+        <p>
+            El Plan de Entrenamiento comenzará a producir sus efectos a contar de la fecha estipulada en el Contrato
+            Individual de Alumno y tendrá la duración que se indique en dicho contrato.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 4°: DEL PAGO DE MATRÍCULA Y ACTIVACIÓN</h3>
+        <p>
+            Cada Alumno Nuevo debe pagar a BUNKER, además del precio por el Plan de Entrenamiento contratado,
+            el costo de matrícula y activación de cada sede. Se considera Alumno Nuevo todo aquel que tenga vencido
+            su plan por más de un año.
+        </p>
+        <p>
+            Los alumnos con planes vencidos entre 60 días y un año deberán pagar sólo la activación. Quienes renueven
+            dentro de los 60 días corridos quedarán exentos de ambos pagos.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 5°: RENOVACIÓN DEL CONTRATO</h3>
+        <p>
+            Para mantener la continuidad del servicio, el Alumno deberá renovar su contrato como máximo dentro de
+            los diez días hábiles anteriores a la expiración del mismo. De lo contrario, BUNKER se reserva el derecho
+            de no admitir su ingreso hasta que regularice la situación.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 6°: DERECHO DEL ALUMNO A TRASPASO O REEMBOLSO</h3>
+        <p>
+            El contrato es de duración determinada. El precio acordado se paga conforme a lo establecido en el contrato.
+            La falta de asistencia o discontinuidad en el uso del servicio no influye en la vigencia del contrato ni otorga
+            derecho a reembolso, salvo en los casos de fallecimiento del Alumno o discapacidad total certificada.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 7°: RESPONSABILIDADES Y OBLIGACIONES PREVIAS DEL ALUMNO</h3>
+        <p>
+            El alumno declara haber consultado previamente con un médico y estar en condiciones de realizar actividad física.
+            Se compromete a usar correctamente los equipos, informar condiciones médicas previas y seguir las instrucciones del personal.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 8°: LIMITACIÓN DE RESPONSABILIDAD</h3>
+        <p>
+            BUNKER no se hace responsable por lesiones no declaradas o por uso indebido del equipamiento, ni por
+            actividades físicas fuera del programa autorizado por sus profesionales.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 9°: PROHIBICIONES DEL ALUMNO</h3>
+        <p>
+            Se prohíbe expresamente: entrenar bajo instrucciones de personas no autorizadas, dar instrucciones a terceros,
+            ingresar bajo efecto de alcohol o drogas, ingresar con armas o mascotas, dañar equipos o instalaciones,
+            comerciar productos sin autorización o tener conductas agresivas.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 10°: OBLIGACIONES DEL ALUMNO</h3>
+        <p>
+            El alumno no podrá usar las instalaciones si presenta enfermedades, lesiones o condiciones que lo imposibiliten.
+            Deberá presentar certificados médicos en caso de duda sobre su estado de salud.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 11°: RESERVA DE DERECHOS DE BUNKER</h3>
+        <p>
+            El alumno reconoce que no contrata un profesor o clase específica. BUNKER se reserva el derecho de modificar
+            horarios, actividades, profesores, equipamiento y precios según necesidad del servicio.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 12°: TÉRMINO DEL CONTRATO</h3>
+        <p>
+            BUNKER se reserva el derecho a poner término inmediato al contrato, sin derecho a reembolso, si el alumno incurre
+            en conductas como agresiones, uso indebido de máquinas, ingreso de terceros no autorizados, comercio no autorizado,
+            incumplimiento reiterado de normas básicas o cualquier conducta inapropiada.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 13°: CARÁCTER INTRANSFERIBLE</h3>
+        <p>
+            El Contrato Individual de Alumno es personal, intransferible e intransmisible. No puede ser cedido a terceros bajo
+            ninguna circunstancia, salvo lo establecido en el artículo 6.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 14°: CIERRE EXTRAORDINARIO DE BUNKER</h3>
+        <p>
+            BUNKER podrá cerrar temporalmente sus sedes o áreas en casos de incendios, catástrofes naturales, caso fortuito,
+            reparaciones impostergables, feriados obligatorios o decisiones internas. No habrá compensación por ello.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 15°: PÉRDIDAS Y EXTRAVÍOS</h3>
+        <p>
+            Los casilleros son para ropa de recambio. No se permite guardar objetos de valor. BUNKER no es responsable por
+            pérdidas, robos o daños a bienes personales, vehículos ni bicicletas estacionadas fuera de sus instalaciones.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 16°: MENORES DE EDAD</h3>
+        <p>
+            Podrán entrenar los menores entre 14 y 18 años con autorización y firma de su representante legal.
+            Menores de 14 años sólo podrán acceder a áreas específicas con autorización escrita.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 17°: POLÍTICA DE SEGURIDAD</h3>
+        <p>
+            El alumno autoriza a BUNKER a grabar sus actividades dentro de las instalaciones mediante sistemas de vigilancia,
+            con el fin de resguardar la seguridad de todos los usuarios.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 18°: PROTECCIÓN DE DATOS PERSONALES</h3>
+        <p>
+            El alumno autoriza expresamente a BUNKER para recolectar, almacenar, procesar y usar sus datos personales,
+            enviar información sobre promociones y novedades, y compartir datos con entidades reguladoras si es necesario.
+        </p>
+    </div>
+
+    <div class="seccion">
+        <h3>Artículo 19°: VÍA DE COMUNICACIÓN OFICIAL</h3>
+        <p>
+            Todas las notificaciones relativas al funcionamiento de las sedes de BUNKER serán informadas exclusivamente
+            a través de la cuenta oficial de Instagram <strong>@bunkergym.cl</strong>, la cual el alumno declara conocer,
+            seguir y revisar regularmente.
+        </p>
+    </div>
+
+ 
+</body>
+</html>

@@ -1,3 +1,4 @@
+
 import re
 from django.shortcuts import render, redirect
 from django.utils import timezone
@@ -5,7 +6,7 @@ from psycopg import logger
 from pyparsing import wraps
 from .models import Cliente, Asistencia, Admin, Mensualidad, PlanPersonalizado, Precios,Producto, Sesion, Venta
 from .forms import ClienteForm, DescuentoUpdateForm, PrecioUpdateForm,ProductoForm
-from datetime import datetime
+from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
 import pytz
 from django.utils.timezone import localdate
@@ -25,6 +26,10 @@ import calendar
 from collections import defaultdict
 from django.template.loader import render_to_string
 import locale
+from django.core.mail import EmailMessage
+from xhtml2pdf import pisa
+import io
+
 from .utils import validar_rut, validar_correo, validar_telefono
 
 def safe_view(view_func):
@@ -95,18 +100,22 @@ def registro_cliente(request):
     if request.method == 'POST':
         form = ClienteForm(request.POST)
         if form.is_valid():
-                cliente_creado = form.save(commit=False)
-                accesos_dict = {
-                    'Bronce': 4,
-                    'Hierro': 8,
-                    'Acero': 12,
-                    'Titanio': 0
-                }
-                cliente_creado.accesos_restantes = accesos_dict.get(cliente_creado.sub_plan, 0)
-                cliente_creado.save()
-                form.save_m2m()
-                mensaje = f"✅ El cliente {cliente_creado.nombre} {cliente_creado.apellido} ha sido creado correctamente."
-                form = ClienteForm()
+            cliente_creado = form.save(commit=False)
+            accesos_dict = {
+                'Bronce': 4,
+                'Hierro': 8,
+                'Acero': 12,
+                'Titanio': 0
+            }
+            cliente_creado.accesos_restantes = accesos_dict.get(cliente_creado.sub_plan, 0)
+            cliente_creado.save()
+            form.save_m2m()
+            
+            # Enviar contrato por correo
+            enviar_contrato_correo(cliente_creado)
+            
+            mensaje = f"✅ El cliente {cliente_creado.nombre} {cliente_creado.apellido} ha sido creado correctamente."
+            form = ClienteForm()
     else:
         form = ClienteForm()
 
@@ -117,6 +126,39 @@ def registro_cliente(request):
     })
 
 
+def enviar_contrato_correo(cliente):
+
+    try:
+        locale.setlocale(locale.LC_TIME, "es_ES.utf8")
+    except:
+        pass
+
+    hoy = date.today()
+    fecha_envio = hoy.strftime("%d de %B de %Y") 
+
+    html = render_to_string('core/contrato_gym.html', {
+        'cliente': cliente,
+        'fecha_envio': fecha_envio
+    })
+
+    pdf_file = io.BytesIO()
+    pisa_status = pisa.CreatePDF(html.encode('utf-8'), dest=pdf_file, encoding='utf-8')
+    if pisa_status.err:
+        return False
+
+    pdf_file.seek(0)
+    nombre_pdf = f'Contrato_{cliente.nombre}_{cliente.apellido}.pdf'
+
+    correo = EmailMessage(
+        subject='📄 Contrato de Suscripción - Bunker Gym',
+        body=f'Hola {cliente.nombre},\n\nAdjunto encontrarás tu contrato de suscripción al gimnasio.\n\n¡Bienvenido a Bunker Gym! 💪',
+        from_email='bunkergymchile@gmail.com',
+        to=[cliente.correo],
+    )
+    correo.attach(nombre_pdf, pdf_file.read(), 'application/pdf')
+    correo.send()
+
+    return True
 
 @admin_required
 def activar_plan_cliente(request, cliente_id):
@@ -419,6 +461,7 @@ def renovarCliente(request):
 
     return render(request, 'core/renovarCliente.html', {
         'clientes': clientes,
+        "today": now().date(),
         'rut_buscado': rut_buscado,
         'planes_personalizados': PlanPersonalizado.objects.all(),
         'tipos_mensualidad': tipos_mensualidad
@@ -439,14 +482,21 @@ def registrar_sesion(request):
         elif not tipo_sesion or not fecha:
             messages.error(request, "Debe seleccionar tipo de sesión y fecha.")
         else:
+    
             Sesion.objects.create(
                 cliente=cliente,
                 tipo_sesion=tipo_sesion,
                 fecha=fecha
             )
+
+            cliente.ultima_sesion_tipo = tipo_sesion
+            cliente.ultima_sesion_fecha = now().date()
+            cliente.save()
+
             messages.success(request, f"Sesión {tipo_sesion} registrada para {cliente.nombre} {cliente.apellido}.")
 
     return redirect('renovarCliente')
+
 
 @admin_required
 def cambiar_sub_plan(request):

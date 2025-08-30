@@ -43,6 +43,7 @@
 {% endif %}
 
 {% if clientes %}
+<div class="tabla-responsive">
     <table class="tabla-renovar">
         <thead>
             <tr>
@@ -122,25 +123,34 @@
 
 
         <!-- Sesiones -->
-    <td>
-        {% if cliente.sub_plan == 'Titanio' %}
-            <form method="post" action="{% url 'registrar_sesion' %}" id="form-sesion-{{ cliente.rut }}">
-                {% csrf_token %}
-                <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
-                <input type="hidden" name="tipo_sesion" id="tipo-sesion-{{ cliente.rut }}">
-                <input type="hidden" name="fecha_sesion" id="fecha-sesion-{{ cliente.rut }}">
+        <td>
+            {% if cliente.sub_plan == 'Titanio' %}
+                <form method="post" action="{% url 'registrar_sesion' %}" id="form-sesion-{{ cliente.rut }}">
+                    {% csrf_token %}
+                    <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
+                    <input type="hidden" name="tipo_sesion" id="tipo-sesion-{{ cliente.rut }}">
+                    <input type="hidden" name="fecha_sesion" id="fecha-sesion-{{ cliente.rut }}">
 
-                <select class="select-bonito" onchange="abrirModalSesion(this, '{{ cliente.rut }}')">
-                    <option value="">-- Selecciona Sesión --</option>
-                    <option value="ninguno" {% if cliente.ultima_sesion_tipo == 'ninguno' %}selected{% endif %}>Ninguno</option>
-                    <option value="nutricional" {% if cliente.ultima_sesion_tipo == 'nutricional' %}selected{% endif %}>Asistió Sesión Nutricional</option>
-                    <option value="kinesiologia" {% if cliente.ultima_sesion_tipo == 'kinesiologia' %}selected{% endif %}>Asistió Sesión Kinesiología</option>
-                </select>   
-            </form>
-        {% else %}
-            <span>No aplica</span>
-        {% endif %}
-    </td>
+                    <select class="select-bonito" onchange="abrirModalSesion(this, '{{ cliente.rut }}')">
+                        <option value="" disabled selected>-- Selecciona Sesión --</option>
+                        <option value="nutricional" 
+                            {% if cliente.ultima_sesion_tipo == 'nutricional' and cliente.ultima_sesion_fecha == today %}
+                                selected
+                            {% endif %}>
+                            Asistió Sesión Nutricional
+                        </option>
+                        <option value="kinesiologia" 
+                            {% if cliente.ultima_sesion_tipo == 'kinesiologia' and cliente.ultima_sesion_fecha == today %}
+                                selected
+                            {% endif %}>
+                            Asistió Sesión Kinesiología
+                        </option>
+                    </select>   
+                </form>
+            {% else %}
+                <span>No aplica</span>
+            {% endif %}
+        </td>
         <!-- Botón renovar -->
         <td>
             <button type="button" class="btn-global" onclick="confirmarRenovacion('{{ cliente.rut }}')">Renovar</button>
@@ -159,6 +169,7 @@
     {% endfor %}
     </tbody>
         </table>
+        </div>
     {% else %}
         <p style="text-align: center; font-size: 18px; color: black;">
             No se encontró el RUT del Cliente.

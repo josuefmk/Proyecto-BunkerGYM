@@ -308,35 +308,52 @@ body {
     display: none;
 }
 
+
+.tabla-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /
+}
+
+
 .tabla-renovar {
     margin: 0 auto;
     border-collapse: collapse;
     width: 98%;
-     margin-top: 20px;
+    margin-top: 20px;
     background-color: white;
     border-radius: 10px;
-    overflow: hidden;
     font-size: 15px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    min-width: 900px; 
 }
 
-.tabla-renovar th, .tabla-renovar td {
+
+.tabla-renovar th, 
+.tabla-renovar td {
     padding: 12px;
     text-align: center;
- 
     white-space: nowrap;
-}
-@media (max-width: 992px) {
-    .tabla-renovar {
-        display: block;
-        overflow-x: auto; 
-        white-space: nowrap;
-    }
-}
-.tabla-renovar th {
-    background-color: #f3f3f3;
+    border-bottom: 1px solid #ddd;
 }
 
+
+.tabla-renovar th {
+    background-color: #f3f3f3;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+@media (max-width: 768px) {
+    .busqueda-fila {
+        flex-direction: column;
+    }
+
+    .busqueda-fila button {
+        width: 100%;
+    }
+}
 
 .select-bonito {
   width: 100%;
