@@ -33,13 +33,19 @@
 
     <form method="POST">
         {% csrf_token %}
-        <label for="producto">Producto:</label>
+          <label for="producto">Producto:</label>
         <select name="producto_id" class="select-bonito" required>
-            {% for producto in productos %}
-              <option value="{{ producto.id }}"> {{ producto.nombre }} — Stock: {{ producto.stock }} — ${{ producto.precio_venta|floatformat:0|intcomma }} CLP </option>
-
-            {% endfor %}
-        </select>
+        <option value="" disabled {% if not producto_seleccionado %}selected{% endif %}>
+          -- Seleccione Un Producto --
+        </option>
+        {% for producto in productos %}
+          <option value="{{ producto.id }}"
+            {% if producto.id == producto_seleccionado %}selected{% endif %}>
+            {{ producto.nombre }} — Stock: {{ producto.stock }} — 
+            ${{ producto.precio_venta|floatformat:0|intcomma }} CLP
+          </option>
+        {% endfor %}
+      </select>
         <div class="campo-cantidad">
             <label for="cantidad" class="etiqueta-cantidad">Cantidad a vender:</label>
             <input type="number" name="cantidad" id="cantidad" min="1" class="input-bonito" required>

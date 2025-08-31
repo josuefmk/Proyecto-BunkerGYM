@@ -80,10 +80,10 @@ WSGI_APPLICATION = 'ProyectoBunker.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'BunkerBD2025',
+        'NAME': 'BunkerGymBDP',
         'USER': 'postgres',
-        'PASSWORD': 'Bunker2025!!',
-        'HOST': 'bunkerdbtest.ctq80iqq0jb3.us-east-2.rds.amazonaws.com',
+        'PASSWORD': 'xbk817rZWAKkMy1tJQTH',
+        'HOST': 'bunkergymprod.ctq80iqq0jb3.us-east-2.rds.amazonaws.com',
         'PORT': '5432',
         'OPTIONS': {
             'sslmode': 'require',

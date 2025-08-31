@@ -780,26 +780,33 @@ def cambiar_planes_personalizados(request):
 @admin_required
 @safe_view
 def productos(request):
-    productos = Producto.objects.all()
+    productos = Producto.objects.all().order_by("nombre")
+    producto_seleccionado = request.session.pop('producto_seleccionado', None)
 
     if request.method == 'POST':
         producto_id = request.POST.get('producto_id')
         cantidad = int(request.POST.get('cantidad'))
 
-        producto = Producto.objects.get(id=producto_id)
+        producto = Producto.objects.filter(id=producto_id).first()
         if not producto:
-                messages.error(request, "Producto no encontrado.")
-                return redirect('productos')
+            messages.error(request, "Producto no encontrado.")
+            return redirect('productos')
 
         if cantidad > producto.stock:
             messages.error(request, "No hay suficiente stock.")
         else:
             Venta.objects.create(producto=producto, cantidad=cantidad)
+            producto.stock -= cantidad
+            producto.save()
             messages.success(request, "Venta registrada exitosamente.")
 
-        return redirect('productos')  
+        request.session['producto_seleccionado'] = producto.id
+        return redirect('productos')
 
-    return render(request, 'core/productos.html', {'productos': productos})
+    return render(request, 'core/productos.html', {
+        'productos': productos,
+        'producto_seleccionado': producto_seleccionado
+    })
 
 @admin_required
 @safe_view
