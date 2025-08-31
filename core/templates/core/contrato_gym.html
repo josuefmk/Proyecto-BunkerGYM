@@ -18,7 +18,7 @@
 
     <div class="seccion">
         <h3>Datos del Alumno</h3>
-        <p><span>Nombre completo:</span> {{ cliente.nombre }} {{ cliente.apellido }}</p>
+        <p><span>Nombre Completo:</span> {{ cliente.nombre }} {{ cliente.apellido }}</p>
         <p><span>RUN:</span> {{ cliente.rut }}</p>
         <p><span>Número de contacto:</span> {{ cliente.telefono }}</p>
         <p><span>Correo electrónico:</span> {{ cliente.correo }}</p>
@@ -26,10 +26,10 @@
 
     <div class="seccion">
         <h3>Datos del Plan Contratado</h3>
-        <p><span>Nombre del plan contratado:</span> {{ cliente.mensualidad.nombre }}</p>
+        <p><span>Nombre del plan contratado:</span> {{ cliente.mensualidad}}</p>
         <p><span>Tipo de plan:</span> {{ cliente.sub_plan }}</p>
         <p><span>Fecha de inicio:</span> {{ cliente.fecha_inicio_plan }}</p>
-        <p><span>Fecha de cobro mensualidad:</span>{{ cliente.fecha_fin_plan }}</p>
+        <p><span>Fecha de cobro mensualidad:</span> {{ cliente.fecha_fin_plan }}</p>
     </div>
 
     <div class="seccion">
