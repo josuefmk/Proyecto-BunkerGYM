@@ -369,3 +369,33 @@ class IngresoProducto(models.Model):
 
     def __str__(self):
         return f"Ingreso de {self.cantidad} x {self.producto.nombre}"
+    
+class HistorialAccion(models.Model):
+    ACCIONES = [
+        ('crear', 'Crear'),
+        ('editar', 'Editar'),
+        ('eliminar', 'Eliminar'),
+        ('venta', 'Venta'),
+        ('asistencia', 'Asistencia'),
+        ('renovar', 'Renovación'),
+        ('cambio_plan', 'Cambio de Plan'),
+        ('stock', 'Stock'),
+    ]
+
+    admin = models.ForeignKey('Admin', on_delete=models.SET_NULL, null=True, blank=True)
+    accion = models.CharField(max_length=20, choices=ACCIONES)
+    modelo_afectado = models.CharField(max_length=100)
+    objeto_id = models.PositiveIntegerField(null=True, blank=True)
+    descripcion = models.TextField(blank=True)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+   
+        fecha_local = timezone.localtime(self.fecha)
+        admin_nombre = f"{self.admin.nombre} {self.admin.apellido}" if self.admin else "Sin admin"
+        return f"{fecha_local.strftime('%d-%m-%Y %H:%M:%S')} - {admin_nombre} - {self.accion} - {self.modelo_afectado}"
+
+    @property
+    def fecha_chile(self):
+ 
+        return timezone.localtime(self.fecha)

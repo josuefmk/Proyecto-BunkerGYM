@@ -32,6 +32,17 @@ import io
 
 from .utils import validar_rut, validar_correo, validar_telefono
 
+from .models import HistorialAccion
+
+def registrar_historial(admin, accion, modelo, objeto_id=None, descripcion=""):
+    HistorialAccion.objects.create(
+        admin=admin,
+        accion=accion,
+        modelo_afectado=modelo,
+        objeto_id=objeto_id,
+        descripcion=descripcion
+    )
+
 def safe_view(view_func):
 
     @wraps(view_func)
@@ -109,6 +120,13 @@ def registro_cliente(request):
             }
             cliente_creado.accesos_restantes = accesos_dict.get(cliente_creado.sub_plan, 0)
             cliente_creado.save()
+            registrar_historial(
+            request.admin,
+            "crear",
+            "Cliente",
+            cliente_creado.id,
+            f"Creó cliente {cliente_creado.nombre} {cliente_creado.apellido}"
+            )      
             form.save_m2m()
             
             # Enviar contrato por correo
@@ -303,6 +321,13 @@ def asistencia_cliente(request):
 
         # Registrar asistencia con tipo correcto
         Asistencia.objects.create(cliente=cliente, tipo_asistencia=tipo_asistencia)
+        registrar_historial(
+                request.admin,
+                "asistencia",
+                "Cliente",
+                cliente.id,
+                f"Registró asistencia de {cliente.nombre} {cliente.apellido}"
+            )
 
         # Recalcular accesos restantes después de registrar
         if tipo_asistencia == "plan_personalizado":
@@ -438,7 +463,13 @@ def renovarCliente(request):
                 else:
                     cliente_renovado.activar_plan(fecha_activacion=hoy, dias_extra=dias_restantes)
                     mensaje_extra = f"Se sumaron {dias_restantes} días extra."
-
+                registrar_historial(
+                request.admin,
+                "renovar",
+                "Cliente",
+                cliente_renovado.id,
+                f"Renovó plan {cliente_renovado.sub_plan} para {cliente_renovado.nombre} {cliente_renovado.apellido}"
+)
                 messages.success(
                     request,
                     f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ({cliente_renovado.rut}) ha sido renovado correctamente. {mensaje_extra}"
@@ -518,6 +549,13 @@ def cambiar_sub_plan(request):
             cliente.accesos_restantes = accesos_dict.get(nuevo_sub_plan, 0)
 
             cliente.save()
+            registrar_historial(
+            request.admin,
+            "cambio_plan",
+            "Cliente",
+            cliente.id,
+            f"Cambió sub plan a {nuevo_sub_plan} para {cliente.nombre} {cliente.apellido}"
+        )
             messages.success(request, f"SubPlan de {cliente.nombre} actualizado a {nuevo_sub_plan}.")
 
     return redirect(f'{reverse("renovarCliente")}?rut={rut_cliente}')
@@ -661,6 +699,13 @@ def modificar_cliente(request, cliente_id):
             cliente.correo = correo
             cliente.telefono = telefono
             cliente.save()
+            registrar_historial(
+                request.admin,
+                "editar",
+                "Cliente",
+                cliente.id,
+                f"Modificó cliente {cliente.nombre} {cliente.apellido}"
+            )   
             messages.success(request, "✅ Cliente modificado exitosamente.")
             return redirect('renovarCliente')
         except Exception as e:
@@ -674,6 +719,13 @@ def eliminar_cliente(request, cliente_id):
 
     if request.method == 'POST':
         cliente.delete()
+        registrar_historial(
+    request.admin,
+    "eliminar",
+    "Cliente",
+    cliente.id,
+    f"Eliminó cliente {cliente.nombre} {cliente.apellido}"
+    )   
         messages.success(request, f"🗑️ Cliente eliminado correctamente.")
     else:
         messages.error(request, "Método no permitido.")
@@ -796,6 +848,13 @@ def productos(request):
             messages.error(request, "No hay suficiente stock.")
         else:
             Venta.objects.create(producto=producto, cantidad=cantidad)
+            registrar_historial(
+            request.admin,
+            "venta",
+            "Producto",
+            producto.id,
+            f"Vendió {cantidad} unidades de {producto.nombre}"
+        )   
             producto.stock -= cantidad
             producto.save()
             messages.success(request, "Venta registrada exitosamente.")
@@ -814,7 +873,14 @@ def agregar_producto(request):
     if request.method == 'POST':
         form = ProductoForm(request.POST)
         if form.is_valid():
-            form.save()
+            producto = form.save()  # ← guardar en variable
+            registrar_historial(
+                request.admin,
+                "crear",
+                "Producto",
+                producto.id,
+                f"Agregó producto {producto.nombre}"
+            )
             messages.success(request, 'Producto agregado correctamente.')
             return redirect('productos')
         else:
@@ -823,7 +889,6 @@ def agregar_producto(request):
         form = ProductoForm()
 
     return render(request, 'core/agregar_producto.html', {'form': form})
-
 @admin_required
 @safe_view
 def registrar_venta(request):
@@ -870,6 +935,13 @@ def editar_producto(request, producto_id):
                 producto.stock_inicial = stock_inicial  
                 producto.stock = stock
                 producto.save()
+                registrar_historial(
+                request.admin,
+                "editar",
+                "Producto",
+                producto.id,
+                f"Editó producto {producto.nombre}"
+            )
                 messages.success(request, "✅ Producto modificado exitosamente.")
                 return redirect('productos')
             except Exception as e:
@@ -883,6 +955,13 @@ def eliminar_producto(request, producto_id):
 
     if request.method == 'POST':
         producto.delete()
+        registrar_historial(
+        request.admin,
+        "eliminar",
+        "Producto",
+        producto.id,
+        f"Eliminó producto {producto.nombre}"
+    )
         messages.success(request, "🗑️ Producto eliminado correctamente.")
     else:
         messages.error(request, "Método no permitido.")
@@ -1066,3 +1145,5 @@ def dashboard(request):
 # ===========================
 def home(request):
     return redirect('login')
+
+
