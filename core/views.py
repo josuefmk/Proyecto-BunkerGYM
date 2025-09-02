@@ -132,7 +132,7 @@ def registro_cliente(request):
             # Enviar contrato por correo
             enviar_contrato_correo(cliente_creado)
             
-            mensaje = f"✅ El cliente {cliente_creado.nombre} {cliente_creado.apellido} ha sido creado correctamente."
+            mensaje = f"✅ El Cliente {cliente_creado.nombre} {cliente_creado.apellido} ha sido creado correctamente."
             form = ClienteForm()
     else:
         form = ClienteForm()
