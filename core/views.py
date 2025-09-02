@@ -51,7 +51,7 @@ def safe_view(view_func):
             return view_func(request, *args, **kwargs)
         except Exception as e:
             logger.error(f"Error en {view_func.__name__}: {str(e)}", exc_info=True)
-            return HttpResponseServerError("Ha ocurrido un error inesperado. Estamos trabajando en ello.")
+            return HttpResponseServerError("Ha ocurrido un error inesperado. Informa el problema al desarrollador :( )")
     return wrapper
 
 # ===========================
@@ -830,50 +830,75 @@ def cambiar_planes_personalizados(request):
     return redirect('renovarCliente')
 
 @admin_required
-@safe_view
+
 def productos(request):
     productos = Producto.objects.all().order_by("nombre")
     producto_seleccionado = request.session.pop('producto_seleccionado', None)
-
-    if request.method == 'POST':
-        producto_id = request.POST.get('producto_id')
-        cantidad = int(request.POST.get('cantidad'))
-
-        producto = Producto.objects.filter(id=producto_id).first()
-        if not producto:
-            messages.error(request, "Producto no encontrado.")
-            return redirect('productos')
-
-        if cantidad > producto.stock:
-            messages.error(request, "No hay suficiente stock.")
-        else:
-            Venta.objects.create(producto=producto, cantidad=cantidad)
-            registrar_historial(
-            request.admin,
-            "venta",
-            "Producto",
-            producto.id,
-            f"Vendió {cantidad} unidades de {producto.nombre}"
-        )   
-            producto.stock -= cantidad
-            producto.save()
-            messages.success(request, "Venta registrada exitosamente.")
-
-        request.session['producto_seleccionado'] = producto.id
-        return redirect('productos')
 
     return render(request, 'core/productos.html', {
         'productos': productos,
         'producto_seleccionado': producto_seleccionado
     })
 
+
 @admin_required
-@safe_view
+
+def registrar_venta(request):
+    if request.method == 'POST':
+        producto_id = request.POST.get('producto_id')
+        cantidad = int(request.POST.get('cantidad', 0))
+        try:
+            cantidad = int(request.POST.get('cantidad', 0))
+        except ValueError:
+            messages.error(request, "⚠️ La cantidad debe ser un número entero.")
+            return redirect('productos')
+        producto = Producto.objects.filter(id=producto_id).first()
+        if not producto:
+            messages.error(request, "❌ Producto no encontrado.")
+            return redirect('productos')
+
+        if cantidad <= 0:
+            messages.error(request, "⚠️ La cantidad debe ser mayor a 0.")
+            return redirect('productos')
+
+        if cantidad > producto.stock:
+            messages.error(
+                request,
+                f"❌ No quedan unidades del '{producto.nombre}'."
+            )
+            return redirect('productos')
+
+        Venta.objects.create(producto=producto, cantidad=cantidad)
+
+
+        registrar_historial(
+            request.admin,
+            "venta",
+            "Producto",
+            producto.id,
+            f"Vendió {cantidad} unidades de {producto.nombre}"
+        )
+
+    
+        messages.success(
+            request,
+            f"✅ Venta registrada: {cantidad} unidad(es) de '{producto.nombre}'. "
+            f"Stock restante: {producto.stock}"
+        )
+
+
+        request.session['producto_seleccionado'] = producto.id
+
+    return redirect('productos')
+
+
+@admin_required
+
 def agregar_producto(request):
     if request.method == 'POST':
         form = ProductoForm(request.POST)
         if form.is_valid():
-            producto = form.save()  # ← guardar en variable
+            producto = form.save()
             registrar_historial(
                 request.admin,
                 "crear",
@@ -889,29 +914,9 @@ def agregar_producto(request):
         form = ProductoForm()
 
     return render(request, 'core/agregar_producto.html', {'form': form})
+
+
 @admin_required
-@safe_view
-def registrar_venta(request):
-    if request.method == 'POST':
-        producto_id = request.POST.get('producto_id')
-        cantidad = int(request.POST.get('cantidad'))
-
-        producto = Producto.objects.get(id=producto_id)
-
-        if producto.stock <= 0:
-            messages.error(request, f"❌ No quedan unidades del producto '{producto.nombre}'.")
-            return redirect('productos')  #
-
-        if cantidad > producto.stock:
-            messages.error(request, f"❌ Solo quedan {producto.stock} unidades de '{producto.nombre}'.")
-            return redirect('productos')
-
-        producto.stock -= cantidad
-        producto.save()
-        messages.success(request, f"✅ Venta registrada para '{producto.nombre}', stock actualizado.")
-        return redirect('productos')
-    
-@admin_required   
 def editar_producto(request, producto_id):
     producto = get_object_or_404(Producto, id=producto_id)
 
@@ -920,9 +925,8 @@ def editar_producto(request, producto_id):
         descripcion = request.POST.get('descripcion')
         precio_compra = request.POST.get('precio_compra')
         precio_venta = request.POST.get('precio_venta')
-        stock_inicial = request.POST.get('stock_inicial')  
+        stock_inicial = request.POST.get('stock_inicial')
         stock = request.POST.get('stock')
-
 
         if not nombre or not precio_compra or not precio_venta or not stock_inicial or not stock:
             messages.error(request, "⚠️ Todos los campos obligatorios deben estar completos.")
@@ -932,23 +936,22 @@ def editar_producto(request, producto_id):
                 producto.descripcion = descripcion
                 producto.precio_compra = precio_compra
                 producto.precio_venta = precio_venta
-                producto.stock_inicial = stock_inicial  
+                producto.stock_inicial = stock_inicial
                 producto.stock = stock
                 producto.save()
                 registrar_historial(
-                request.admin,
-                "editar",
-                "Producto",
-                producto.id,
-                f"Editó producto {producto.nombre}"
-            )
+                    request.admin,
+                    "editar",
+                    "Producto",
+                    producto.id,
+                    f"Editó producto {producto.nombre}"
+                )
                 messages.success(request, "✅ Producto modificado exitosamente.")
                 return redirect('productos')
             except Exception as e:
                 messages.error(request, f"❌ Error al modificar el producto: {str(e)}")
 
     return render(request, 'core/editar_producto.html', {'producto': producto})
-
 @admin_required
 def eliminar_producto(request, producto_id):
     producto = get_object_or_404(Producto, id=producto_id)

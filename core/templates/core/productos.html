@@ -11,100 +11,96 @@
       <div class="mi-mensaje mi-mensaje-{{ message.tags }}">{{ message }}</div>
     {% endfor %}
   </div>
-
   <script>
     setTimeout(function() {
       const mensaje = document.getElementById("mi-mensaje-contenedor");
       if (mensaje) {
         mensaje.style.transition = "opacity 1s ease";
         mensaje.style.opacity = 0;
-        setTimeout(() => mensaje.remove(), 8000); 
+        setTimeout(() => mensaje.remove(), 8000);
       }
-    }, 8000); 
+    }, 8000);
   </script>
 {% endif %}
 
 <div class="card-tabla">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h2 class="titulo-tabla" style=" margin-top: 10px; margin-bottom: 25px;">Registrar Venta</h2>
+  </div>
 
-
-<div style="display: flex; justify-content: space-between; align-items: center;">
-        <h2 class="titulo-tabla" style=" margin-top: 10px;  margin-bottom: 25px;">Registrar Venta</h2>
+  <form method="POST" action="{% url 'registrar_venta' %}" id="form-venta">
+    {% csrf_token %}
+    <label for="producto">Producto:</label>
+    <select name="producto_id" class="select-bonito" required>
+      <option value="" disabled {% if not producto_seleccionado %}selected{% endif %}>
+        -- Seleccione Un Producto --
+      </option>
+      {% for producto in productos %}
+      <option value="{{ producto.id }}"
+        {% if producto.id == producto_seleccionado %}selected{% endif %}>
+        {{ producto.nombre }} — Stock: {{ producto.stock }} —
+        ${{ producto.precio_venta|floatformat:0|intcomma }} CLP
+      </option>
+      {% endfor %}
+    </select>
+    <div class="campo-cantidad">
+      <label for="cantidad" class="etiqueta-cantidad">Cantidad a vender:</label>
+      <input type="number" name="cantidad" id="cantidad" min="1" class="input-bonito" required>
     </div>
-
-    <form method="POST">
-        {% csrf_token %}
-          <label for="producto">Producto:</label>
-        <select name="producto_id" class="select-bonito" required>
-        <option value="" disabled {% if not producto_seleccionado %}selected{% endif %}>
-          -- Seleccione Un Producto --
-        </option>
-        {% for producto in productos %}
-          <option value="{{ producto.id }}"
-            {% if producto.id == producto_seleccionado %}selected{% endif %}>
-            {{ producto.nombre }} — Stock: {{ producto.stock }} — 
-            ${{ producto.precio_venta|floatformat:0|intcomma }} CLP
-          </option>
-        {% endfor %}
-      </select>
-        <div class="campo-cantidad">
-            <label for="cantidad" class="etiqueta-cantidad">Cantidad a vender:</label>
-            <input type="number" name="cantidad" id="cantidad" min="1" class="input-bonito" required>
-        </div>
-        <br>
-      <button type="submit" class="btn-global">💰 Registrar Venta</button>
-    </form>
+    <br>
+    <button type="submit" class="btn-global" id="btn-venta">💰 Registrar Venta</button>
+  </form>
 </div>
 
 <div class="card-tabla">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h2 class="titulo-tabla" style="margin: 0;">Productos Disponibles</h2>
-     
-        <a href="{% url 'agregar_producto' %}" class="btn-global">➕ Agregar Producto</a>
-    </div>
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h2 class="titulo-tabla" style="margin: 0;">Productos Disponibles</h2>
+    <a href="{% url 'agregar_producto' %}" class="btn-global">➕ Agregar Producto</a>
+  </div>
 
-    <div class="tabla-wrapper" style="margin-top: 15px;">
-        <table class="tabla-clientes">
-            <thead>
-                <tr>
-                    <th>Producto</th>
-                    <th>Descripción</th>
-                    <th>Compra</th>
-                    <th>Venta</th>
-                    <th>Stock Inicial</th>
-                    <th>Stock Actual</th>
-                    <th>Vendidos</th>
-                    <th>Valor Base</th>
-                    <th>Ganancia Estimada</th>
-                    <th>Ganancia Real</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for producto in productos %}
-                <tr>
-                    <td>{{ producto.nombre }}</td>
-                    <td>{{ producto.descripcion }}</td>
-                    <td>CLP ${{ producto.precio_compra|floatformat:0|intcomma }}</td>
-                    <td>CLP ${{ producto.precio_venta|floatformat:0|intcomma }}</td>
-                    <td>{{ producto.stock_inicial }}</td>
-                    <td>{{ producto.stock }}</td>
-                    <td>{{ producto.cantidad_vendida }}</td>
-                    <td>CLP ${{ producto.valor_total_stock|floatformat:0|intcomma }}</td>
-                    <td>CLP ${{ producto.estimado_ganancia|floatformat:0|intcomma }}</td>
-                    <td>CLP ${{ producto.ganancia_real|floatformat:0|intcomma }}</td>
-                    <td>
-                        <a href="{% url 'editar_producto' producto.id %}" class="btn-accion editar">✏️</a>
-                        <button type="button" class="btn-accion eliminar" onclick="mostrarModal({{ producto.id }}, '{{ producto.nombre }}')">🗑️</button>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="11" class="mensaje-centrado">No hay productos registrados.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+  <div class="tabla-wrapper" style="margin-top: 15px;">
+    <table class="tabla-clientes">
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Descripción</th>
+          <th>Compra</th>
+          <th>Venta</th>
+          <th>Stock Inicial</th>
+          <th>Stock Actual</th>
+          <th>Vendidos</th>
+          <th>Valor Base</th>
+          <th>Ganancia Estimada</th>
+          <th>Ganancia Real</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for producto in productos %}
+        <tr {% if producto.id == producto_seleccionado %}style="background: #f0f8ff;"{% endif %}>
+          <td>{{ producto.nombre }}</td>
+          <td>{{ producto.descripcion }}</td>
+          <td>CLP ${{ producto.precio_compra|floatformat:0|intcomma }}</td>
+          <td>CLP ${{ producto.precio_venta|floatformat:0|intcomma }}</td>
+          <td>{{ producto.stock_inicial }}</td>
+          <td>{{ producto.stock }}</td>
+          <td>{{ producto.cantidad_vendida }}</td>
+          <td>CLP ${{ producto.valor_total_stock|floatformat:0|intcomma }}</td>
+          <td>CLP ${{ producto.estimado_ganancia|floatformat:0|intcomma }}</td>
+          <td>CLP ${{ producto.ganancia_real|floatformat:0|intcomma }}</td>
+          <td>
+            <a href="{% url 'editar_producto' producto.id %}" class="btn-accion editar">✏️</a>
+            <button type="button" class="btn-accion eliminar"
+                    onclick="mostrarModal({{ producto.id }}, '{{ producto.nombre }}')">🗑️</button>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="11" class="mensaje-centrado">No hay productos registrados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
-
 
 <div id="modalEliminar" class="modal modal-error" style="display: none;">
   <div class="modal-producto-content">
@@ -121,21 +117,29 @@
   </div>
 </div>
 
-
 <script>
-function mostrarModal(productoId, productoNombre) {
-  const modal = document.getElementById("modalEliminar");
-  const mensaje = document.getElementById("mensaje-modal");
-  const form = document.getElementById("formEliminar");
+  // Bloqueo de doble submit en registrar venta
+  const formVenta = document.getElementById('form-venta');
+  const btnVenta = document.getElementById('btn-venta');
 
-  mensaje.innerHTML = `¿Estás seguro de que deseas eliminar el producto <strong>"${productoNombre}"</strong>?`;
-  form.action = "{% url 'eliminar_producto' 0 %}".replace('0', productoId);
-  modal.style.display = "flex";
-}
+  formVenta.addEventListener('submit', function() {
+    btnVenta.disabled = true;
+  });
 
-function cerrarModal() {
-  document.getElementById("modalEliminar").style.display = "none";
-}
+  // Modal de eliminar producto
+  function mostrarModal(productoId, productoNombre) {
+    const modal = document.getElementById("modalEliminar");
+    const mensaje = document.getElementById("mensaje-modal");
+    const form = document.getElementById("formEliminar");
+
+    mensaje.innerHTML = `¿Estás seguro de que deseas eliminar el producto <strong>"${productoNombre}"</strong>?`;
+    form.action = "{% url 'eliminar_producto' 0 %}".replace('0', productoId);
+    modal.style.display = "flex";
+  }
+
+  function cerrarModal() {
+    document.getElementById("modalEliminar").style.display = "none";
+  }
 </script>
 
 </div>
