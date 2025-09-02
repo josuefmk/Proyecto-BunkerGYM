@@ -26,21 +26,22 @@
     {% endif %}
 
     <div class="form-container">
-        <form class="formulario" method="POST" novalidate>
+        <form class="formulario" method="POST" onsubmit="return validarFormulario()" novalidate>
             {% csrf_token %}
             <h2>Creación De Cliente</h2>
 
             {% for field in form %}
-                {% if field.name != 'sub_plan' %} 
-                    <div class="mb-3">
+                {% if field.name != 'sub_plan' %}
+                    <div class="mb-3 form-group">
                         <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}:</label>
                         {{ field }}
+                        <div class="error-text" style="color: red; font-size: 0.9em;"></div>
                         {% for error in field.errors %}
                             <p class="error">{{ error }}</p>
                         {% endfor %}
                     </div>
                 {% else %}
-                    {{ field }} 
+                    {{ field }}
                 {% endif %}
             {% endfor %}
 
@@ -64,14 +65,12 @@
 
 </main>
 
-
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
   $(document).ready(function() {
- 
     $('#id_planes_personalizados').select2({
         placeholder: "Selecciona hasta 2 planes personalizados",
         maximumSelectionLength: 2,
@@ -107,5 +106,53 @@
           modal.style.display = "none";
       }
   };
+
+
+  function validarFormulario() {
+ 
+      document.querySelectorAll('.form-group').forEach(div => {
+          div.querySelector('.error-text').textContent = '';
+          const input = div.querySelector('input, select, textarea');
+          if (input) input.style.borderColor = '';
+      });
+
+      let valido = true;
+      const camposObligatorios = [
+          {id: "id_nombre", label: "Nombres"},
+          {id: "id_apellido", label: "Apellidos"},
+          {id: "id_correo", label: "Email"},
+          {id: "id_telefono", label: "Teléfono"},
+          {id: "id_rut", label: "RUT"},
+          {id: "id_mensualidad", label: "Plan"},
+          {id: "id_metodo_pago", label: "Método de pago"}
+      ];
+
+      camposObligatorios.forEach(campoInfo => {
+          const campo = document.getElementById(campoInfo.id);
+          if (campo && !campo.value.trim()) {
+              const group = campo.closest('.form-group');
+              if (group) {
+                  const errorDiv = group.querySelector('.error-text');
+                  errorDiv.textContent = `El campo "${campoInfo.label}" es obligatorio.`;
+                  campo.style.borderColor = 'red';
+              }
+              valido = false;
+          }
+      });
+
+      const mensualidad = document.getElementById("id_mensualidad");
+      const subPlan = document.getElementById("id_sub_plan");
+      if (mensualidad && mensualidad.value && (!subPlan || !subPlan.value)) {
+          const group = mensualidad.closest('.form-group');
+          if (group) {
+              const errorDiv = group.querySelector('.error-text');
+              errorDiv.textContent = "Debes seleccionar un sub plan.";
+              mensualidad.style.borderColor = 'red';
+          }
+          valido = false;
+      }
+
+      return valido;
+  }
 </script>
 {% endblock %}
