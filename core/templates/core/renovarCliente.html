@@ -211,6 +211,17 @@
         </form>
     </div>
     </div>
+<!-- MODAL DE CONFIRMACIÓN DE CAMBIO DE PLAN PERSONALIZADO -->
+<div id="modal-cambio-plan" class="modal-renovar" style="display: none;">
+  <div class="modal-content-renovar">
+    <h2>Confirmar cambio de Plan Personalizado</h2>
+    <p id="mensaje-cambio-plan"></p>
+    <div class="modal-cliente-actions">
+      <button type="button" class="btn-global" onclick="confirmarEnvioCambio()">✅ Sí, cambiar</button>
+      <button type="button" class="btn-cliente-cancelar" onclick="cerrarModalCambio()">Cancelar</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL PARA ELEGIR MÉTODO DE PAGO -->
     <div id="modal-metodo-pago" class="modal-renovar" style="display: none;">
