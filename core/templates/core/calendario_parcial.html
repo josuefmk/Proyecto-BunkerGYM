@@ -20,28 +20,32 @@
         <div class="calendar-day-header">Sáb</div>
 
         {% for day in dias_mes %}
-            {% with ingresos=asistencias_dict|dict_get:day sesiones=sesiones_dict|dict_get:day %}
-                {% if ingresos and sesiones %}
-                    <div class="calendar-day has-both" data-day="{{ day }}"
-                         title="Ingresos: {{ ingresos|join:', ' }} | Sesiones: {{ sesiones|join:', ' }}">
-                        {{ day }} <span class="icon-both">★</span>
-                    </div>
-                {% elif ingresos %}
-                    <div class="calendar-day has-assistance" data-day="{{ day }}"
-                         title="Ingresos: {{ ingresos|join:', ' }}">
-                        {{ day }}
-                    </div>
-                {% elif sesiones %}
-                    <div class="calendar-day has-session" data-day="{{ day }}"
-                         title="Sesiones: {{ sesiones|join:', ' }}">
-                        {{ day }}
-                    </div>
-                {% else %}
-                    <div class="calendar-day" data-day="{{ day }}" title="No hay registros">
-                        {{ day }}
-                    </div>
-                {% endif %}
-            {% endwith %}
+            {% if day %}
+                {% with ingresos=asistencias_dict|dict_get:day sesiones=sesiones_dict|dict_get:day %}
+                    {% if ingresos and sesiones %}
+                        <div class="calendar-day has-both" data-day="{{ day }}"
+                            title="Ingresos: {{ ingresos|join:', ' }} | Sesiones: {{ sesiones|join:', ' }}">
+                            {{ day }} <span class="icon-both">★</span>
+                        </div>
+                    {% elif ingresos %}
+                        <div class="calendar-day has-assistance" data-day="{{ day }}"
+                            title="Ingresos: {{ ingresos|join:', ' }}">
+                            {{ day }}
+                        </div>
+                    {% elif sesiones %}
+                        <div class="calendar-day has-session" data-day="{{ day }}"
+                            title="Sesiones: {{ sesiones|join:', ' }}">
+                            {{ day }}
+                        </div>
+                    {% else %}
+                        <div class="calendar-day" data-day="{{ day }}" title="No hay registros">
+                            {{ day }}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+            {% else %}
+                <div class="calendar-day empty"></div>
+            {% endif %}
         {% endfor %}
     </div>
 
@@ -53,6 +57,12 @@
 {{ sesiones_dict|json_script:"sesiones-data" }}
 
 <style>
+.calendar-day.empty {
+    background: transparent;
+    border: none;
+    cursor: default;
+}
+
 .calendar {
     display: grid;
     grid-template-columns: repeat(7, 50px);

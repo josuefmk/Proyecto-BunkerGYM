@@ -1214,15 +1214,7 @@ main.contenido.historia-cliente {
 
 
 
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
 
-@keyframes slideIn {
-    from { transform: translateY(-20px); opacity: 0; }
-    to   { transform: translateY(0); opacity: 1; }
-}
 @media (max-width: 768px) {
     .header {
         flex-direction: column; 
@@ -1273,4 +1265,7 @@ main.contenido.historia-cliente {
         max-width: 300px;
         font-size: 14px;
     }
+}@keyframes fadeOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-15px); }
 }

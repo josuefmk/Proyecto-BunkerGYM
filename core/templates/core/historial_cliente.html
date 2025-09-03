@@ -8,21 +8,21 @@
         {% csrf_token %}
         <h2>Historial del Cliente</h2>
         <label for="rut">Ingrese RUT</label>
-        <input type="text" name="rut" id="rut" value="{{ rut }}">
+        <input type="text" name="rut" id="rut" value="">
         <button type="submit" class="btn-global" style="margin-top: 15px;">Buscar</button>
     </form>
 </div>
 
-<div id="cliente-container">
-    {% if cliente %}
-        {% include 'core/cliente_info.html' %}
-    {% endif %}
-</div>
+<div id="cliente-container"></div>
+<div id="calendario-container"></div>
 
-<div id="calendario-container">
-    {% if cliente %}
-        {% include 'core/calendario_parcial.html' %}
-    {% endif %}
+<!-- Modal de error -->
+<div id="modal-error" class="modal-custom modal-error-custom" style="display: none;">
+    <div class="modal-content-custom">
+        <h2>❌ Error</h2>
+        <p>El RUT ingresado no fue encontrado.</p>
+        <p>Por favor, verifica e intenta nuevamente.</p>
+    </div>
 </div>
 
 <script>
@@ -30,44 +30,44 @@
     const form = document.getElementById('form-rut');
     let year = {{ current_year }};
     let month = {{ current_month }};
-    let asistencias = JSON.parse(document.getElementById('asistencias-data').textContent);
-    let sesiones = JSON.parse(document.getElementById('sesiones-data').textContent);
+    let asistencias = {};
+    let sesiones = {};
 
+    
     function agregarEventos() {
         const detallesHoras = document.getElementById('detalles-horas');
-
         document.querySelectorAll('.calendar-day.has-assistance, .calendar-day.has-session, .calendar-day.has-both')
             .forEach(div => {
                 div.onclick = () => {
                     const dia = div.getAttribute('data-day');
                     const diasAsistencias = asistencias[dia] || [];
                     const diasSesiones = sesiones[dia] || [];
-
                     let html = `<strong>Detalles del día ${dia}:</strong><br>`;
-
-                    if (diasAsistencias.length) {
-                        diasAsistencias.forEach(hora => {
-                            html += `• Ingresó al gimnasio a las ${hora}<br>`;
-                        });
-                    }
-                    if (diasSesiones.length) {
-                        diasSesiones.forEach(s => {
-                            html += `• Sesión: ${s}<br>`;
-                        });
-                    }
-                    if (!diasAsistencias.length && !diasSesiones.length) {
-                        html += 'No hay registros.';
-                    }
-
+                    if (diasAsistencias.length) diasAsistencias.forEach(h => html += `• Ingresó al gimnasio a las ${h}<br>`);
+                    if (diasSesiones.length) diasSesiones.forEach(s => html += `• Sesión: ${s}<br>`);
+                    if (!diasAsistencias.length && !diasSesiones.length) html += 'No hay registros.';
                     detallesHoras.innerHTML = html;
                 };
             });
     }
 
+    function showModalError() {
+        const modal = document.getElementById("modal-error");
+        if (!modal) return;
+        modal.style.display = "flex";
+        if (modal.closeTimeout) clearTimeout(modal.closeTimeout);
+        modal.closeTimeout = setTimeout(() => {
+            modal.style.animation = "fadeOut 0.8s ease forwards";
+            setTimeout(() => {
+                modal.style.display = "none";
+                modal.style.animation = "";
+            }, 800);
+        }, 5000);
+    }
+
     function cargarCalendario() {
         const rut = document.getElementById('rut').value.trim();
         if (!rut) return alert('Ingrese un RUT para consultar.');
-
         fetch(`${window.location.pathname}?rut=${rut}&month=${month}&year=${year}`, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
@@ -75,16 +75,18 @@
         .then(data => {
             document.getElementById('cliente-container').innerHTML = data.cliente;
             document.getElementById('calendario-container').innerHTML = data.calendario;
-
-          
             asistencias = data.asistencias;
             sesiones = data.sesiones;
-
-            agregarEventos(); 
+            if (data.rut_invalido) {
+                setTimeout(showModalError, 50);
+            } else {
+                agregarEventos();
+            }
         })
         .catch(() => alert('Error cargando el calendario'));
     }
 
+  
     form.onsubmit = function(e) {
         e.preventDefault();
         year = new Date().getFullYear();
@@ -93,32 +95,11 @@
     };
 
     document.addEventListener('click', (e) => {
-        if (e.target.id === 'prev-month') {
-            month--;
-            if (month < 1) { month = 12; year--; }
-            cargarCalendario();
-        }
-        if (e.target.id === 'next-month') {
-            month++;
-            if (month > 12) { month = 1; year++; }
-            cargarCalendario();
-        }
+        if (e.target.id === 'prev-month') { month--; if (month < 1) { month = 12; year--; } cargarCalendario(); }
+        if (e.target.id === 'next-month') { month++; if (month > 12) { month = 1; year++; } cargarCalendario(); }
     });
 
-    agregarEventos(); 
 })();
 </script>
 
-{% if rut_invalido %}
-<div class="modal modal-error">
-    <div class="modal-content">
-        <button onclick="this.parentElement.parentElement.style.display='none'">✖</button>
-        <h2 style="color:#dc3545;">❌ Error</h2>
-        <p>El RUT ingresado no fue encontrado.</p>
-        <p>Por favor, verifica e intenta nuevamente.</p>
-    </div>
-</div>
-{% endif %}
-
-</main>
 {% endblock %}

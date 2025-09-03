@@ -573,7 +573,6 @@ def historial_cliente(request):
     zona_chile = pytz.timezone('America/Santiago')
     now = timezone.localtime()
 
-
     try:
         year = int(year)
     except (TypeError, ValueError):
@@ -584,7 +583,6 @@ def historial_cliente(request):
     except (TypeError, ValueError):
         month = now.month
 
-    
     try:
         locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
     except locale.Error:
@@ -594,20 +592,24 @@ def historial_cliente(request):
 
     cliente = None
     rut_invalido = False
-    asistencias_dict = {}  
-    sesiones_dict = {}     
+    asistencias_dict = {}
+    sesiones_dict = {}
 
-    dias_mes = list(range(1, calendar.monthrange(year, month)[1] + 1))
+    first_weekday, num_days = calendar.monthrange(year, month)
+
+    dias_mes = []
+    for _ in range((first_weekday + 1) % 7):
+        dias_mes.append(None)
+    dias_mes += list(range(1, num_days + 1))
 
     if rut:
         try:
             cliente = Cliente.objects.get(rut=rut)
 
             inicio_mes = datetime(year, month, 1, tzinfo=zona_chile)
-            fin_mes = datetime(year, month, calendar.monthrange(year, month)[1],
-                               23, 59, 59, tzinfo=zona_chile)
+            fin_mes = datetime(year, month, num_days, 23, 59, 59, tzinfo=zona_chile)
 
-            # Asistencias al gym
+            # Asistencias
             asistencias = Asistencia.objects.filter(
                 cliente=cliente,
                 fecha__gte=inicio_mes,
@@ -616,12 +618,13 @@ def historial_cliente(request):
 
             asistencias_temp = defaultdict(list)
             for a in asistencias:
-                dia = a.fecha.day
-                hora = a.fecha.strftime("%H:%M:%S")
+                fecha_local = timezone.localtime(a.fecha, zona_chile)  
+                dia = fecha_local.day
+                hora = fecha_local.strftime("%H:%M:%S")
                 asistencias_temp[dia].append(hora)
             asistencias_dict = {dia: horas for dia, horas in asistencias_temp.items()}
 
-            # Sesiones Nutricional / Kinesiología
+            # Sesiones
             sesiones = Sesion.objects.filter(
                 cliente=cliente,
                 fecha__gte=inicio_mes,
@@ -630,9 +633,10 @@ def historial_cliente(request):
 
             sesiones_temp = defaultdict(list)
             for s in sesiones:
-                dia = s.fecha.day
+                fecha_local = timezone.localtime(s.fecha, zona_chile)  # 🔹 convertir a hora Chile
+                dia = fecha_local.day
                 tipo = s.get_tipo_sesion_display()
-                hora = s.fecha.strftime("%H:%M:%S") if hasattr(s, 'fecha') else ''
+                hora = fecha_local.strftime("%H:%M:%S") if hasattr(s, 'fecha') else ''
                 sesiones_temp[dia].append(f"{tipo} ({hora})")
             sesiones_dict = {dia: items for dia, items in sesiones_temp.items()}
 
@@ -649,16 +653,21 @@ def historial_cliente(request):
         'asistencias_dict': asistencias_dict,
         'sesiones_dict': sesiones_dict,
         'rut': rut or '',
+        'rut_invalido': rut_invalido
     }
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-        html_calendario = render_to_string('core/calendario_parcial.html', context, request=request)
+        html_calendario = ''
+        if cliente:  
+            html_calendario = render_to_string('core/calendario_parcial.html', context, request=request)
+
         html_cliente = render_to_string('core/cliente_info.html', context, request=request)
         return JsonResponse({
             'calendario': html_calendario,
             'cliente': html_cliente,
             'asistencias': asistencias_dict,
             'sesiones': sesiones_dict,
+            'rut_invalido': rut_invalido,
         })
 
     return render(request, 'core/historial_cliente.html', context)
