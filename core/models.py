@@ -207,7 +207,7 @@ class Cliente(models.Model):
             else:
                 dias_total = self.duraciones_a_dias.get(key, 30)
 
-        # 🔹 Solo asignar fecha_fin_plan si no existe
+
         if not self.fecha_fin_plan:
             self.fecha_fin_plan = self.fecha_inicio_plan + timedelta(days=dias_total)
 
@@ -289,10 +289,11 @@ class Cliente(models.Model):
 
         self.asignar_precio()
         super().save()
+    class Meta:
+            ordering = ["nombre", "apellido"]
 
     def __str__(self):
         return f"{self.nombre} {self.apellido} - {self.rut}"
-
 
 class Asistencia(models.Model):
     TIPO_ASISTENCIA_CHOICES = [
@@ -301,6 +302,9 @@ class Asistencia(models.Model):
     ]
 
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
+    plan_personalizado = models.ForeignKey(
+        "PlanPersonalizado", null=True, blank=True, on_delete=models.SET_NULL
+    )
     fecha = models.DateTimeField(default=timezone.now)
     tipo_asistencia = models.CharField(
         max_length=20,
@@ -310,9 +314,6 @@ class Asistencia(models.Model):
 
     def __str__(self):
         return f"{self.cliente.nombre} - {self.fecha.date()} ({self.tipo_asistencia})"
-
-
-
 
 
 

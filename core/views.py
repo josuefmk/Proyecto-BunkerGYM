@@ -224,7 +224,7 @@ def asistencia_cliente(request):
 
         hoy = timezone.localdate()
 
-        #  Bloquear si es Pase Diario inactivo
+        # Bloquear si es Pase Diario inactivo
         if (
             cliente.mensualidad
             and cliente.mensualidad.tipo.lower() == "pase diario"
@@ -254,8 +254,13 @@ def asistencia_cliente(request):
             if confirmar:
                 plan_id = request.POST.get("plan_personalizado")
                 cliente.plan_personalizado_activo = cliente.planes_personalizados.filter(id=plan_id).first()
-            elif cliente.planes_personalizados.count() == 1:
+            else:
+                # Asignar el primer plan activo si existe
                 cliente.plan_personalizado_activo = cliente.planes_personalizados.first()
+            cliente.save()
+        else:
+            # No hay planes personalizados, asegurarse de que plan_personalizado_activo sea None
+            cliente.plan_personalizado_activo = None
             cliente.save()
 
         plan_activo = cliente.plan_personalizado_activo
@@ -288,7 +293,7 @@ def asistencia_cliente(request):
             tipo_asistencia = "plan_personalizado"
 
         # Calcular accesos SubPlan
-        if cliente.sub_plan:
+        if cliente.sub_plan and not tipo_asistencia:
             if cliente.sub_plan == "Titanio":
                 accesos_restantes_subplan = float("inf")
             else:
@@ -300,8 +305,7 @@ def asistencia_cliente(request):
                     tipo_asistencia="subplan"
                 ).count()
                 accesos_restantes_subplan = max(accesos_dict.get(cliente.sub_plan, 0) - usados_mes_subplan, 0)
-            if not tipo_asistencia:
-                tipo_asistencia = "subplan"
+            tipo_asistencia = "subplan"
 
         # Guardar accesos restantes
         if tipo_asistencia == "plan_personalizado" and accesos_restantes_personalizado is not None:
@@ -328,7 +332,7 @@ def asistencia_cliente(request):
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-            # Registrar asistencia
+        # Registrar asistencia
         Asistencia.objects.create(cliente=cliente, tipo_asistencia=tipo_asistencia or "subplan")
         registrar_historial(
             request.admin,
