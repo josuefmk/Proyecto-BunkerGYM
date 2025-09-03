@@ -88,19 +88,31 @@
             </select>
         </td>
 
-        <!-- Plan personalizado -->
-        <td>
-            <form method="post" action="{% url 'cambiar_planes_personalizados' %}" id="form-plan-personalizado-{{ cliente.rut }}">
-                {% csrf_token %}
-                <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
-                <select name="nuevo_planes_personalizados" class="select2 select-plan-personalizado" multiple="multiple" data-rut="{{ cliente.rut }}" style="width: 180px;">
-                    {% for plan in planes_personalizados %}
-                        <option value="{{ plan.id }}" {% if plan in cliente.planes_personalizados.all %}selected{% endif %}>{{ plan.nombre_plan }}</option>
-                    {% endfor %}
-                </select>
-            </form>
-        </td>
+     
+       <!-- Plan personalizado -->
+            <td style="vertical-align: middle; text-align: left;">
+                <form method="post" action="{% url 'cambiar_planes_personalizados' %}" id="form-plan-personalizado-{{ cliente.rut }}" style="margin: 0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
+                    <select name="nuevo_planes_personalizados" class="select2 select-plan-personalizado" multiple="multiple" data-rut="{{ cliente.rut }}" style="width: 180px;">
+                        {% for plan in planes_personalizados %}
+                            <option value="{{ plan.id }}" {% if plan in cliente.planes_personalizados.all %}selected{% endif %}>{{ plan.nombre_plan }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
 
+                {% if cliente.planes_personalizados.exists %}
+                    <form method="post" action="{% url 'renovar_plan_personalizado' %}" id="form-renovar-personalizado-{{ cliente.rut }}" style="margin-top: 4px;">
+                        {% csrf_token %}
+                        <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
+                        <button type="button" 
+                                class="btn-renovar-linea"
+                                onclick="abrirModalRenovarPersonalizado('{{ cliente.rut }}')">
+                            🔄 Renovar
+                        </button>
+                    </form>
+                {% endif %}
+            </td>
             <!-- Estado del plan -->
         <td>
             {% if cliente.estado_plan == 'pendiente' %}
@@ -169,6 +181,23 @@
     </tbody>
         </table>
         </div>
+
+     {% if clientes.has_other_pages %}
+    <div class="pagination">
+        {% if clientes.has_previous %}
+            <a href="?page=1{% if rut_buscado %}&rut={{ rut_buscado }}{% endif %}" class="page-btn">⏮ Primero</a>
+            <a href="?page={{ clientes.previous_page_number }}{% if rut_buscado %}&rut={{ rut_buscado }}{% endif %}" class="page-btn">⬅ Anterior</a>
+        {% endif %}
+
+        <span class="page-info">Página {{ clientes.number }} de {{ clientes.paginator.num_pages }}</span>
+
+        {% if clientes.has_next %}
+            <a href="?page={{ clientes.next_page_number }}{% if rut_buscado %}&rut={{ rut_buscado }}{% endif %}" class="page-btn">Siguiente ➡</a>
+            <a href="?page={{ clientes.paginator.num_pages }}{% if rut_buscado %}&rut={{ rut_buscado }}{% endif %}" class="page-btn">Último ⏭</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
     {% else %}
         <p style="text-align: center; font-size: 18px; color: black;">
             No se encontró el RUT del Cliente.
@@ -193,7 +222,17 @@
         </form>
     </div>
     </div>
-
+<!-- MODAL RENOVAR PLAN PERSONALIZADO -->
+<div id="modal-renovar-personalizado" class="modal-renovar" style="display:none;">
+    <div class="modal-content-renovar">
+        <h2>Confirmar renovación</h2>
+        <p id="mensaje-renovar-personalizado"></p>
+        <div class="modal-cliente-actions">
+            <button type="button" class="btn-global" onclick="confirmarRenovacionPersonalizado()">✅ Sí, renovar</button>
+            <button type="button" class="btn-cliente-cancelar" onclick="cerrarModalRenovarPersonalizado()">Cancelar</button>
+        </div>
+    </div>
+</div>
 
 <!-- MODAL PARA ELIMINAR CLIENTE -->
     <div id="modalEliminarCliente" class="modal modal-error" style="display: none;">
@@ -523,6 +562,26 @@ function guardarSesion(event) {
 
     document.getElementById(`form-sesion-${rut}`).submit();
     cerrarModalSesion();
+}
+
+let rutPersonalizado = null;
+
+function abrirModalRenovarPersonalizado(rut) {
+    rutPersonalizado = rut;
+    document.getElementById("mensaje-renovar-personalizado").innerText =
+        `¿Deseas renovar el plan personalizado para el cliente con RUT ${rut}?`;
+    document.getElementById("modal-renovar-personalizado").style.display = 'flex';
+}
+
+function confirmarRenovacionPersonalizado() {
+    if (rutPersonalizado) {
+        document.getElementById(`form-renovar-personalizado-${rutPersonalizado}`).submit();
+    }
+}
+
+function cerrarModalRenovarPersonalizado() {
+    document.getElementById("modal-renovar-personalizado").style.display = 'none';
+    rutPersonalizado = null;
 }
 </script>
 

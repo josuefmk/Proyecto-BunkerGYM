@@ -29,7 +29,7 @@ import locale
 from django.core.mail import EmailMessage
 from xhtml2pdf import pisa
 import io
-
+from django.core.paginator import Paginator
 from .utils import validar_rut, validar_correo, validar_telefono
 
 from .models import HistorialAccion
@@ -497,9 +497,13 @@ def renovarCliente(request):
         ).prefetch_related("planes_personalizados")
 
     tipos_mensualidad = Mensualidad.objects.all()
+  # Paginación
+    paginator = Paginator(clientes, 20)  
+    page_number = request.GET.get("page")
+    clientes_page = paginator.get_page(page_number)
 
     return render(request, 'core/renovarCliente.html', {
-        'clientes': clientes,
+        'clientes': clientes_page,
         "today": hoy,
         'rut_buscado': rut_buscado,
         'planes_personalizados': PlanPersonalizado.objects.all(),
@@ -843,6 +847,36 @@ def cambiar_planes_personalizados(request):
         else:
             messages.error(request, "Cliente no encontrado.")
         
+    return redirect('renovarCliente')
+
+@admin_required
+def renovar_plan_personalizado(request):
+    if request.method == 'POST':
+        rut_cliente = request.POST.get('rut_cliente')
+
+        try:
+            cliente = Cliente.objects.get(rut=rut_cliente)
+        except Cliente.DoesNotExist:
+            messages.error(request, "Cliente no encontrado.")
+            return redirect('renovarCliente')
+
+        if not cliente.planes_personalizados.exists():
+            messages.error(request, "El cliente no tiene un plan personalizado asignado.")
+            return redirect('renovarCliente')
+
+        hoy = timezone.localdate()
+        plan = cliente.planes_personalizados.first()
+
+  
+        cliente.accesos_restantes = plan.accesos_por_mes
+        cliente.fecha_inicio_plan = hoy
+        cliente.fecha_fin_plan = hoy + timedelta(days=30)
+        cliente.ultimo_reset_mes = hoy
+        cliente.save()
+
+        messages.success(request, f"Plan personalizado renovado para {cliente.nombre} {cliente.apellido}")
+        return redirect('renovarCliente')
+
     return redirect('renovarCliente')
 
 @admin_required

@@ -296,7 +296,43 @@ body {
 }
 
 
+.pagination {
+    text-align: center;
+    margin: 25px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
 
+.page-btn {
+    background: linear-gradient(135deg,black, black);
+    color: white;
+    padding: 8px 14px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0px 3px 6px rgba(0,0,0,0.15);
+}
+
+.page-btn:hover {
+    background: linear-gradient(135deg, black, black);
+    transform: translateY(-2px);
+    box-shadow: 0px 4px 8px rgba(0,0,0,0.25);
+}
+
+.page-info {
+    font-size: 15px;
+    font-weight: bold;
+    color: #333;
+    background: #f4f6f9;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+}
 
 .error-text {
     font-size: 13px;
@@ -1191,8 +1227,21 @@ main.contenido.historia-cliente {
     background-color: #0d6efd !important;
     color: #fff !important;
 }
+.btn-renovar-linea {
+    background-color: transparent;
+    border: 1px solid black;
+    color: black;
+    padding: 2px 6px;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
 
-
+.btn-renovar-linea:hover {
+    background-color: black;
+    color: white;
+}
 
 @keyframes fadeIn {
     from { opacity: 0; }
