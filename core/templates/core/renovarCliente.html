@@ -210,6 +210,18 @@
         </form>
     </div>
     </div>
+
+    <!-- MODAL PARA ELIMINAR PLAN PERSONALIZADO -->
+    <div id="modal-eliminar-plan" class="modal-renovar" style="display: none;">
+    <div class="modal-content-renovar">
+        <h2>Eliminar Plan Personalizado</h2>
+        <p id="mensaje-eliminar-plan"></p>
+        <div class="modal-cliente-actions">
+        <button type="button" class="btn-global" onclick="confirmarEliminarPlan()">🗑️ Sí, eliminar</button>
+        <button type="button" class="btn-cliente-cancelar" onclick="cerrarModalEliminarPlan()">Cancelar</button>
+        </div>
+    </div>
+    </div>
 <!-- MODAL DE CONFIRMACIÓN DE CAMBIO DE PLAN PERSONALIZADO -->
 <div id="modal-cambio-plan" class="modal-renovar" style="display: none;">
   <div class="modal-content-renovar">
@@ -285,13 +297,13 @@ $(document).ready(function() {
         placeholder: "Selecciona hasta 2 planes personalizados",
         maximumSelectionLength: 2,
         allowClear: true,
-        width: '100%'  // mejor que 'style'
+        width: '100%'  
     });
 
     let modalMostrado = false;
     window.formularioTemporal = null;
 
-    // Detectar cambios en select2
+
     $('.select-plan-personalizado').on('change', function () {
         if (modalMostrado) return;
 
@@ -325,9 +337,46 @@ $(document).ready(function() {
         formularioTemporal = null;
         modalMostrado = false;
     }
+
+  
+    let planAEliminar = null;
+    let formPlanPersonalizado = null;
+
+    $('.select-plan-personalizado').on('select2:unselecting', function(e) {
+        e.preventDefault(); 
+
+        const option = e.params.args.data;
+        const nombrePlan = option.text;
+        const select = $(this);
+        formPlanPersonalizado = select.closest('form')[0];
+        planAEliminar = option.id;
+
+        document.getElementById("mensaje-eliminar-plan").innerText =
+            `¿Estás seguro que deseas eliminar el plan personalizado: "${nombrePlan}"?`;
+
+        document.getElementById("modal-eliminar-plan").style.display = 'flex';
+    });
+
+    window.confirmarEliminarPlan = function() {
+        if (formPlanPersonalizado && planAEliminar) {
+            const select2Instance = $(formPlanPersonalizado).find('.select-plan-personalizado');
+            const values = select2Instance.val() || [];
+            const newValues = values.filter(val => val !== planAEliminar);
+            select2Instance.val(newValues).trigger('change');
+
+            formPlanPersonalizado.submit();
+        }
+        cerrarModalEliminarPlan();
+    }
+
+    window.cerrarModalEliminarPlan = function() {
+        document.getElementById("modal-eliminar-plan").style.display = 'none';
+        planAEliminar = null;
+        formPlanPersonalizado = null;
+    }
 });
 
-    
+
 let formularioTemporal = null;
 
 function confirmarCambioPlan(selectElement, planAnterior) {
@@ -371,7 +420,6 @@ function mostrarConfirmacion(event) {
         return;
     }
 
-    // Guardamos valores
     document.getElementById('rut-renovar').value = rut;
     document.getElementById('metodo-pago-hidden').value = metodo;
     document.getElementById('nuevo-plan-hidden').value = document.getElementById(`plan-${rut}`).value;
@@ -400,7 +448,6 @@ function confirmarCambioSubplan(rut) {
 function cerrarModalSubplan() {
     document.getElementById("modal-cambio-subplan").style.display = 'none';
 }
-
 
 function validarFormulario(event) {
     const rut = document.getElementById('rutInput').value.trim();
@@ -446,11 +493,7 @@ function abrirModalSesion(select, rut) {
     if (tipo === "kinesiologia") texto = "Asignar sesión: Kinesiología";
 
     document.getElementById("texto-modal-sesion").innerText = texto;
-
-  
     document.getElementById("modal-sesion").style.display = "flex";
-
-    
     document.getElementById("modal-fecha").value = "";
 }
 
@@ -470,7 +513,6 @@ function guardarSesion(event) {
         return;
     }
 
-
     document.getElementById(`tipo-sesion-${rut}`).value = tipo;
     document.getElementById(`fecha-sesion-${rut}`).value = fecha;
 
@@ -479,14 +521,10 @@ function guardarSesion(event) {
         select.value = tipo;
     }
 
- 
     document.getElementById(`form-sesion-${rut}`).submit();
-
     cerrarModalSesion();
 }
-
-
-
 </script>
+
 
 {% endblock %}
