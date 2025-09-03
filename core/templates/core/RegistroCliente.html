@@ -79,80 +79,98 @@
     });
   });
 
-  document.addEventListener("DOMContentLoaded", function() {
-      const selectPlan = document.getElementById("id_mensualidad");
-      if (selectPlan) {
-          selectPlan.addEventListener("change", function() {
-              if (this.value) {
-                  document.getElementById("modalSubPlan").style.display = "flex";
-              }
-          });
-      }
-  });
+document.addEventListener("DOMContentLoaded", function() {
+    const selectPlan = document.getElementById("id_mensualidad");
+    if (selectPlan) {
+        selectPlan.addEventListener("change", function() {
+            const selectedText = this.options[this.selectedIndex].text.trim().toLowerCase();
 
-  function guardarSubPlan() {
-      let elegido = document.querySelector('input[name="subPlanOption"]:checked');
-      if (!elegido) {
-          alert("Selecciona un sub plan");
-          return;
-      }
-      document.getElementById("id_sub_plan").value = elegido.value;
-      document.getElementById("modalSubPlan").style.display = "none";
-  }
+      
+            const excepciones = [
+                "pase diario",
+                "plan diario",
+                "pase diario + plan diario"
+            ];
 
-  window.onclick = (event) => {
-      const modal = document.getElementById("modalSubPlan");
-      if(event.target === modal) {
-          modal.style.display = "none";
-      }
-  };
+            if (excepciones.includes(selectedText)) {
+                document.getElementById("id_sub_plan").value = "";
+                document.getElementById("modalSubPlan").style.display = "none";
+            } else if (this.value) {
+                document.getElementById("modalSubPlan").style.display = "flex";
+            }
+        });
+    }
+});
 
+function guardarSubPlan() {
+    let elegido = document.querySelector('input[name="subPlanOption"]:checked');
+    if (!elegido) {
+        alert("Selecciona un sub plan");
+        return;
+    }
+    document.getElementById("id_sub_plan").value = elegido.value;
+    document.getElementById("modalSubPlan").style.display = "none";
+}
 
-  function validarFormulario() {
- 
-      document.querySelectorAll('.form-group').forEach(div => {
-          div.querySelector('.error-text').textContent = '';
-          const input = div.querySelector('input, select, textarea');
-          if (input) input.style.borderColor = '';
-      });
+window.onclick = (event) => {
+    const modal = document.getElementById("modalSubPlan");
+    if(event.target === modal) {
+        modal.style.display = "none";
+    }
+};
 
-      let valido = true;
-      const camposObligatorios = [
-          {id: "id_nombre", label: "Nombres"},
-          {id: "id_apellido", label: "Apellidos"},
-          {id: "id_correo", label: "Email"},
-          {id: "id_telefono", label: "Teléfono"},
-          {id: "id_rut", label: "RUT"},
-          {id: "id_mensualidad", label: "Plan"},
-          {id: "id_metodo_pago", label: "Método de pago"}
-      ];
+function validarFormulario() {
 
-      camposObligatorios.forEach(campoInfo => {
-          const campo = document.getElementById(campoInfo.id);
-          if (campo && !campo.value.trim()) {
-              const group = campo.closest('.form-group');
-              if (group) {
-                  const errorDiv = group.querySelector('.error-text');
-                  errorDiv.textContent = `El campo "${campoInfo.label}" es obligatorio.`;
-                  campo.style.borderColor = 'red';
-              }
-              valido = false;
-          }
-      });
+    document.querySelectorAll('.form-group').forEach(div => {
+        div.querySelector('.error-text').textContent = '';
+        const input = div.querySelector('input, select, textarea');
+        if (input) input.style.borderColor = '';
+    });
 
-      const mensualidad = document.getElementById("id_mensualidad");
-      const subPlan = document.getElementById("id_sub_plan");
-      if (mensualidad && mensualidad.value && (!subPlan || !subPlan.value)) {
-          const group = mensualidad.closest('.form-group');
-          if (group) {
-              const errorDiv = group.querySelector('.error-text');
-              errorDiv.textContent = "Debes seleccionar un sub plan.";
-              mensualidad.style.borderColor = 'red';
-          }
-          valido = false;
-      }
+    let valido = true;
+    const camposObligatorios = [
+        {id: "id_nombre", label: "Nombres"},
+        {id: "id_apellido", label: "Apellidos"},
+        {id: "id_correo", label: "Email"},
+        {id: "id_telefono", label: "Teléfono"},
+        {id: "id_rut", label: "RUT"},
+        {id: "id_mensualidad", label: "Plan"},
+        {id: "id_metodo_pago", label: "Método de pago"}
+    ];
 
-      return valido;
-  }
+    camposObligatorios.forEach(campoInfo => {
+        const campo = document.getElementById(campoInfo.id);
+        if (campo && !campo.value.trim()) {
+            const group = campo.closest('.form-group');
+            if (group) {
+                const errorDiv = group.querySelector('.error-text');
+                errorDiv.textContent = `El campo "${campoInfo.label}" es obligatorio.`;
+                campo.style.borderColor = 'red';
+            }
+            valido = false;
+        }
+    });
+
+    const mensualidad = document.getElementById("id_mensualidad");
+    const subPlan = document.getElementById("id_sub_plan");
+    if (mensualidad && mensualidad.value) {
+        const selectedText = mensualidad.options[mensualidad.selectedIndex].text.trim().toLowerCase();
+
+     
+        const excepciones = ["pase diario", "plan diario", "pase diario + plan diario"];
+
+        if (!excepciones.includes(selectedText) && (!subPlan || !subPlan.value)) {
+            const group = mensualidad.closest('.form-group');
+            if (group) {
+                const errorDiv = group.querySelector('.error-text');
+                errorDiv.textContent = "Debes seleccionar un sub plan.";
+                mensualidad.style.borderColor = 'red';
+            }
+            valido = false;
+        }
+    }
+
+    return valido;
+}
 </script>
 {% endblock %}

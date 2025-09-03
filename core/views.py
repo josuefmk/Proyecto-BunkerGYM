@@ -210,6 +210,7 @@ def asistencia_cliente(request):
         "asistencia_ya_registrada": False,
         "plan_vencido": False,
         "sin_accesos": False,
+        "pase_diario_inactivo": False,
     }
 
     if request.method == "POST":
@@ -222,6 +223,16 @@ def asistencia_cliente(request):
             return render(request, "core/AsistenciaCliente.html", contexto)
 
         hoy = timezone.localdate()
+
+        #  Bloquear si es Pase Diario inactivo
+        if (
+            cliente.mensualidad
+            and cliente.mensualidad.tipo.lower() == "pase diario"
+            and cliente.estado_plan == "inactivo"
+        ):
+            contexto["pase_diario_inactivo"] = True
+            contexto["cliente"] = cliente
+            return render(request, "core/AsistenciaCliente.html", contexto)
 
         # Validar plan vencido
         if cliente.estado_plan == "vencido":
@@ -258,12 +269,11 @@ def asistencia_cliente(request):
             elif plan_activo.accesos_por_mes == 0:
                 plan_full = True
 
-        # Inicializar accesos separados
         accesos_restantes_subplan = None
         accesos_restantes_personalizado = None
         tipo_asistencia = None
 
-        # Calcular accesos Plan Personalizado 
+        # Calcular accesos Plan Personalizado
         if plan_activo and (plan_activo.accesos_por_mes > 0 or plan_libre or plan_full):
             usados_mes_personalizado = Asistencia.objects.filter(
                 cliente=cliente,
@@ -277,7 +287,7 @@ def asistencia_cliente(request):
                 accesos_restantes_personalizado = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
             tipo_asistencia = "plan_personalizado"
 
-        #  Calcular accesos SubPlan 
+        # Calcular accesos SubPlan
         if cliente.sub_plan:
             if cliente.sub_plan == "Titanio":
                 accesos_restantes_subplan = float("inf")
@@ -290,11 +300,10 @@ def asistencia_cliente(request):
                     tipo_asistencia="subplan"
                 ).count()
                 accesos_restantes_subplan = max(accesos_dict.get(cliente.sub_plan, 0) - usados_mes_subplan, 0)
-            # Si no hay plan personalizado activo, se usa el subplan
             if not tipo_asistencia:
                 tipo_asistencia = "subplan"
 
-        # Guardar accesos restantes del último tipo usado
+        # Guardar accesos restantes
         if tipo_asistencia == "plan_personalizado" and accesos_restantes_personalizado is not None:
             cliente.accesos_restantes = accesos_restantes_personalizado
         elif tipo_asistencia == "subplan" and accesos_restantes_subplan is not None:
@@ -303,7 +312,7 @@ def asistencia_cliente(request):
 
         # Verificar accesos disponibles
         accesos_disponibles = False
-        if plan_libre or plan_full or cliente.sub_plan == "Titanio":
+        if plan_libre or plan_full or cliente.sub_plan == "Titanio" or (cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario"):
             accesos_disponibles = True
         elif cliente.accesos_restantes > 0:
             accesos_disponibles = True
@@ -319,43 +328,20 @@ def asistencia_cliente(request):
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-        # Registrar asistencia con tipo correcto
-        Asistencia.objects.create(cliente=cliente, tipo_asistencia=tipo_asistencia)
+            # Registrar asistencia
+        Asistencia.objects.create(cliente=cliente, tipo_asistencia=tipo_asistencia or "subplan")
         registrar_historial(
-                request.admin,
-                "asistencia",
-                "Cliente",
-                cliente.id,
-                f"Registró asistencia de {cliente.nombre} {cliente.apellido}"
-            )
+            request.admin,
+            "asistencia",
+            "Cliente",
+            cliente.id,
+            f"Registró asistencia de {cliente.nombre} {cliente.apellido}"
+        )
 
-        # Recalcular accesos restantes después de registrar
-        if tipo_asistencia == "plan_personalizado":
-            usados_mes_personalizado = Asistencia.objects.filter(
-                cliente=cliente,
-                fecha__date__month=hoy.month,
-                fecha__date__year=hoy.year,
-                tipo_asistencia="plan_personalizado"
-            ).count()
-            if plan_libre or plan_full:
-                accesos_restantes_personalizado = float("inf")
-            else:
-                accesos_restantes_personalizado = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
-        elif tipo_asistencia == "subplan":
-            if cliente.sub_plan == "Titanio":
-                accesos_restantes_subplan = float("inf")
-            else:
-                accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
-                usados_mes_subplan = Asistencia.objects.filter(
-                    cliente=cliente,
-                    fecha__date__month=hoy.month,
-                    fecha__date__year=hoy.year,
-                    tipo_asistencia="subplan"
-                ).count()
-                accesos_restantes_subplan = max(accesos_dict.get(cliente.sub_plan, 0) - usados_mes_subplan, 0)
-        cliente.save()
+        if cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario":
+            cliente.fecha_fin_plan = hoy
+            cliente.save()
 
-       
         contexto.update({
             "mostrar_modal": True,
             "cliente": cliente,
@@ -369,6 +355,8 @@ def asistencia_cliente(request):
         return render(request, "core/AsistenciaCliente.html", contexto)
 
     return render(request, "core/AsistenciaCliente.html", contexto)
+
+
 
 @admin_required
 def listaCliente(request):
@@ -418,69 +406,85 @@ def listaCliente_json(request):
         })
 
     return JsonResponse({'datos_clientes': datos_clientes})
-
 @admin_required
 def renovarCliente(request):
     rut_buscado = request.POST.get('rut') or request.GET.get('rut', '')
     cliente_renovado = None
 
-    if request.method == 'POST':
-        if 'renovar_rut' in request.POST:
-            rut_renovar = request.POST.get('renovar_rut')
-            metodo_pago = request.POST.get('metodo_pago')
-            nuevo_plan_id = request.POST.get('nuevo_plan')
-            nuevo_sub_plan = request.POST.get('nuevo_sub_plan')
+    if request.method == 'POST' and 'renovar_rut' in request.POST:
+        rut_renovar = request.POST.get('renovar_rut')
+        metodo_pago = request.POST.get('metodo_pago')
+        nuevo_plan_id = request.POST.get('nuevo_plan')
+        nuevo_sub_plan = request.POST.get('nuevo_sub_plan')
 
-            cliente_renovado = Cliente.objects.filter(rut=rut_renovar).first()
+        cliente_renovado = Cliente.objects.filter(rut=rut_renovar).first()
+        if not cliente_renovado:
+            messages.error(request, "Cliente no encontrado.")
+            return redirect("renovarCliente")
 
-            if cliente_renovado:
-                plan_anterior = cliente_renovado.mensualidad_id
-                cliente_renovado.metodo_pago = metodo_pago
+        cliente_renovado.metodo_pago = metodo_pago
+        plan_anterior = cliente_renovado.mensualidad_id
 
-                # Asignar solo al confirmar renovación
-                if nuevo_plan_id:
-                    mensualidad_obj = Mensualidad.objects.get(pk=nuevo_plan_id)
-                    cliente_renovado.mensualidad = mensualidad_obj
-                    cliente_renovado.tipo_publico = mensualidad_obj.tipo
+        # Asignar nuevo plan si hay
+        if nuevo_plan_id:
+            mensualidad_obj = Mensualidad.objects.get(pk=nuevo_plan_id)
+            cliente_renovado.mensualidad = mensualidad_obj
+            cliente_renovado.tipo_publico = mensualidad_obj.tipo
 
-                if nuevo_sub_plan:
-                    cliente_renovado.sub_plan = nuevo_sub_plan
+        # Asignar subplan solo si el nuevo plan no es Pase Diario
+        if nuevo_sub_plan and (not cliente_renovado.mensualidad or cliente_renovado.mensualidad.tipo.lower() != "pase diario"):
+            cliente_renovado.sub_plan = nuevo_sub_plan
+        else:
+            cliente_renovado.sub_plan = None  
 
-                hoy = timezone.localdate()
-                dias_restantes = 0
-                if cliente_renovado.fecha_fin_plan:
-                    dias_restantes = (cliente_renovado.fecha_fin_plan - hoy).days
-                    if dias_restantes < 0:
-                        dias_restantes = 0
+        hoy = timezone.localdate()
 
-                cambio_de_plan = plan_anterior != cliente_renovado.mensualidad_id
-                cliente_renovado.asignar_precio()
+        #  Lógica especial para Pase Diario
+        if cliente_renovado.mensualidad and cliente_renovado.mensualidad.tipo.lower() == "pase diario":
+            cliente_renovado.fecha_inicio_plan = hoy
+            cliente_renovado.fecha_fin_plan = hoy + timedelta(days=1)
+            cliente_renovado.accesos_restantes = 1
+            cliente_renovado.asignar_precio()
+            cliente_renovado.save()
 
-                if cambio_de_plan:
-                    fecha_activacion = cliente_renovado.fecha_fin_plan or hoy
-                    cliente_renovado.activar_plan(fecha_activacion=fecha_activacion, dias_extra=0)
-                    mensaje_extra = f"El nuevo plan comenzará en {dias_restantes} días, al finalizar el actual."
-                else:
-                    cliente_renovado.activar_plan(fecha_activacion=hoy, dias_extra=dias_restantes)
-                    mensaje_extra = f"Se sumaron {dias_restantes} días extra."
-                registrar_historial(
+            registrar_historial(
+                request.admin,
+                "renovar",
+                "Cliente",
+                cliente_renovado.id,
+                f"Renovó Pase Diario para {cliente_renovado.nombre} {cliente_renovado.apellido}"
+            )
+            messages.success(
+                request,
+                f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ha renovado su Pase Diario por 1 día."
+            )
+        else:
+            # Plan mensual u otro plan normal
+            dias_extra = 0
+            if cliente_renovado.fecha_fin_plan:
+                dias_extra = max((cliente_renovado.fecha_fin_plan - hoy).days, 0)
+
+            cliente_renovado.activar_plan(fecha_activacion=hoy, dias_extra=dias_extra)
+            cliente_renovado.save()
+            cliente_renovado.asignar_precio()
+
+            registrar_historial(
                 request.admin,
                 "renovar",
                 "Cliente",
                 cliente_renovado.id,
                 f"Renovó plan {cliente_renovado.sub_plan} para {cliente_renovado.nombre} {cliente_renovado.apellido}"
-)
-                messages.success(
-                    request,
-                    f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ({cliente_renovado.rut}) ha sido renovado correctamente. {mensaje_extra}"
-                )
-                rut_buscado = rut_renovar
+            )
+            messages.success(
+                request,
+                f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ha renovado su plan correctamente."
+            )
 
-        elif 'rut' in request.POST:
-            rut_buscado = request.POST.get('rut')
+        rut_buscado = rut_renovar
 
     hoy = timezone.localdate()
 
+    # Filtrar clientes
     if rut_buscado:
         clientes = Cliente.objects.filter(rut__icontains=rut_buscado).prefetch_related("planes_personalizados")
     else:
@@ -492,13 +496,12 @@ def renovarCliente(request):
 
     return render(request, 'core/renovarCliente.html', {
         'clientes': clientes,
-        "today": now().date(),
+        "today": hoy,
         'rut_buscado': rut_buscado,
         'planes_personalizados': PlanPersonalizado.objects.all(),
         'tipos_mensualidad': tipos_mensualidad
     })
 
-@admin_required
 def registrar_sesion(request):
     if request.method == "POST":
         rut = request.POST.get('rut_cliente')

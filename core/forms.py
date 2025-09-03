@@ -121,22 +121,23 @@ class ClienteForm(forms.ModelForm):
     def save(self, commit=True):
         cliente = super().save(commit=False)
 
-   
         if not cliente.fecha_inicio_plan:
             cliente.fecha_inicio_plan = timezone.localdate()
 
-     
-        dias_total = 30
-        if cliente.mensualidad:
-            key = cliente.mensualidad.duracion.strip().lower()
-            dias_total = cliente.duraciones_a_dias.get(key, 30)
+        # Calcular días extra si se necesita
+        dias_extra = 0
+        hoy = timezone.localdate()
+        if cliente.fecha_fin_plan and cliente.fecha_fin_plan > hoy:
+            dias_extra = (cliente.fecha_fin_plan - hoy).days
 
-        cliente.fecha_fin_plan = cliente.fecha_inicio_plan + timedelta(days=dias_total)
+        # Activar plan correctamente
+        cliente.activar_plan(fecha_activacion=cliente.fecha_inicio_plan, dias_extra=dias_extra)
 
         if commit:
             cliente.save()
             self.save_m2m()
         return cliente
+    
 class ProductoForm(forms.ModelForm):
     class Meta:
         model = Producto

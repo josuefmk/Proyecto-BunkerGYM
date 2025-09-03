@@ -36,17 +36,19 @@ class Mensualidad(models.Model):
         ('Estudiante', 'Estudiante'),
         ('Normal', 'Normal'),
         ('Adulto Mayor', 'Adulto Mayor'),
+        ('Pase Diario', 'Pase Diario'), 
     ]
     DURACIONES = [
         ('Mensual', 'Mensual'),
         ('Trimestral', 'Trimestral'),
         ('Anual', 'Anual'),
         ('Semestral', 'Semestral'),
+         ('Diario', 'Diario'),  
     ]
 
     tipo = models.CharField(max_length=20, choices=TIPOS)
     duracion = models.CharField(max_length=20, choices=DURACIONES, default='Mensual')
-    sub_plan = models.CharField(max_length=20, choices=SUB_PLANES)
+    sub_plan = models.CharField(max_length=20, choices=SUB_PLANES,null=True, blank=True)
     class Meta:
         unique_together = ('tipo', 'duracion')
 
@@ -191,30 +193,26 @@ class Cliente(models.Model):
             self.precio_asignado = None
 
     def save(self, *args, **kwargs):
-  
         if isinstance(self.fecha_inicio_plan, datetime):
             self.fecha_inicio_plan = self.fecha_inicio_plan.date()
 
-   
         if not self.fecha_inicio_plan:
             self.fecha_inicio_plan = timezone.localdate()
 
         dias_total = 30
         if self.mensualidad:
             key = self.mensualidad.duracion.strip().lower()
-            dias_total = self.duraciones_a_dias.get(key, 30)
+            if self.mensualidad.tipo.lower() == 'pase diario':
+                dias_total = 1
+            else:
+                dias_total = self.duraciones_a_dias.get(key, 30)
 
-        if not self.fecha_fin_plan or 'update' in kwargs:
+        # 🔹 Solo asignar fecha_fin_plan si no existe
+        if not self.fecha_fin_plan:
             self.fecha_fin_plan = self.fecha_inicio_plan + timedelta(days=dias_total)
 
-  
-        if self.plan_personalizado_activo and (self.accesos_restantes is None or self.accesos_restantes == 0):
-            self.accesos_restantes = self.plan_personalizado_activo.accesos_por_mes
-
-   
-        self.asignar_precio()
-
         super().save(*args, **kwargs)
+
     @property
     def ultima_sesion_tipo(self):
             if self.sesiones.exists():
@@ -224,32 +222,43 @@ class Cliente(models.Model):
     @property
     def estado_plan(self):
         hoy = timezone.localdate()
+
+        # Pase Diario
+        if self.mensualidad and self.mensualidad.tipo.lower() == 'pase diario':
+            if not self.fecha_fin_plan or self.fecha_fin_plan < hoy or self.fecha_fin_plan == hoy:
+                return 'inactivo'
+            else:
+                return 'activo'
+
+        # Planes normales
         if self.fecha_fin_plan and self.fecha_fin_plan < hoy:
             return 'vencido'
         elif self.fecha_inicio_plan and self.fecha_inicio_plan > hoy:
             return 'pendiente'
         else:
             return 'activo'
-
     @property
     def dias_restantes(self):
         hoy = timezone.localdate()
+
+        # Para planes que empiezan en el futuro
         if self.fecha_inicio_plan and self.fecha_inicio_plan > hoy:
             return (self.fecha_inicio_plan - hoy).days
 
         if self.mensualidad:
             key = self.mensualidad.duracion.strip().lower()
             dias_default = self.duraciones_a_dias.get(key, 30)
+            if self.mensualidad.tipo.lower() == "pase diario":
+                dias_default = 1
         else:
             dias_default = 30
 
         vencimiento = self.fecha_fin_plan or (self.fecha_inicio_plan + timedelta(days=dias_default))
-        return (vencimiento - hoy).days
+        return max((vencimiento - hoy).days, 0)
 
     def activar_plan(self, fecha_activacion=None, dias_extra=0, forzar=False):
         hoy = timezone.localdate()
         
-  
         if fecha_activacion is None:
             if self.fecha_fin_plan and self.fecha_fin_plan > hoy and not forzar:
                 fecha_activacion = self.fecha_fin_plan
@@ -259,14 +268,19 @@ class Cliente(models.Model):
         dias_total = 30
         if self.mensualidad:
             key = self.mensualidad.duracion.strip().lower()
-            dias_total = self.duraciones_a_dias.get(key, 30)
+
+       
+            if self.mensualidad.tipo == "Pase Diario":
+                dias_total = 1
+            else:
+                dias_total = self.duraciones_a_dias.get(key, 30)
 
         dias_total += dias_extra
 
         self.fecha_inicio_plan = fecha_activacion
         self.fecha_fin_plan = fecha_activacion + timedelta(days=dias_total)
 
-    
+        # accesos
         if self.sub_plan:
             accesos_dict = {'Bronce': 4, 'Hierro': 8, 'Acero': 12, 'Titanio': 0}
             self.accesos_restantes = accesos_dict.get(self.sub_plan, 0)
