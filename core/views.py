@@ -410,6 +410,7 @@ def listaCliente_json(request):
         })
 
     return JsonResponse({'datos_clientes': datos_clientes})
+
 @admin_required
 def renovarCliente(request):
     rut_buscado = request.POST.get('rut') or request.GET.get('rut', '')
@@ -443,7 +444,7 @@ def renovarCliente(request):
 
         hoy = timezone.localdate()
 
-        #  Lógica especial para Pase Diario
+      
         if cliente_renovado.mensualidad and cliente_renovado.mensualidad.tipo.lower() == "pase diario":
             cliente_renovado.fecha_inicio_plan = hoy
             cliente_renovado.fecha_fin_plan = hoy + timedelta(days=1)
@@ -458,12 +459,16 @@ def renovarCliente(request):
                 cliente_renovado.id,
                 f"Renovó Pase Diario para {cliente_renovado.nombre} {cliente_renovado.apellido}"
             )
+
+      
+            enviar_contrato_correo(cliente_renovado)
+
             messages.success(
                 request,
                 f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ha renovado su Pase Diario por 1 día."
             )
         else:
-            # Plan mensual u otro plan normal
+          
             dias_extra = 0
             if cliente_renovado.fecha_fin_plan:
                 dias_extra = max((cliente_renovado.fecha_fin_plan - hoy).days, 0)
@@ -479,6 +484,10 @@ def renovarCliente(request):
                 cliente_renovado.id,
                 f"Renovó plan {cliente_renovado.sub_plan} para {cliente_renovado.nombre} {cliente_renovado.apellido}"
             )
+
+           
+            enviar_contrato_correo(cliente_renovado)
+
             messages.success(
                 request,
                 f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ha renovado su plan correctamente."
@@ -488,7 +497,7 @@ def renovarCliente(request):
 
     hoy = timezone.localdate()
 
-    # Filtrar clientes
+   
     if rut_buscado:
         clientes = Cliente.objects.filter(rut__icontains=rut_buscado).prefetch_related("planes_personalizados")
     else:
@@ -497,7 +506,8 @@ def renovarCliente(request):
         ).prefetch_related("planes_personalizados")
 
     tipos_mensualidad = Mensualidad.objects.all()
-  # Paginación
+
+   
     paginator = Paginator(clientes, 20)  
     page_number = request.GET.get("page")
     clientes_page = paginator.get_page(page_number)
@@ -509,6 +519,7 @@ def renovarCliente(request):
         'planes_personalizados': PlanPersonalizado.objects.all(),
         'tipos_mensualidad': tipos_mensualidad
     })
+
 
 def registrar_sesion(request):
     if request.method == "POST":

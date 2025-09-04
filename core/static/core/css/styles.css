@@ -5,15 +5,30 @@ body {
 }
 
 .header {
-       display: flex;
+    display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 10px 30px;
     background-color: #000000;
     border-bottom: 1px solid #ddd;
     flex-wrap: wrap; 
-    
 }
+
+/* Contenedor derecho (mensaje + botones) */
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* espacio entre mensaje y botones */
+}
+
+/* Mensaje de bienvenida */
+.welcome-message {
+    color: #fff; /* texto blanco sobre fondo negro */
+    font-weight: bold;
+    font-size: 14px;
+}
+
+
 
 .header-buttons {
     display: flex;

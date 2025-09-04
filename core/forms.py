@@ -66,8 +66,11 @@ class ClienteForm(forms.ModelForm):
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
             'apellido': forms.TextInput(attrs={'class': 'form-control'}),
             'correo': forms.EmailInput(attrs={'class': 'form-control'}),
-            'telefono': forms.TextInput(attrs={'class': 'form-control'}),
-            'rut': forms.TextInput(attrs={'class': 'form-control'}),
+            'telefono': forms.TextInput(attrs={'class': 'form-control',   'placeholder': 'Ej: 9 12345678'}),
+            'rut': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ingresa RUT sin puntos, con guion. Ej: 12345678-9'
+                        }),
             'mensualidad': forms.Select(attrs={'class': 'form-control'}),
             'planes_personalizados': forms.SelectMultiple(attrs={
                 'class': 'form-control select2',
@@ -83,6 +86,11 @@ class ClienteForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        self.fields['mensualidad'].empty_label = "Seleccione un plan..."
+        choices = [('', 'Seleccione un método de pago...')] + [c for c in self.fields['metodo_pago'].choices if c[0]]
+        self.fields['metodo_pago'].choices = choices
+
         if not self.instance.pk:  # Si es nuevo
             hoy = timezone.localdate().strftime('%Y-%m-%d')
             self.fields['fecha_inicio_plan'].initial = hoy
