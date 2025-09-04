@@ -37,7 +37,7 @@
                         {{ field }}
                         <div class="error-text" style="color: red; font-size: 0.9em;"></div>
                         {% for error in field.errors %}
-                            <p class="error">{{ error }}</p>
+                        <p class="error alerta-grande">{{ error }}</p>
                         {% endfor %}
                     </div>
                 {% else %}

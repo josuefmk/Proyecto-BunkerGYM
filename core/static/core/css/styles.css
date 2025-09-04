@@ -14,16 +14,32 @@ body {
     flex-wrap: wrap; 
 }
 
-/* Contenedor derecho (mensaje + botones) */
+.alerta-grande {
+    background-color: #ffdddd;  
+    border: 2px solid #ff0000;  
+    color: #a70000;             
+    font-weight: bold;
+    font-size: 1em;
+    padding: 8px;
+    margin-top: 5px;
+    border-radius: 5px;
+    animation: parpadeo 1s infinite alternate;
+}
+
+
+@keyframes parpadeo {
+    from { background-color: #ffdddd; }
+    to { background-color: #ff9999; }
+}
 .header-right {
     display: flex;
     align-items: center;
-    gap: 15px; /* espacio entre mensaje y botones */
+    gap: 15px; 
 }
 
-/* Mensaje de bienvenida */
+
 .welcome-message {
-    color: #fff; /* texto blanco sobre fondo negro */
+    color: #fff; 
     font-weight: bold;
     font-size: 14px;
 }
