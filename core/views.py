@@ -1204,7 +1204,14 @@ def dashboard(request):
             accesos_restantes_data[sp[0]] = round(clientes.aggregate(avg=Avg('accesos_restantes'))['avg'],1)
         else:
             accesos_restantes_data[sp[0]] = 0
-
+    # Clientes por plan
+    planes_count_qs = (
+        Cliente.objects
+        .values('mensualidad__tipo')
+        .annotate(total=Count('id'))
+        .order_by('-total')
+    )
+    planes_count = {p['mensualidad__tipo']: p['total'] for p in planes_count_qs}
     context = {
         "total_clientes": total_clientes,
         "clientes_activos_mes": clientes_activos_mes,
@@ -1221,6 +1228,7 @@ def dashboard(request):
         "clientes_tipo_subplan": json.dumps(clientes_tipo_subplan),
         "ingresos_plan_data": json.dumps(ingresos_plan_data),
         "accesos_restantes_data": json.dumps(accesos_restantes_data),
+         "planes_count": json.dumps(planes_count),
     }
 
     return render(request, "core/dashboard.html", context)

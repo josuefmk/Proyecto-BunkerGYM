@@ -18,6 +18,9 @@
       <h3>Clientes Nuevos este Mes</h3>
       <p>{{ clientes_nuevos_mes }}</p>
     </div>
+
+
+   
   </div>
 
   <!-- Gráficos Clientes -->
@@ -42,7 +45,10 @@
       </div>
       <canvas id="clientesTipoPlanChart"></canvas>
     </div>
-
+ <div class="dash-chart-box">
+      <h4>Clientes por Plan</h4>
+      <canvas id="clientesPorPlanChart"></canvas>
+    </div>
     <div class="dash-chart-box">
       <h4>Top 5 Planes Personalizados Más Usados</h4>
       <canvas id="topPlanesChart"></canvas>
@@ -179,6 +185,24 @@
       { label: 'Normal', data: dataNormal, backgroundColor: 'rgba(255, 206, 86, 0.7)' }
     ]}
   });
+
+const planesCount = JSON.parse('{{ planes_count|safe }}');
+new Chart(document.getElementById('clientesPorPlanChart'), {
+  type: 'doughnut',
+  data: {
+    labels: Object.keys(planesCount),
+    datasets: [{
+      label: 'Clientes',
+      data: Object.values(planesCount),
+      backgroundColor: [
+        'rgba(54, 162, 235, 0.7)',
+        'rgba(255, 99, 132, 0.7)',
+        'rgba(255, 206, 86, 0.7)',
+        'rgba(75, 192, 192, 0.7)'
+      ]
+    }]
+  }
+});
 
   function filtrarMesClientes() {
     const selectedMes = filtroMes.value;
