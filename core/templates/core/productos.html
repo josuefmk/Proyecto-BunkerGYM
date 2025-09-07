@@ -47,16 +47,31 @@
       <label for="cantidad" class="etiqueta-cantidad">Cantidad a vender:</label>
       <input type="number" name="cantidad" id="cantidad" min="1" class="input-bonito" required>
     </div>
+      <div class="campo-metodo">
+      <label for="metodo_pago">Método de Pago:</label>
+      <select name="metodo_pago" id="metodo_pago" class="select-bonito" required>
+      <option value="" disabled selected>-- Seleccione un método --</option>
+      <option value="Efectivo">Efectivo</option>
+      <option value="Debito">Débito</option>
+      <option value="Credito">Crédito</option>
+      <option value="Transferencia">Transferencia</option>
+      </select>
+      </div>
+
     <br>
     <button type="submit" class="btn-global" id="btn-venta">💰 Registrar Venta</button>
   </form>
 </div>
 
 <div class="card-tabla">
-  <div style="display: flex; justify-content: space-between; align-items: center;">
-    <h2 class="titulo-tabla" style="margin: 0;">Productos Disponibles</h2>
+ <div style="display: flex; justify-content: space-between; align-items: center;">
+  <h2 class="titulo-tabla" style="margin: 0;">Productos Disponibles</h2>
+  <div style="display: flex; gap: 10px;">
     <a href="{% url 'agregar_producto' %}" class="btn-global">➕ Agregar Producto</a>
+    <a href="{% url 'historial_ventas' %}" class="btn-global">📜 Historial de Ventas</a>
   </div>
+</div>
+
 
   <div class="tabla-wrapper" style="margin-top: 15px;">
     <table class="tabla-clientes">

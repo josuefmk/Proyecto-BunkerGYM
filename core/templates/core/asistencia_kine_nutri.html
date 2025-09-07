@@ -1,0 +1,150 @@
+{% extends 'core/home.html' %}
+{% load static %}
+
+{% block content %}
+<main class="contenido asistencia-page">
+    <div class="asistencia-contenedor-central">
+        <h1 class="asistencia-titulo-pagina">🩺 Asistencia Kinesiología y Nutrición</h1>
+
+        <!-- Buscador -->
+        <input type="text" id="asistencia-busqueda" class="asistencia-buscador" placeholder="Buscar cliente por nombre o RUT...">
+
+        <!-- Tabla de clientes -->
+        <div class="asistencia-tabla-wrapper">
+            <table class="asistencia-table table table-hover table-striped" id="asistencia-tablaClientes">
+                <thead class="asistencia-table-dark table-dark">
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Nutrición</th>
+                        <th>Kinesiología</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cliente in clientes %}
+                    <tr id="asistencia-cliente-{{ cliente.id }}">
+                        <td>
+                            <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong><br>
+                            <small class="asistencia-text-muted text-muted">{{ cliente.rut }}</small>
+                        </td>
+                        <td>
+                            <button class="asistencia-btn asistencia-btn-nutri registrar" data-id="{{ cliente.id }}" data-nombre="{{ cliente.nombre }} {{ cliente.apellido }}" data-tipo="Nutrición">🥗 Nutrición</button>
+                        </td>
+                        <td>
+                            <button class="asistencia-btn asistencia-btn-kine registrar" data-id="{{ cliente.id }}" data-nombre="{{ cliente.nombre }} {{ cliente.apellido }}" data-tipo="Kinesiología">🏃‍♂️ Kinesiología</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <hr>
+
+        <!-- Historial -->
+        <h2 class="asistencia-historial-titulo">📋 Últimas asistencias</h2>
+        <table class="asistencia-table-historial table table-sm table-striped">
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>Tipo</th>
+                    <th>Fecha</th>
+                </tr>
+            </thead>
+            <tbody id="asistencia-historial">
+                {% for sesion in sesiones %}
+                <tr>
+                    <td>{{ sesion.cliente.nombre }} {{ sesion.cliente.apellido }}</td>
+                    <td>{{ sesion.get_tipo_sesion_display }}</td>
+                    <td>{{ sesion.fecha|date:"d/m/Y" }}</td>
+                </tr>
+                {% empty %}
+                <tr data-vacia="true"><td colspan="3">No hay asistencias registradas</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<!-- Modal de confirmación -->
+<div id="asistencia-modal" class="asistencia-modal">
+    <div class="asistencia-modal-content">
+        <span id="asistencia-close" class="asistencia-modal-close">&times;</span>
+        <p id="asistencia-modal-text">¿Confirmar asistencia?</p>
+        <div class="asistencia-modal-buttons">
+            <button id="asistencia-confirm" class="asistencia-btn asistencia-btn-confirm">Confirmar</button>
+            <button id="asistencia-cancel" class="asistencia-btn asistencia-btn-cancel">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const csrfToken = "{{ csrf_token }}";
+
+// Búsqueda en tiempo real
+document.getElementById('asistencia-busqueda').addEventListener('keyup', function() {
+    let filtro = this.value.toLowerCase();
+    document.querySelectorAll('#asistencia-tablaClientes tbody tr').forEach(function(row) {
+        row.style.display = row.innerText.toLowerCase().includes(filtro) ? '' : 'none';
+    });
+});
+
+// Modal
+const modal = document.getElementById('asistencia-modal');
+const modalText = document.getElementById('asistencia-modal-text');
+const btnClose = document.getElementById('asistencia-close');
+const btnCancel = document.getElementById('asistencia-cancel');
+const btnConfirm = document.getElementById('asistencia-confirm');
+
+let clienteIdGlobal, tipoSesionGlobal;
+
+// Mostrar modal al hacer clic
+document.querySelectorAll('.registrar').forEach(btn => {
+    btn.addEventListener('click', function() {
+        clienteIdGlobal = this.dataset.id;
+        tipoSesionGlobal = this.dataset.tipo;
+        const nombreCliente = this.dataset.nombre;
+        modalText.textContent = `¿Confirmar asistencia de ${nombreCliente} a ${tipoSesionGlobal}?`;
+        modal.style.display = 'block';
+    });
+});
+
+// Cerrar modal
+btnClose.onclick = () => modal.style.display = 'none';
+btnCancel.onclick = () => modal.style.display = 'none';
+window.onclick = e => { if(e.target == modal) modal.style.display = 'none'; };
+
+// Confirmar asistencia
+btnConfirm.onclick = () => {
+    fetch("{% url 'asistencia_kine_nutri' %}", {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": csrfToken,
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-Requested-With": "XMLHttpRequest"
+        },
+        body: `cliente_id=${clienteIdGlobal}&tipo_sesion=${tipoSesionGlobal}`
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.success) {
+            // Marcar fila como registrada
+            document.querySelector(`#asistencia-cliente-${clienteIdGlobal}`).classList.add('asistencia-registrado');
+
+            // Eliminar fila "No hay asistencias registradas" si existe
+            const filaVacia = document.querySelector('#asistencia-historial tr[data-vacia="true"]');
+            if(filaVacia) filaVacia.remove();
+
+            // Insertar nueva asistencia
+            const fila = `<tr>
+                <td>${data.cliente}</td>
+                <td>${data.tipo}</td>
+                <td>${data.fecha}</td>
+            </tr>`;
+            document.querySelector('#asistencia-historial').insertAdjacentHTML('afterbegin', fila);
+        }
+        modal.style.display = 'none';
+    })
+    .catch(err => console.log(err));
+};
+</script>
+{% endblock %}

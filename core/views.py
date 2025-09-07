@@ -1,17 +1,17 @@
 
 import re
+from time import time
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from psycopg import logger
 from pyparsing import wraps
 from .models import Cliente, Asistencia, Admin, Mensualidad, PlanPersonalizado, Precios,Producto, Sesion, Venta
 from .forms import ClienteForm, DescuentoUpdateForm, PrecioUpdateForm,ProductoForm
-from datetime import date, datetime
+from datetime import date, datetime, time,timedelta
 from dateutil.relativedelta import relativedelta
 import pytz
 from django.utils.timezone import localdate
 from django.db.models import F, ExpressionWrapper, FloatField
-from datetime import timedelta
 import json
 from django.db.models.functions import TruncMonth
 from django.db.models import Count, Sum, Avg, F, Q, ExpressionWrapper, FloatField
@@ -116,7 +116,7 @@ def registro_cliente(request):
                 'Bronce': 4,
                 'Hierro': 8,
                 'Acero': 12,
-                'Titanio': 0
+                'Titanio': 9999  # acceso libre
             }
             cliente_creado.accesos_restantes = accesos_dict.get(cliente_creado.sub_plan, 0)
             cliente_creado.save()
@@ -255,11 +255,9 @@ def asistencia_cliente(request):
                 plan_id = request.POST.get("plan_personalizado")
                 cliente.plan_personalizado_activo = cliente.planes_personalizados.filter(id=plan_id).first()
             else:
-                # Asignar el primer plan activo si existe
                 cliente.plan_personalizado_activo = cliente.planes_personalizados.first()
             cliente.save()
         else:
-            # No hay planes personalizados, asegurarse de que plan_personalizado_activo sea None
             cliente.plan_personalizado_activo = None
             cliente.save()
 
@@ -292,9 +290,9 @@ def asistencia_cliente(request):
                 accesos_restantes_personalizado = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
             tipo_asistencia = "plan_personalizado"
 
-        # Calcular accesos SubPlan
+        # Calcular accesos SubPlan (Titanio y Gratis + Plan Mensual tienen libre acceso)
         if cliente.sub_plan and not tipo_asistencia:
-            if cliente.sub_plan == "Titanio":
+            if cliente.sub_plan == "Titanio" or (cliente.mensualidad and cliente.mensualidad.tipo == "Gratis + Plan Mensual"):
                 accesos_restantes_subplan = float("inf")
             else:
                 accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
@@ -314,9 +312,15 @@ def asistencia_cliente(request):
             cliente.accesos_restantes = accesos_restantes_subplan
         cliente.save()
 
-        # Verificar accesos disponibles
+        # Verificar accesos disponibles (incluye Gratis + Plan Mensual como Titanio)
         accesos_disponibles = False
-        if plan_libre or plan_full or cliente.sub_plan == "Titanio" or (cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario"):
+        if (
+            plan_libre
+            or plan_full
+            or cliente.sub_plan == "Titanio"
+            or (cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario")
+            or (cliente.mensualidad and cliente.mensualidad.tipo == "Gratis + Plan Mensual")
+        ):
             accesos_disponibles = True
         elif cliente.accesos_restantes > 0:
             accesos_disponibles = True
@@ -346,6 +350,11 @@ def asistencia_cliente(request):
             cliente.fecha_fin_plan = hoy
             cliente.save()
 
+        # Si es Gratis + Plan Mensual, mostrar en el modal como Titanio
+        sub_plan_para_modal = cliente.sub_plan
+        if cliente.mensualidad and cliente.mensualidad.tipo == "Gratis + Plan Mensual":
+            sub_plan_para_modal = "Titanio (por plan Gratis + Plan Mensual)"
+
         contexto.update({
             "mostrar_modal": True,
             "cliente": cliente,
@@ -354,13 +363,12 @@ def asistencia_cliente(request):
             "plan_full": plan_full,
             "accesos_restantes_subplan": accesos_restantes_subplan,
             "accesos_restantes_personalizado": accesos_restantes_personalizado,
+            "sub_plan_mostrar": sub_plan_para_modal,
         })
 
         return render(request, "core/AsistenciaCliente.html", contexto)
 
     return render(request, "core/AsistenciaCliente.html", contexto)
-
-
 
 @admin_required
 def listaCliente(request):
@@ -416,6 +424,7 @@ def renovarCliente(request):
     rut_buscado = request.POST.get('rut') or request.GET.get('rut', '')
     cliente_renovado = None
 
+    # Procesar renovación por POST
     if request.method == 'POST' and 'renovar_rut' in request.POST:
         rut_renovar = request.POST.get('renovar_rut')
         metodo_pago = request.POST.get('metodo_pago')
@@ -440,11 +449,11 @@ def renovarCliente(request):
         if nuevo_sub_plan and (not cliente_renovado.mensualidad or cliente_renovado.mensualidad.tipo.lower() != "pase diario"):
             cliente_renovado.sub_plan = nuevo_sub_plan
         else:
-            cliente_renovado.sub_plan = None  
+            cliente_renovado.sub_plan = None
 
         hoy = timezone.localdate()
 
-      
+        # Pase diario
         if cliente_renovado.mensualidad and cliente_renovado.mensualidad.tipo.lower() == "pase diario":
             cliente_renovado.fecha_inicio_plan = hoy
             cliente_renovado.fecha_fin_plan = hoy + timedelta(days=1)
@@ -460,7 +469,6 @@ def renovarCliente(request):
                 f"Renovó Pase Diario para {cliente_renovado.nombre} {cliente_renovado.apellido}"
             )
 
-      
             enviar_contrato_correo(cliente_renovado)
 
             messages.success(
@@ -468,7 +476,7 @@ def renovarCliente(request):
                 f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ha renovado su Pase Diario por 1 día."
             )
         else:
-          
+            # Plan normal (mensual, titanio, etc.)
             dias_extra = 0
             if cliente_renovado.fecha_fin_plan:
                 dias_extra = max((cliente_renovado.fecha_fin_plan - hoy).days, 0)
@@ -485,7 +493,6 @@ def renovarCliente(request):
                 f"Renovó plan {cliente_renovado.sub_plan} para {cliente_renovado.nombre} {cliente_renovado.apellido}"
             )
 
-           
             enviar_contrato_correo(cliente_renovado)
 
             messages.success(
@@ -493,22 +500,27 @@ def renovarCliente(request):
                 f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ha renovado su plan correctamente."
             )
 
+    
         rut_buscado = rut_renovar
 
     hoy = timezone.localdate()
 
-   
+ 
     if rut_buscado:
-        clientes = Cliente.objects.filter(rut__icontains=rut_buscado).prefetch_related("planes_personalizados")
+        clientes = Cliente.objects.filter(
+            Q(rut__icontains=rut_buscado) |
+            Q(nombre__icontains=rut_buscado) |
+            Q(apellido__icontains=rut_buscado)
+        ).prefetch_related("planes_personalizados")
     else:
         clientes = Cliente.objects.filter(
-            Q(fecha_fin_plan__gte=hoy - timedelta(days=100)) | Q(fecha_fin_plan__isnull=True)
+            Q(fecha_fin_plan__gte=hoy - timedelta(days=100)) |
+            Q(fecha_fin_plan__isnull=True)
         ).prefetch_related("planes_personalizados")
 
     tipos_mensualidad = Mensualidad.objects.all()
 
-   
-    paginator = Paginator(clientes, 20)  
+    paginator = Paginator(clientes, 20)
     page_number = request.GET.get("page")
     clientes_page = paginator.get_page(page_number)
 
@@ -519,7 +531,6 @@ def renovarCliente(request):
         'planes_personalizados': PlanPersonalizado.objects.all(),
         'tipos_mensualidad': tipos_mensualidad
     })
-
 
 def registrar_sesion(request):
     if request.method == "POST":
@@ -592,16 +603,17 @@ def historial_cliente(request):
     zona_chile = pytz.timezone('America/Santiago')
     now = timezone.localtime()
 
+    # Validar año y mes
     try:
         year = int(year)
     except (TypeError, ValueError):
         year = now.year
-
     try:
         month = int(month)
     except (TypeError, ValueError):
         month = now.month
 
+    # Localización para nombres de meses
     try:
         locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
     except locale.Error:
@@ -614,21 +626,18 @@ def historial_cliente(request):
     asistencias_dict = {}
     sesiones_dict = {}
 
+    # Generar lista de días del mes para calendario
     first_weekday, num_days = calendar.monthrange(year, month)
-
-    dias_mes = []
-    for _ in range((first_weekday + 1) % 7):
-        dias_mes.append(None)
-    dias_mes += list(range(1, num_days + 1))
+    dias_mes = [None] * ((first_weekday + 1) % 7) + list(range(1, num_days + 1))
 
     if rut:
         try:
             cliente = Cliente.objects.get(rut=rut)
 
-            inicio_mes = datetime(year, month, 1, tzinfo=zona_chile)
-            fin_mes = datetime(year, month, num_days, 23, 59, 59, tzinfo=zona_chile)
+            # Rangos de fechas para el mes
+            inicio_mes = datetime(year, month, 1).date()
+            fin_mes = datetime(year, month, num_days).date()
 
-            # Asistencias
             asistencias = Asistencia.objects.filter(
                 cliente=cliente,
                 fecha__gte=inicio_mes,
@@ -637,13 +646,17 @@ def historial_cliente(request):
 
             asistencias_temp = defaultdict(list)
             for a in asistencias:
-                fecha_local = timezone.localtime(a.fecha, zona_chile)  
-                dia = fecha_local.day
-                hora = fecha_local.strftime("%H:%M:%S")
+                # Si fecha tiene hora (DateTimeField), convertir a hora Chile
+                if hasattr(a.fecha, 'hour'):
+                    fecha_local = timezone.localtime(a.fecha, zona_chile)
+                    dia = fecha_local.day
+                    hora = fecha_local.strftime("%H:%M:%S")
+                else:  
+                    dia = a.fecha.day
+                    hora = "Entrada"
                 asistencias_temp[dia].append(hora)
-            asistencias_dict = {dia: horas for dia, horas in asistencias_temp.items()}
+            asistencias_dict = dict(asistencias_temp)
 
-            # Sesiones
             sesiones = Sesion.objects.filter(
                 cliente=cliente,
                 fecha__gte=inicio_mes,
@@ -652,12 +665,10 @@ def historial_cliente(request):
 
             sesiones_temp = defaultdict(list)
             for s in sesiones:
-                fecha_local = timezone.localtime(s.fecha, zona_chile)  # 🔹 convertir a hora Chile
-                dia = fecha_local.day
+                dia = s.fecha.day
                 tipo = s.get_tipo_sesion_display()
-                hora = fecha_local.strftime("%H:%M:%S") if hasattr(s, 'fecha') else ''
-                sesiones_temp[dia].append(f"{tipo} ({hora})")
-            sesiones_dict = {dia: items for dia, items in sesiones_temp.items()}
+                sesiones_temp[dia].append(tipo)  # solo tipo, sin hora
+            sesiones_dict = dict(sesiones_temp)
 
         except Cliente.DoesNotExist:
             rut_invalido = True
@@ -672,14 +683,13 @@ def historial_cliente(request):
         'asistencias_dict': asistencias_dict,
         'sesiones_dict': sesiones_dict,
         'rut': rut or '',
-        'rut_invalido': rut_invalido
     }
 
+    # Respuesta AJAX
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         html_calendario = ''
-        if cliente:  
+        if cliente:
             html_calendario = render_to_string('core/calendario_parcial.html', context, request=request)
-
         html_cliente = render_to_string('core/cliente_info.html', context, request=request)
         return JsonResponse({
             'calendario': html_calendario,
@@ -690,7 +700,6 @@ def historial_cliente(request):
         })
 
     return render(request, 'core/historial_cliente.html', context)
-
 @admin_required
 def modificar_cliente(request, cliente_id):
     cliente = get_object_or_404(Cliente, id=cliente_id)
@@ -903,16 +912,18 @@ def productos(request):
 
 
 @admin_required
-
 def registrar_venta(request):
     if request.method == 'POST':
         producto_id = request.POST.get('producto_id')
-        cantidad = int(request.POST.get('cantidad', 0))
+        cantidad = request.POST.get('cantidad')
+        metodo_pago = request.POST.get('metodo_pago')
+
         try:
-            cantidad = int(request.POST.get('cantidad', 0))
-        except ValueError:
+            cantidad = int(cantidad)
+        except (ValueError, TypeError):
             messages.error(request, "⚠️ La cantidad debe ser un número entero.")
             return redirect('productos')
+
         producto = Producto.objects.filter(id=producto_id).first()
         if not producto:
             messages.error(request, "❌ Producto no encontrado.")
@@ -925,36 +936,45 @@ def registrar_venta(request):
         if cantidad > producto.stock:
             messages.error(
                 request,
-                f"❌ No quedan unidades del '{producto.nombre}'."
+                f"❌ No quedan unidades suficientes de '{producto.nombre}'."
             )
             return redirect('productos')
 
-        Venta.objects.create(producto=producto, cantidad=cantidad)
+        if metodo_pago not in dict(Venta.METODOS_PAGO).keys():
+            messages.error(request, "⚠️ Seleccione un método de pago válido.")
+            return redirect('productos')
 
+        # Guardar la venta con método de pago
+        Venta.objects.create(
+            producto=producto,
+            cantidad=cantidad,
+            metodo_pago=metodo_pago
+        )
 
         registrar_historial(
             request.admin,
             "venta",
             "Producto",
             producto.id,
-            f"Vendió {cantidad} unidades de {producto.nombre}"
+            f"Vendió {cantidad} unidades de {producto.nombre} con {metodo_pago}"
         )
 
-    
         messages.success(
             request,
-            f"✅ Venta registrada: {cantidad} unidad(es) de '{producto.nombre}'. "
-            f"Stock restante: {producto.stock}"
+            f"✅ Venta registrada: {cantidad} unidad(es) de '{producto.nombre}' "
+            f"con {metodo_pago}. Stock restante: {producto.stock}"
         )
-
 
         request.session['producto_seleccionado'] = producto.id
 
     return redirect('productos')
 
+@admin_required
+def historial_ventas(request):
+    ventas = Venta.objects.select_related("producto").order_by("-fecha")
+    return render(request, "core/historial_ventas.html", {"ventas": ventas})
 
 @admin_required
-
 def agregar_producto(request):
     if request.method == 'POST':
         form = ProductoForm(request.POST)
@@ -1204,6 +1224,34 @@ def dashboard(request):
     }
 
     return render(request, "core/dashboard.html", context)
+
+def asistencia_kine_nutri(request):
+    if request.method == "POST" and request.headers.get("x-requested-with") == "XMLHttpRequest":
+        cliente_id = request.POST.get("cliente_id")
+        tipo_sesion = request.POST.get("tipo_sesion")
+
+        if cliente_id and tipo_sesion:
+            cliente = get_object_or_404(Cliente, id=cliente_id)
+            sesion = Sesion.objects.create(
+                cliente=cliente,
+                tipo_sesion=tipo_sesion,
+                fecha=timezone.localdate()
+            )
+            return JsonResponse({
+                "success": True,
+                "cliente": f"{cliente.nombre} {cliente.apellido}",
+                "tipo": sesion.get_tipo_sesion_display(),
+                "fecha": sesion.fecha.strftime("%d/%m/%Y")
+            })
+        return JsonResponse({"success": False}, status=400)
+
+    clientes = Cliente.objects.all().order_by("nombre")
+    sesiones = Sesion.objects.order_by("-fecha")[:10]
+
+    return render(request, "core/asistencia_kine_nutri.html", {
+        "clientes": clientes,
+        "sesiones": sesiones
+    })
 # ===========================
 # REDIRECCIÓN INICIAL
 # ===========================

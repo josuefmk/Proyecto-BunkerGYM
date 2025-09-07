@@ -37,6 +37,7 @@ class Mensualidad(models.Model):
         ('Normal', 'Normal'),
         ('Adulto Mayor', 'Adulto Mayor'),
         ('Pase Diario', 'Pase Diario'), 
+        ('Gratis', 'Gratis'), 
     ]
     DURACIONES = [
         ('Mensual', 'Mensual'),
@@ -152,7 +153,7 @@ class Cliente(models.Model):
 
     nombre = models.CharField(max_length=50)
     apellido = models.CharField(max_length=50)
-    rut = models.CharField(max_length=12, unique=True)
+    rut = models.CharField(max_length=15, unique=True)
     correo = models.EmailField()
     telefono = models.CharField(max_length=15)
     huella_template = models.BinaryField(null=True, blank=True)
@@ -348,9 +349,17 @@ class Producto(models.Model):
         return f"{self.nombre} (Stock: {self.stock})"
     
 class Venta(models.Model):
+    METODOS_PAGO = [
+        ('Efectivo', 'Efectivo'),
+        ('Debito', 'Débito'),
+        ('Credito', 'Crédito'),
+        ('Transferencia', 'Transferencia'),
+    ]
+
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
     cantidad = models.PositiveIntegerField()
-    fecha_venta = models.DateTimeField(auto_now_add=True)
+    metodo_pago = models.CharField(max_length=20, choices=METODOS_PAGO) 
+    fecha = models.DateTimeField(auto_now_add=True) 
 
     def total_venta(self):
         return self.cantidad * self.producto.precio_venta
@@ -359,7 +368,6 @@ class Venta(models.Model):
         return self.cantidad * (self.producto.precio_venta - self.producto.precio_compra)
 
     def save(self, *args, **kwargs):
-     
         if self.pk is None:  
             if self.cantidad > self.producto.stock:
                 raise ValueError("No hay suficiente stock para realizar la venta.")
@@ -368,13 +376,14 @@ class Venta(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Venta de {self.cantidad} x {self.producto.nombre}"
-
-
+        return f"Venta de {self.cantidad} x {self.producto.nombre} ({self.metodo_pago})"
+    
+    
 class IngresoProducto(models.Model):
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
     cantidad = models.PositiveIntegerField()
     fecha_ingreso = models.DateTimeField(auto_now_add=True)
+   
 
     def save(self, *args, **kwargs):
         if self.pk is None:

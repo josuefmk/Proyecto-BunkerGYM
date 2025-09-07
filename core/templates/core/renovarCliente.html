@@ -2,12 +2,16 @@
 {% load static %}
 
 {% block content %}
-
 <div class="centrar-buscador">
-    <form method="post" class="busqueda-container" onsubmit="return validarFormulario(event)">
-        {% csrf_token %}
+    <form method="get" class="busqueda-container">
         <div class="busqueda-fila">
-            <input type="text" id="rutInput" name="rut" placeholder="Buscar Cliente por RUT" value="{{ rut_buscado }}">
+            <input
+                type="text"
+                id="rutInput"
+                name="rut"
+                placeholder="Buscar cliente por RUT, nombre o apellido"
+                value="{{ rut_buscado }}"
+            >
             <button type="submit" class="btn-global">🔍 Buscar</button>
         </div>
 
@@ -18,10 +22,11 @@
                 </a>
             </div>
         {% endif %}
-        
+
         <div id="errorMensaje" class="error-text"></div>
     </form>
 </div>
+
 
 {% if messages %}
   <div id="mi-mensaje-contenedor" class="mi-mensaje-contenedor">
