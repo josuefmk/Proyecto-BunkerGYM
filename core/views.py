@@ -1109,8 +1109,8 @@ def dashboard(request):
     ultimas_ventas = (
         Venta.objects
         .select_related('producto')
-        .order_by('-fecha_venta')[:10]
-        .values('fecha_venta', 'producto__nombre', 'cantidad', 'producto__precio_venta')
+        .order_by('-fecha')[:10]
+        .values('fecha', 'producto__nombre', 'cantidad', 'producto__precio_venta')
     )
 
     # Ranking asistencia
@@ -1146,8 +1146,8 @@ def dashboard(request):
     # Ingresos por ventas por mes
     ventas_mes_qs = (
         Venta.objects
-        .filter(fecha_venta__gte=seis_meses_antes)
-        .annotate(month=TruncMonth('fecha_venta'))
+        .filter(fecha__gte=seis_meses_antes)
+        .annotate(month=TruncMonth('fecha'))
         .values('month')
         .annotate(
             ingresos=Sum(
