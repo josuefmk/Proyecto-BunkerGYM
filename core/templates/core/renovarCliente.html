@@ -138,35 +138,7 @@
         <td>{{ cliente.metodo_pago }}</td>
 
 
-        <!-- Sesiones -->
-        <td>
-            {% if cliente.sub_plan == 'Titanio' %}
-                <form method="post" action="{% url 'registrar_sesion' %}" id="form-sesion-{{ cliente.rut }}">
-                    {% csrf_token %}
-                    <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
-                    <input type="hidden" name="tipo_sesion" id="tipo-sesion-{{ cliente.rut }}">
-                    <input type="hidden" name="fecha_sesion" id="fecha-sesion-{{ cliente.rut }}">
-
-                    <select class="select-bonito" onchange="abrirModalSesion(this, '{{ cliente.rut }}')">
-                        <option value="" disabled selected>-- Selecciona Sesión --</option>
-                        <option value="nutricional" 
-                            {% if cliente.ultima_sesion_tipo == 'nutricional' and cliente.ultima_sesion_fecha == today %}
-                                selected
-                            {% endif %}>
-                            Asistió Sesión Nutricional
-                        </option>
-                        <option value="kinesiologia" 
-                            {% if cliente.ultima_sesion_tipo == 'kinesiologia' and cliente.ultima_sesion_fecha == today %}
-                                selected
-                            {% endif %}>
-                            Asistió Sesión Kinesiología
-                        </option>
-                    </select>   
-                </form>
-            {% else %}
-                <span>No aplica</span>
-            {% endif %}
-        </td>
+    
         <!-- Botón renovar -->
         <td>
             <button type="button" class="btn-global" onclick="confirmarRenovacion('{{ cliente.rut }}')">Renovar</button>
@@ -308,7 +280,9 @@
                 <input type="hidden" id="metodo-pago-hidden" name="metodo_pago">
                 <input type="hidden" id="nuevo-plan-hidden" name="nuevo_plan">
                 <input type="hidden" id="nuevo-subplan-hidden" name="nuevo_sub_plan">
-                <button type="submit">Sí, renovar</button>
+                <button type="submit" onclick="this.disabled=true; this.innerText='Procesando...'; this.form.submit();">
+                ✅ Sí, renovar
+                </button>
                 <button type="button" onclick="cerrarModal()">Cancelar</button>
             </form>
         </div>
