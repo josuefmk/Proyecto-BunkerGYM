@@ -700,58 +700,34 @@ def historial_cliente(request):
         })
 
     return render(request, 'core/historial_cliente.html', context)
+
 @admin_required
 def modificar_cliente(request, cliente_id):
     cliente = get_object_or_404(Cliente, id=cliente_id)
 
     if request.method == 'POST':
-        nombre = request.POST.get('nombre')
-        apellido = request.POST.get('apellido')
-        rut = request.POST.get('rut')
-        correo = request.POST.get('correo')
-        telefono = request.POST.get('telefono')
-
-    
-        if not nombre or not apellido or not rut or not correo or not telefono:
-            messages.error(request, "⚠️ Todos los campos obligatorios deben estar completos.")
-            return render(request, 'core/modificar_cliente.html', {'cliente': cliente})
-
-     
-        if not validar_rut(rut):
-            messages.error(request, "❌ El RUT ingresado no es válido. Formato: 12345678-9 o 12345678-K")
-            return render(request, 'core/modificar_cliente.html', {'cliente': cliente})
-
-    
-        if not validar_correo(correo):
-            messages.error(request, "❌ El correo ingresado no tiene un formato válido.")
-            return render(request, 'core/modificar_cliente.html', {'cliente': cliente})
-
-     
-        if not validar_telefono(telefono):
-            messages.error(request, "❌ El teléfono debe ser chileno válido (ej: +569XXXXXXXX o 912345678).")
-            return render(request, 'core/modificar_cliente.html', {'cliente': cliente})
-
-   
-        try:
-            cliente.nombre = nombre
-            cliente.apellido = apellido
-            cliente.rut = rut
-            cliente.correo = correo
-            cliente.telefono = telefono
-            cliente.save()
+        form = ClienteForm(request.POST, instance=cliente)
+        if form.is_valid():
+            form.save()
             registrar_historial(
                 request.admin,
                 "editar",
                 "Cliente",
                 cliente.id,
                 f"Modificó cliente {cliente.nombre} {cliente.apellido}"
-            )   
+            )
             messages.success(request, "✅ Cliente modificado exitosamente.")
             return redirect('renovarCliente')
-        except Exception as e:
-            messages.error(request, f"❌ Error al modificar el cliente: {str(e)}")
+        else:
+            for error in form.errors.values():
+                messages.error(request, f"❌ {error}")
+    else:
+        form = ClienteForm(instance=cliente)
 
-    return render(request, 'core/modificar_cliente.html', {'cliente': cliente})
+    return render(request, 'core/modificar_cliente.html', {
+        'cliente': cliente,
+        'form': form
+    })
 
 @admin_required
 def eliminar_cliente(request, cliente_id):
@@ -1056,20 +1032,30 @@ def dashboard(request):
     hoy = localdate()
     inicio_mes = hoy.replace(day=1)
 
-    # Total clientes
-    total_clientes = Cliente.objects.count()
+   # Excluir planes Gratis y Diario
+    clientes_filtrados = Cliente.objects.exclude(
+        Q(mensualidad__tipo="Gratis") | Q(mensualidad__tipo="Diario")
+    )
+
+    # Total clientes (sin Gratis ni Diario)
+    total_clientes = clientes_filtrados.count()
 
     # Clientes activos este mes
     clientes_activos_mes = (
-        Asistencia.objects
-        .filter(fecha__gte=inicio_mes)
-        .values('cliente')
-        .distinct()
-        .count()
-    )
+            Asistencia.objects
+            .filter(
+                fecha__gte=inicio_mes,
+                cliente__in=clientes_filtrados
+            )
+            .values('cliente')
+            .distinct()
+            .count()
+        )
 
     # Clientes nuevos este mes
-    clientes_nuevos_mes = Cliente.objects.filter(fecha_inicio_plan__gte=inicio_mes).count()
+    clientes_nuevos_mes = clientes_filtrados.filter(
+        fecha_inicio_plan__gte=inicio_mes
+    ).count()
 
     # Últimos 6 meses
     seis_meses_antes = hoy - timedelta(days=180)

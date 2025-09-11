@@ -128,12 +128,7 @@ class ClienteForm(forms.ModelForm):
             raise forms.ValidationError("El teléfono debe tener exactamente 9 dígitos.")
         return telefono
 
-        # Validación para Chile
-        if not telefono.isdigit():
-            raise forms.ValidationError("El teléfono debe contener solo números.")
-        if len(telefono) != 9:
-            raise forms.ValidationError("El teléfono debe tener exactamente 9 dígitos.")
-        return telefono
+       
 
     
 
