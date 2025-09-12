@@ -373,48 +373,50 @@ def asistencia_cliente(request):
 @admin_required
 def listaCliente(request):
     hoy = timezone.localdate()
-    asistencias_hoy = Asistencia.objects.filter(fecha__date=hoy).select_related('cliente').order_by('-fecha')
+    asistencias_hoy = Asistencia.objects.filter(
+        fecha__date=hoy
+    ).select_related('cliente').order_by('-fecha')
 
     datos_clientes = []
-
-
     zona_chile = pytz.timezone('America/Santiago')
 
     for asistencia in asistencias_hoy:
         cliente = asistencia.cliente
-
-      
         fecha_chilena = asistencia.fecha.astimezone(zona_chile)
 
         datos_clientes.append({
             'cliente': cliente,
             'hora_ingreso': fecha_chilena.strftime('%H:%M:%S'),
             'tipo_plan': cliente.mensualidad.tipo if cliente.mensualidad else (
-                cliente.plan_personalizado.nombre_plan if cliente.plan_personalizado else '—'
+                cliente.plan_personalizado_activo.nombre_plan if cliente.plan_personalizado_activo else '—'
             ),
-        'vencimiento_plan': f"{cliente.dias_restantes} días restantes" if cliente.fecha_inicio_plan else '—',
+            'vencimiento_plan': f"{cliente.dias_restantes} días restantes" if cliente.fecha_inicio_plan else '—',
         })
 
     return render(request, 'core/listaCliente.html', {'datos_clientes': datos_clientes})
 
+
 @admin_required
 def listaCliente_json(request):
     hoy = timezone.localdate()
-    asistencias_hoy = Asistencia.objects.filter(fecha__date=hoy).select_related('cliente').order_by('-fecha')
+    asistencias_hoy = Asistencia.objects.filter(
+        fecha__date=hoy
+    ).select_related('cliente').order_by('-fecha')
     zona_chile = pytz.timezone('America/Santiago')
 
     datos_clientes = []
     for asistencia in asistencias_hoy:
         cliente = asistencia.cliente
         fecha_chilena = asistencia.fecha.astimezone(zona_chile)
+
         datos_clientes.append({
             'nombre': f"{cliente.nombre} {cliente.apellido}",
             'rut': cliente.rut,
             'hora_ingreso': fecha_chilena.strftime('%H:%M:%S'),
             'tipo_plan': cliente.mensualidad.tipo if cliente.mensualidad else (
-                cliente.plan_personalizado.nombre_plan if cliente.plan_personalizado else '—'
+                cliente.plan_personalizado_activo.nombre_plan if cliente.plan_personalizado_activo else '—'
             ),
-       'vencimiento_plan': f"{cliente.dias_restantes} días restantes" if cliente.fecha_inicio_plan else '—',
+            'vencimiento_plan': f"{cliente.dias_restantes} días restantes" if cliente.fecha_inicio_plan else '—',
         })
 
     return JsonResponse({'datos_clientes': datos_clientes})
