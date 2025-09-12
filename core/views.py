@@ -710,7 +710,14 @@ def modificar_cliente(request, cliente_id):
     if request.method == 'POST':
         form = ClienteForm(request.POST, instance=cliente)
         if form.is_valid():
-            form.save()
+            # Guardamos solo los campos básicos
+            cliente.nombre = form.cleaned_data['nombre'].upper()
+            cliente.apellido = form.cleaned_data['apellido'].upper()
+            cliente.rut = form.cleaned_data['rut']
+            cliente.correo = form.cleaned_data['correo']
+            cliente.telefono = form.cleaned_data['telefono']
+            cliente.save(update_fields=['nombre','apellido','rut','correo','telefono'])
+
             registrar_historial(
                 request.admin,
                 "editar",
@@ -723,13 +730,11 @@ def modificar_cliente(request, cliente_id):
         else:
             for error in form.errors.values():
                 messages.error(request, f"❌ {error}")
+
     else:
         form = ClienteForm(instance=cliente)
 
-    return render(request, 'core/modificar_cliente.html', {
-        'cliente': cliente,
-        'form': form
-    })
+    return render(request, 'core/modificar_cliente.html', {'cliente': cliente, 'form': form})
 
 @admin_required
 def eliminar_cliente(request, cliente_id):
