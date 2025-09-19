@@ -1041,7 +1041,7 @@ def dashboard(request):
 
    # Excluir planes Gratis y Diario
     clientes_filtrados = Cliente.objects.exclude(
-        Q(mensualidad__tipo="Gratis") | Q(mensualidad__tipo="Diario")
+        Q(mensualidad__tipo="Gratis") | Q(mensualidad__tipo="Pase Diario")
     )
 
     # Total clientes (sin Gratis ni Diario)
