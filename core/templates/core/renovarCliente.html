@@ -15,7 +15,16 @@
             <button type="submit" class="btn-global">🔍 Buscar</button>
         </div>
 
-        {% if rut_buscado %}
+        <div class="busqueda-fila" style="margin-top:15px;">
+            <select name="filtro_tipo" id="filtro_tipo" class="select-bonito" onchange="this.form.submit()">
+                <option value="">-- Todos --</option>
+                <option value="inscritos" {% if filtro_tipo == "inscritos" %}selected{% endif %}>Inscritos</option>
+                <option value="gratis" {% if filtro_tipo == "gratis" %}selected{% endif %}>Gratis</option>
+                <option value="pase_diario" {% if filtro_tipo == "pase_diario" %}selected{% endif %}>Pase Diario</option>
+            </select>
+        </div>
+
+        {% if rut_buscado  or filtro_tipo %}
             <div class="mostrar-todos">
                 <a href="{% url 'renovarCliente' %}" class="btn-global">
                     🧹 Limpiar Filtro
@@ -26,6 +35,8 @@
         <div id="errorMensaje" class="error-text"></div>
     </form>
 </div>
+
+
 
 
 {% if messages %}

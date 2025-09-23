@@ -508,18 +508,33 @@ def renovarCliente(request):
     hoy = timezone.localdate()
 
  
+    filtro_tipo = request.GET.get("filtro_tipo", "")
+  
+
     if rut_buscado:
         clientes = Cliente.objects.filter(
             Q(rut__icontains=rut_buscado) |
             Q(nombre__icontains=rut_buscado) |
             Q(apellido__icontains=rut_buscado)
-        ).prefetch_related("planes_personalizados")
+        ).prefetch_related("planes_personalizados", "mensualidad")
     else:
         clientes = Cliente.objects.filter(
             Q(fecha_fin_plan__gte=hoy - timedelta(days=100)) |
             Q(fecha_fin_plan__isnull=True)
-        ).prefetch_related("planes_personalizados")
+        ).prefetch_related("planes_personalizados", "mensualidad")
 
+    # Filtrado adicional según tipo
+    if filtro_tipo == "gratis":
+        clientes = clientes.filter(mensualidad__tipo="Gratis")
+    elif filtro_tipo == "pase_diario":
+        clientes = clientes.filter(mensualidad__tipo="Pase Diario")
+    elif filtro_tipo == "inscritos":
+        clientes = [
+            c for c in clientes 
+            if c.estado_plan in ("activo", "pendiente") 
+            and (not c.mensualidad or c.mensualidad.tipo not in ["Gratis", "Pase Diario"])
+     ]
+    
     tipos_mensualidad = Mensualidad.objects.all()
 
     paginator = Paginator(clientes, 20)
@@ -531,7 +546,8 @@ def renovarCliente(request):
         "today": hoy,
         'rut_buscado': rut_buscado,
         'planes_personalizados': PlanPersonalizado.objects.all(),
-        'tipos_mensualidad': tipos_mensualidad
+        'tipos_mensualidad': tipos_mensualidad,
+         "filtro_tipo": filtro_tipo,
     })
 
 def registrar_sesion(request):
