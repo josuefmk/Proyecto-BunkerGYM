@@ -269,8 +269,6 @@ class Cliente(models.Model):
         dias_total = 30
         if self.mensualidad:
             key = self.mensualidad.duracion.strip().lower()
-
-       
             if self.mensualidad.tipo == "Pase Diario":
                 dias_total = 1
             else:
@@ -284,12 +282,25 @@ class Cliente(models.Model):
         # accesos
         if self.sub_plan:
             accesos_dict = {'Bronce': 4, 'Hierro': 8, 'Acero': 12, 'Titanio': 0}
-            self.accesos_restantes = accesos_dict.get(self.sub_plan, 0)
+            nuevos_accesos = accesos_dict.get(self.sub_plan, 0)
+
+            if self.sub_plan == "Titanio":
+                # Titanio es acceso ilimitado
+                self.accesos_restantes = float("inf")
+            else:
+                if forzar:
+                    # Activación inicial → setear accesos base
+                    self.accesos_restantes = nuevos_accesos
+                else:
+                    # Renovación → acumular accesos
+                    self.accesos_restantes = (self.accesos_restantes or 0) + nuevos_accesos
+
         elif self.plan_personalizado_activo:
             self.accesos_restantes = self.plan_personalizado_activo.accesos_por_mes
 
         self.asignar_precio()
         super().save()
+
     class Meta:
             ordering = ["nombre", "apellido"]
 

@@ -296,14 +296,14 @@ def asistencia_cliente(request):
                 accesos_restantes_subplan = float("inf")
             else:
                 accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
-                usados_mes_subplan = Asistencia.objects.filter(
-                    cliente=cliente,
-                    fecha__date__month=hoy.month,
-                    fecha__date__year=hoy.year,
-                    tipo_asistencia="subplan"
-                ).count()
-                accesos_restantes_subplan = max(accesos_dict.get(cliente.sub_plan, 0) - usados_mes_subplan, 0)
-            tipo_asistencia = "subplan"
+                usados_subplan = Asistencia.objects.filter(
+            cliente=cliente,
+            fecha__date__gte=cliente.fecha_inicio_plan,
+            fecha__date__lte=cliente.fecha_fin_plan,
+            tipo_asistencia="subplan"
+        ).count()
+
+        accesos_restantes_subplan = max((cliente.accesos_restantes or 0) - usados_subplan, 0)
 
         # Guardar accesos restantes
         if tipo_asistencia == "plan_personalizado" and accesos_restantes_personalizado is not None:
@@ -483,7 +483,7 @@ def renovarCliente(request):
             if cliente_renovado.fecha_fin_plan:
                 dias_extra = max((cliente_renovado.fecha_fin_plan - hoy).days, 0)
 
-            cliente_renovado.activar_plan(fecha_activacion=hoy, dias_extra=dias_extra)
+            cliente_renovado.activar_plan(fecha_activacion=hoy, dias_extra=dias_extra, forzar=False)
             cliente_renovado.save()
             cliente_renovado.asignar_precio()
 
