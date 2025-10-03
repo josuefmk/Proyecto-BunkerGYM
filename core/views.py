@@ -290,20 +290,21 @@ def asistencia_cliente(request):
                 accesos_restantes_personalizado = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
             tipo_asistencia = "plan_personalizado"
 
-        # Calcular accesos SubPlan (Titanio y Gratis + Plan Mensual tienen libre acceso)
+        # Calcular accesos SubPlan
+        usados_subplan = 0  # inicializar para evitar UnboundLocalError
         if cliente.sub_plan and not tipo_asistencia:
             if cliente.sub_plan == "Titanio" or (cliente.mensualidad and cliente.mensualidad.tipo == "Gratis + Plan Mensual"):
                 accesos_restantes_subplan = float("inf")
             else:
                 accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
                 usados_subplan = Asistencia.objects.filter(
-            cliente=cliente,
-            fecha__date__gte=cliente.fecha_inicio_plan,
-            fecha__date__lte=cliente.fecha_fin_plan,
-            tipo_asistencia="subplan"
-        ).count()
-
-        accesos_restantes_subplan = max((cliente.accesos_restantes or 0) - usados_subplan, 0)
+                    cliente=cliente,
+                    fecha__date__gte=cliente.fecha_inicio_plan,
+                    fecha__date__lte=cliente.fecha_fin_plan,
+                    tipo_asistencia="subplan"
+                ).count()
+                accesos_restantes_subplan = max((cliente.accesos_restantes or 0) - usados_subplan, 0)
+            tipo_asistencia = "subplan"
 
         # Guardar accesos restantes
         if tipo_asistencia == "plan_personalizado" and accesos_restantes_personalizado is not None:
@@ -312,7 +313,7 @@ def asistencia_cliente(request):
             cliente.accesos_restantes = accesos_restantes_subplan
         cliente.save()
 
-        # Verificar accesos disponibles (incluye Gratis + Plan Mensual como Titanio)
+        # Verificar accesos disponibles
         accesos_disponibles = False
         if (
             plan_libre
@@ -369,7 +370,6 @@ def asistencia_cliente(request):
         return render(request, "core/AsistenciaCliente.html", contexto)
 
     return render(request, "core/AsistenciaCliente.html", contexto)
-
 @admin_required
 def listaCliente(request):
     hoy = timezone.localdate()
