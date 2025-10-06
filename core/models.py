@@ -92,6 +92,7 @@ class Precios(models.Model):
     ]
 
     SUB_PLANES = [
+        ('Pase Diario', 'Pase Diario'),
         ('Bronce', 'Bronce (4 Accesos)'),
         ('Hierro', 'Hierro (8 Accesos)'),
         ('Acero', 'Acero (12 Accesos)'),
