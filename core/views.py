@@ -276,36 +276,36 @@ def asistencia_cliente(request):
         accesos_restantes_personalizado = None
         tipo_asistencia = None
 
-        # Calcular accesos Plan Personalizado
         if plan_activo and (plan_activo.accesos_por_mes > 0 or plan_libre or plan_full):
-            usados_mes_personalizado = Asistencia.objects.filter(
-                cliente=cliente,
-                fecha__date__month=hoy.month,
-                fecha__date__year=hoy.year,
-                tipo_asistencia="plan_personalizado"
-            ).count()
-            if plan_libre or plan_full:
-                accesos_restantes_personalizado = float("inf")
-            else:
-                accesos_restantes_personalizado = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
-            tipo_asistencia = "plan_personalizado"
+                usados_mes_personalizado = Asistencia.objects.filter(
+                    cliente=cliente,
+                    fecha__date__month=hoy.month,
+                    fecha__date__year=hoy.year,
+                    tipo_asistencia="plan_personalizado"
+                ).count()
+                if plan_libre or plan_full:
+                    accesos_restantes_personalizado = float("inf")
+                else:
+                    accesos_restantes_personalizado = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
+                    accesos_restantes_personalizado = int(accesos_restantes_personalizado)
+                tipo_asistencia = "plan_personalizado"
 
-        # Calcular accesos SubPlan
+            # Calcular accesos SubPlan
         usados_subplan = 0  # inicializar para evitar UnboundLocalError
         if cliente.sub_plan and not tipo_asistencia:
-            if cliente.sub_plan == "Titanio" or (cliente.mensualidad and cliente.mensualidad.tipo == "Gratis + Plan Mensual"):
-                accesos_restantes_subplan = float("inf")
-            else:
-                accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
-                usados_subplan = Asistencia.objects.filter(
-                    cliente=cliente,
-                    fecha__date__gte=cliente.fecha_inicio_plan,
-                    fecha__date__lte=cliente.fecha_fin_plan,
-                    tipo_asistencia="subplan"
-                ).count()
-                accesos_restantes_subplan = max((cliente.accesos_restantes or 0) - usados_subplan, 0)
-            tipo_asistencia = "subplan"
-
+                if cliente.sub_plan == "Titanio" or (cliente.mensualidad and cliente.mensualidad.tipo == "Gratis + Plan Mensual"):
+                    accesos_restantes_subplan = float("inf")
+                else:
+                    accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
+                    usados_subplan = Asistencia.objects.filter(
+                        cliente=cliente,
+                        fecha__date__gte=cliente.fecha_inicio_plan,
+                        fecha__date__lte=cliente.fecha_fin_plan,
+                        tipo_asistencia="subplan"
+                    ).count()
+                    accesos_calculados = max((cliente.accesos_restantes or 0) - usados_subplan, 0)
+                    accesos_restantes_subplan = int(accesos_calculados)
+                tipo_asistencia = "subplan"
         # Guardar accesos restantes
         if tipo_asistencia == "plan_personalizado" and accesos_restantes_personalizado is not None:
             cliente.accesos_restantes = accesos_restantes_personalizado
