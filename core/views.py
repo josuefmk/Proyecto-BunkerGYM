@@ -5,8 +5,8 @@ from django.shortcuts import render, redirect
 from django.utils import timezone
 from psycopg import logger
 from pyparsing import wraps
-from .models import Cliente, Asistencia, Admin, Mensualidad, PlanPersonalizado, Precios,Producto, Sesion, Venta
-from .forms import ClienteForm, DescuentoUpdateForm, PrecioUpdateForm,ProductoForm
+from .models import Cliente, Asistencia, Admin, Mensualidad, NombresProfesionales, PlanPersonalizado, Precios,Producto, Sesion, Venta, ClienteExterno
+from .forms import ClienteExternoForm, ClienteForm, DescuentoUpdateForm, PrecioUpdateForm,ProductoForm
 from datetime import date, datetime, time,timedelta
 from dateutil.relativedelta import relativedelta
 import pytz
@@ -31,7 +31,7 @@ from xhtml2pdf import pisa
 import io
 from django.core.paginator import Paginator
 from .utils import validar_rut, validar_correo, validar_telefono
-
+from django.views.decorators.cache import never_cache
 from .models import HistorialAccion
 
 def registrar_historial(admin, accion, modelo, objeto_id=None, descripcion=""):
@@ -100,10 +100,12 @@ def admin_required(view_func):
 
 
 @admin_required
+@never_cache
 def index(request):
     return render(request, 'core/index.html')
 
 @admin_required
+@never_cache
 def registro_cliente(request):
     mensaje = None
     cliente_creado = None
@@ -179,6 +181,7 @@ def enviar_contrato_correo(cliente):
     return True
 
 @admin_required
+@never_cache
 def activar_plan_cliente(request, cliente_id):
     cliente = get_object_or_404(Cliente, id=cliente_id)
 
@@ -200,6 +203,7 @@ def activar_plan_cliente(request, cliente_id):
 
 
 @admin_required
+@never_cache
 def asistencia_cliente(request):
     contexto = {
         "mostrar_modal": False,
@@ -370,7 +374,9 @@ def asistencia_cliente(request):
         return render(request, "core/AsistenciaCliente.html", contexto)
 
     return render(request, "core/AsistenciaCliente.html", contexto)
+
 @admin_required
+@never_cache
 def listaCliente(request):
     hoy = timezone.localdate()
     asistencias_hoy = Asistencia.objects.filter(
@@ -397,6 +403,7 @@ def listaCliente(request):
 
 
 @admin_required
+@never_cache
 def listaCliente_json(request):
     hoy = timezone.localdate()
     asistencias_hoy = Asistencia.objects.filter(
@@ -422,6 +429,7 @@ def listaCliente_json(request):
     return JsonResponse({'datos_clientes': datos_clientes})
 
 @admin_required
+@never_cache
 def renovarCliente(request):
     rut_buscado = request.POST.get('rut') or request.GET.get('rut', '')
     cliente_renovado = None
@@ -550,6 +558,8 @@ def renovarCliente(request):
          "filtro_tipo": filtro_tipo,
     })
 
+@admin_required
+@never_cache
 def registrar_sesion(request):
     if request.method == "POST":
         rut = request.POST.get('rut_cliente')
@@ -613,6 +623,7 @@ def cambiar_sub_plan(request):
 
 
 @admin_required
+@never_cache
 def historial_cliente(request):
     rut = request.GET.get('rut') or request.POST.get('rut')
     year = request.GET.get('year')
@@ -720,6 +731,7 @@ def historial_cliente(request):
     return render(request, 'core/historial_cliente.html', context)
 
 @admin_required
+@never_cache
 def modificar_cliente(request, cliente_id):
     cliente = get_object_or_404(Cliente, id=cliente_id)
 
@@ -753,6 +765,7 @@ def modificar_cliente(request, cliente_id):
     return render(request, 'core/modificar_cliente.html', {'cliente': cliente, 'form': form})
 
 @admin_required
+@never_cache
 def eliminar_cliente(request, cliente_id):
     cliente = get_object_or_404(Cliente, id=cliente_id)
 
@@ -772,6 +785,7 @@ def eliminar_cliente(request, cliente_id):
     return redirect('renovarCliente')
 
 @admin_required
+@never_cache
 def agregar_meses_plan(request):
     if request.method == 'POST':
         rut = request.POST.get('rut_cliente')
@@ -798,6 +812,7 @@ def agregar_meses_plan(request):
         return redirect('renovarCliente')
 
 @admin_required
+@never_cache
 def panel_precios(request):
     precios = Precios.objects.all()
     forms_list = []
@@ -836,6 +851,7 @@ def panel_precios(request):
     return render(request, "core/panel_precios.html", {"forms_list": forms_list})
 
 @admin_required
+@never_cache
 def cambiar_tipo_plan_mensual(request):
     if request.method == 'POST':
         rut_cliente = request.POST.get('rut_cliente')
@@ -850,6 +866,7 @@ def cambiar_tipo_plan_mensual(request):
         return redirect(f'{reverse("renovarCliente")}?rut={rut_cliente}')
     
 @admin_required
+@never_cache
 def cambiar_planes_personalizados(request):
     if request.method == 'POST':
         rut_cliente = request.POST.get('rut_cliente')
@@ -869,6 +886,7 @@ def cambiar_planes_personalizados(request):
     return redirect('renovarCliente')
 
 @admin_required
+@never_cache
 def renovar_plan_personalizado(request):
     if request.method == 'POST':
         rut_cliente = request.POST.get('rut_cliente')
@@ -899,7 +917,7 @@ def renovar_plan_personalizado(request):
     return redirect('renovarCliente')
 
 @admin_required
-
+@never_cache
 def productos(request):
     productos = Producto.objects.all().order_by("nombre")
     producto_seleccionado = request.session.pop('producto_seleccionado', None)
@@ -911,6 +929,7 @@ def productos(request):
 
 
 @admin_required
+@never_cache
 def registrar_venta(request):
     if request.method == 'POST':
         producto_id = request.POST.get('producto_id')
@@ -943,7 +962,7 @@ def registrar_venta(request):
             messages.error(request, "⚠️ Seleccione un método de pago válido.")
             return redirect('productos')
 
-        # Guardar la venta con método de pago
+        # Crear la venta y descontar stock (en el método save del modelo Venta)
         Venta.objects.create(
             producto=producto,
             cantidad=cantidad,
@@ -961,19 +980,76 @@ def registrar_venta(request):
         messages.success(
             request,
             f"✅ Venta registrada: {cantidad} unidad(es) de '{producto.nombre}' "
-            f"con {metodo_pago}. Stock restante: {producto.stock}"
+            f"con {metodo_pago}. Stock restante: {producto.stock - cantidad}"
         )
 
         request.session['producto_seleccionado'] = producto.id
 
     return redirect('productos')
 
+
+
 @admin_required
+@never_cache
+def agregar_stock(request):
+    productos = Producto.objects.all().order_by("nombre")
+
+    if request.method == 'POST':
+        producto_id = request.POST.get('producto_id')
+        cantidad = request.POST.get('cantidad')
+        accion = request.POST.get('accion', 'sumar')  
+
+        try:
+            cantidad = int(cantidad)
+            if cantidad <= 0:
+                raise ValueError
+        except (ValueError, TypeError):
+            messages.error(request, "⚠️ La cantidad debe ser un número válido mayor que 0.")
+            return redirect('agregar_stock')
+
+        producto = Producto.objects.filter(id=producto_id).first()
+        if not producto:
+            messages.error(request, "❌ Producto no encontrado.")
+            return redirect('agregar_stock')
+
+        # Lógica para sumar o restar stock sin afectar ventas
+        if accion == 'restar':
+            if cantidad > producto.stock:
+                messages.error(request, f"⚠️ No se puede restar más de lo que hay en stock ({producto.stock}).")
+                return redirect('agregar_stock')
+            producto.stock -= cantidad
+            mensaje_accion = f"restó {cantidad} unidades"
+        else:
+            producto.stock += cantidad
+            mensaje_accion = f"agregó {cantidad} unidades"
+
+        producto.save()
+
+        registrar_historial(
+            request.admin,
+            "modificar",
+            "Producto",
+            producto.id,
+            f"{mensaje_accion} al stock de {producto.nombre}"
+        )
+
+        messages.success(
+            request,
+            f"✅ Se {mensaje_accion} al stock de '{producto.nombre}'. Stock actual: {producto.stock}."
+        )
+        return redirect('agregar_stock')
+
+    return render(request, 'core/agregar_stock.html', {'productos': productos})
+
+
+@admin_required
+@never_cache
 def historial_ventas(request):
     ventas = Venta.objects.select_related("producto").order_by("-fecha")
     return render(request, "core/historial_ventas.html", {"ventas": ventas})
 
 @admin_required
+@never_cache
 def agregar_producto(request):
     if request.method == 'POST':
         form = ProductoForm(request.POST)
@@ -997,6 +1073,7 @@ def agregar_producto(request):
 
 
 @admin_required
+@never_cache
 def editar_producto(request, producto_id):
     producto = get_object_or_404(Producto, id=producto_id)
 
@@ -1032,7 +1109,9 @@ def editar_producto(request, producto_id):
                 messages.error(request, f"❌ Error al modificar el producto: {str(e)}")
 
     return render(request, 'core/editar_producto.html', {'producto': producto})
+
 @admin_required
+@never_cache
 def eliminar_producto(request, producto_id):
     producto = get_object_or_404(Producto, id=producto_id)
 
@@ -1051,6 +1130,8 @@ def eliminar_producto(request, producto_id):
 
     return redirect('productos')
 
+@admin_required
+@never_cache
 def dashboard(request):
     hoy = localdate()
     inicio_mes = hoy.replace(day=1)
@@ -1242,33 +1323,83 @@ def dashboard(request):
 
     return render(request, "core/dashboard.html", context)
 
+@admin_required
+@never_cache
 def asistencia_kine_nutri(request):
-    if request.method == "POST" and request.headers.get("x-requested-with") == "XMLHttpRequest":
+    if request.method == "POST" and request.headers.get("x-requested-with", "").lower() == "xmlhttprequest":
         cliente_id = request.POST.get("cliente_id")
         tipo_sesion = request.POST.get("tipo_sesion")
+        profesional_id = request.POST.get("profesional_id")
 
-        if cliente_id and tipo_sesion:
-            cliente = get_object_or_404(Cliente, id=cliente_id)
-            sesion = Sesion.objects.create(
-                cliente=cliente,
-                tipo_sesion=tipo_sesion,
-                fecha=timezone.localdate()
-            )
-            return JsonResponse({
-                "success": True,
-                "cliente": f"{cliente.nombre} {cliente.apellido}",
-                "tipo": sesion.get_tipo_sesion_display(),
-                "fecha": sesion.fecha.strftime("%d/%m/%Y")
-            })
-        return JsonResponse({"success": False}, status=400)
+        try:
+            if cliente_id and tipo_sesion and profesional_id:
+                cliente = get_object_or_404(Cliente, id=cliente_id)
+                profesional = get_object_or_404(NombresProfesionales, id=profesional_id)
+                sesion = Sesion.objects.create(
+                    cliente=cliente,
+                    tipo_sesion=tipo_sesion,
+                    fecha=timezone.localdate(),
+                    profesional=profesional
+                )
+                return JsonResponse({
+                    "success": True,
+                    "cliente": f"{cliente.nombre} {cliente.apellido}",
+                    "tipo": sesion.get_tipo_sesion_display(),
+                    "profesional": f"{profesional.nombre} {profesional.apellido}",
+                    "fecha": sesion.fecha.strftime("%d/%m/%Y")
+                })
+            else:
+                return JsonResponse({"success": False, "error": "Datos incompletos"}, status=400)
 
-    clientes = Cliente.objects.all().order_by("nombre")
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+  
+    clientes_internos = list(
+        Cliente.objects.filter(tipo_publico__isnull=False)
+        .exclude(tipo_publico__icontains="Pase Diario")
+    )
+    for c in clientes_internos:
+        c.tipo_objeto = "interno"
+
+    clientes_externos = list(ClienteExterno.objects.all())
+    for c in clientes_externos:
+        c.tipo_objeto = "externo"
+
+    clientes = sorted(clientes_internos + clientes_externos, key=lambda c: c.nombre.lower())
+
+    nutricionistas_qs = NombresProfesionales.objects.filter(profesion__icontains="Nutricionista")
+    kinesiologos_qs = NombresProfesionales.objects.filter(profesion__icontains="Kinesiologo")
+
+    nutricionistas = list(nutricionistas_qs.values('id', 'nombre', 'apellido'))
+    kinesiologos = list(kinesiologos_qs.values('id', 'nombre', 'apellido'))
+
     sesiones = Sesion.objects.order_by("-fecha")[:10]
 
     return render(request, "core/asistencia_kine_nutri.html", {
         "clientes": clientes,
-        "sesiones": sesiones
+        "sesiones": sesiones,
+        "nutricionistas": nutricionistas,
+        "kinesiologos": kinesiologos,
     })
+
+
+@admin_required
+@never_cache
+def registrar_cliente_externo(request):
+    if request.method == 'POST':
+        form = ClienteExternoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, '✅ Cliente externo registrado correctamente.')
+            return redirect('asistencia_kine_nutri')
+        else:
+            messages.error(request, '❌ Por favor corrige los errores del formulario.')
+    else:
+        form = ClienteExternoForm()
+
+    return render(request, 'core/registrar_cliente_externo.html', {'form': form})
+
 # ===========================
 # REDIRECCIÓN INICIAL
 # ===========================

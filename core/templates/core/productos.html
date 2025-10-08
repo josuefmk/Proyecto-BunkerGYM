@@ -68,52 +68,53 @@
   <h2 class="titulo-tabla" style="margin: 0;">Productos Disponibles</h2>
   <div style="display: flex; gap: 10px;">
     <a href="{% url 'agregar_producto' %}" class="btn-global">➕ Agregar Producto</a>
+    <a href="{% url 'agregar_stock' %}" class="btn-global">📦 Agregar Stock</a>
     <a href="{% url 'historial_ventas' %}" class="btn-global">📜 Historial de Ventas</a>
   </div>
 </div>
 
 
   <div class="tabla-wrapper" style="margin-top: 15px;">
-    <table class="tabla-clientes">
-      <thead>
-        <tr>
-          <th>Producto</th>
-          <th>Descripción</th>
-          <th>Compra</th>
-          <th>Venta</th>
-          <th>Stock Inicial</th>
-          <th>Stock Actual</th>
-          <th>Vendidos</th>
-          <th>Valor Base</th>
-          <th>Ganancia Estimada</th>
-          <th>Ganancia Real</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for producto in productos %}
-        <tr {% if producto.id == producto_seleccionado %}style="background: #f0f8ff;"{% endif %}>
-          <td>{{ producto.nombre }}</td>
-          <td>{{ producto.descripcion }}</td>
-          <td>CLP ${{ producto.precio_compra|floatformat:0|intcomma }}</td>
-          <td>CLP ${{ producto.precio_venta|floatformat:0|intcomma }}</td>
-          <td>{{ producto.stock_inicial }}</td>
-          <td>{{ producto.stock }}</td>
-          <td>{{ producto.cantidad_vendida }}</td>
-          <td>CLP ${{ producto.valor_total_stock|floatformat:0|intcomma }}</td>
-          <td>CLP ${{ producto.estimado_ganancia|floatformat:0|intcomma }}</td>
-          <td>CLP ${{ producto.ganancia_real|floatformat:0|intcomma }}</td>
-          <td>
-            <a href="{% url 'editar_producto' producto.id %}" class="btn-accion editar">✏️</a>
-            <button type="button" class="btn-accion eliminar"
-                    onclick="mostrarModal({{ producto.id }}, '{{ producto.nombre }}')">🗑️</button>
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="11" class="mensaje-centrado">No hay productos registrados.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+ <table class="tabla-clientes">
+  <thead>
+    <tr>
+      <th>Producto</th>
+      <th>Descripción</th>
+      <th>Compra</th>
+      <th>Venta</th>
+      <th>Stock Inicial</th>
+      <th>Stock Actual</th>
+      <th>Vendidos</th>
+      <th>Valor Base</th>
+      <th>Ganancia Estimada</th>
+      <th>Ganancia Real</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for producto in productos %}
+    <tr {% if producto.id == producto_seleccionado %}style="background: #f0f8ff;"{% endif %}>
+      <td>{{ producto.nombre }}</td>
+      <td>{{ producto.descripcion }}</td>
+      <td>CLP ${{ producto.precio_compra|floatformat:0|intcomma }}</td>
+      <td>CLP ${{ producto.precio_venta|floatformat:0|intcomma }}</td>
+      <td>{{ producto.stock_inicial }}</td>
+      <td>{{ producto.stock }}</td>
+      <td>{{ producto.cantidad_vendida }}</td>
+      <td>CLP ${{ producto.valor_total_stock|floatformat:0|intcomma }}</td>
+      <td>CLP ${{ producto.estimado_ganancia|floatformat:0|intcomma }}</td>
+      <td>CLP ${{ producto.ganancia_real|floatformat:0|intcomma }}</td>
+      <td>
+        <a href="{% url 'editar_producto' producto.id %}" class="btn-accion editar">✏️</a>
+        <button type="button" class="btn-accion eliminar"
+                onclick="mostrarModal({{ producto.id }}, '{{ producto.nombre }}')">🗑️</button>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="11" class="mensaje-centrado">No hay productos registrados.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
   </div>
 </div>
 

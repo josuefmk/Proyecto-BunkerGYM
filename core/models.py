@@ -3,7 +3,7 @@ from django.utils import timezone
 from dateutil.relativedelta import relativedelta 
 from datetime import timedelta,datetime
 from django.utils import timezone
-
+from django.db.models import Sum
 
 SUB_PLANES = [
         ('Bronce', 'Bronce (4 Accesos)'),
@@ -73,13 +73,16 @@ class Sesion(models.Model):
         ('nutricional', 'Asistió Sesión Nutricional'),
         ('kinesiologia', 'Asistió Sesión Kinesiología'),
     ]
+
     cliente = models.ForeignKey('Cliente', on_delete=models.CASCADE, related_name="sesiones")
     tipo_sesion = models.CharField(max_length=20, choices=TIPO_SESION)
     fecha = models.DateField()
-  
-    
+    profesional = models.ForeignKey('NombresProfesionales', on_delete=models.SET_NULL, null=True, blank=True, related_name='sesiones')
+
     def __str__(self):
-        return f"{self.cliente.nombre} - {self.get_tipo_sesion_display()} ({self.fecha})"
+        profesional_str = f" - {self.profesional.nombre}" if self.profesional else ""
+        return f"{self.cliente.nombre} - {self.get_tipo_sesion_display()} ({self.fecha}){profesional_str}"
+
 
 # --------------------------
 # Modelo: Precios
@@ -350,16 +353,17 @@ class Producto(models.Model):
         return self.stock * (self.precio_venta - self.precio_compra)
 
     def cantidad_vendida(self):
-        if self.stock_inicial is not None:
-            return self.stock_inicial - self.stock
-        return 0
+        # Suma todas las cantidades vendidas en el modelo Venta para este producto
+        ventas_total = self.venta_set.aggregate(total=Sum('cantidad'))['total']
+        return ventas_total or 0
 
     def ganancia_real(self):
         return self.cantidad_vendida() * (self.precio_venta - self.precio_compra)
 
     def __str__(self):
         return f"{self.nombre} (Stock: {self.stock})"
-    
+
+
 class Venta(models.Model):
     METODOS_PAGO = [
         ('Efectivo', 'Efectivo'),
@@ -389,13 +393,12 @@ class Venta(models.Model):
 
     def __str__(self):
         return f"Venta de {self.cantidad} x {self.producto.nombre} ({self.metodo_pago})"
-    
-    
+
+
 class IngresoProducto(models.Model):
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
     cantidad = models.PositiveIntegerField()
     fecha_ingreso = models.DateTimeField(auto_now_add=True)
-   
 
     def save(self, *args, **kwargs):
         if self.pk is None:
@@ -435,3 +438,34 @@ class HistorialAccion(models.Model):
     def fecha_chile(self):
  
         return timezone.localtime(self.fecha)
+
+
+
+
+
+class NombresProfesionales(models.Model):
+            NombreProfesion = [
+            ('Kinesiologo', 'Kinesiologo'),
+            ('Nutricionista', 'Nutricionista')
+        ]
+            nombre = models.CharField(max_length=50)
+            apellido = models.CharField(max_length=50)
+            profesion = models.CharField(max_length=20, choices=NombreProfesion) 
+            def __str__(self):
+                return self.nombre
+    
+class ClienteExterno(models.Model):
+            nombre = models.CharField(max_length=50)
+            apellido = models.CharField(max_length=50)
+            rut = models.CharField(max_length=15, unique=True)
+            tipo_atencion = models.CharField(
+                max_length=20,
+                choices=[
+                    ('Kinesiología', 'Kinesiología'),
+                    ('Nutrición', 'Nutrición'),
+                    ('Ambos', 'Ambos'),
+                ]
+            )
+
+            def __str__(self):
+                return f"{self.nombre} {self.apellido} ({self.rut})"

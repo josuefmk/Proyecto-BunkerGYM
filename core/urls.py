@@ -29,8 +29,10 @@ urlpatterns = [
     path('agregar-meses-plan/', views.agregar_meses_plan, name='agregar_meses_plan'),
     path('eliminar-cliente/<int:cliente_id>/', views.eliminar_cliente, name='eliminar_cliente'),
     path('modificar-cliente/<int:cliente_id>/', views.modificar_cliente, name='modificar_cliente'),
-     path('asistencia_kine_nutri/', views.asistencia_kine_nutri, name='asistencia_kine_nutri'),
-    #path('api/registrar_asistencia/', views.api_registrar_asistencia, name='api_registrar_asistencia'),
+    path('asistencia_kine_nutri/', views.asistencia_kine_nutri, name='asistencia_kine_nutri'),
+   path('registrar_cliente_externo/', views.registrar_cliente_externo, name='registrar_cliente_externo'),
+   path('agregar_stock/', views.agregar_stock, name='agregar_stock'),
+    #path('api/registrar_asistencia/', views.api_registrar_asistencia, name='api_registrar_asistencia')
 
     # Login y logout
     path('login/', views.login_admin, name='login'),

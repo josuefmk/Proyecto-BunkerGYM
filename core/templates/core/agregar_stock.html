@@ -1,0 +1,73 @@
+{% extends 'core/home.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="contenido">
+  <div class="card-tabla">
+    <h2 class="titulo-tabla">📦 Agregar Stock a Productos</h2>
+
+   {% if messages %}
+  <div id="mi-mensaje-contenedor" class="mi-mensaje-contenedor">
+    {% for message in messages %}
+      <div class="mi-mensaje mi-mensaje-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+  <script>
+    setTimeout(function() {
+      const mensaje = document.getElementById("mi-mensaje-contenedor");
+      if (mensaje) {
+        mensaje.style.transition = "opacity 1s ease";
+        mensaje.style.opacity = 0;
+        setTimeout(() => mensaje.remove(), 1000);
+      }
+    }, 10000);
+  </script>
+{% endif %}
+
+    <div class="tabla-wrapper" style="margin-top: 15px;">
+                <table class="tabla-agregar-stock">
+  <thead>
+    <tr>
+      <th>Producto</th>
+      <th>Stock Actual</th>
+      <th>Cantidad</th>
+      <th>Acción</th> 
+      <th>Actualizar</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for producto in productos %}
+    <tr>
+      <td>{{ producto.nombre }}</td>
+      <td>{{ producto.stock }}</td>
+      <td>
+        <form method="POST" action="{% url 'agregar_stock' %}" style="display:flex; gap:5px; align-items:center;">
+          {% csrf_token %}
+          <input type="hidden" name="producto_id" value="{{ producto.id }}">
+          <input type="number" name="cantidad" min="1" required class="input-bonito" style="width:80px;">
+      </td>
+      <td>
+          <select name="accion" class="select-bonito" style="width:110px;">
+            <option value="sumar" selected>➕ Agregar</option>
+            <option value="restar">➖ Quitar</option>
+          </select>
+      </td>
+      <td>
+          <button type="submit" class="btn-global">Actualizar</button>
+        </form>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5" class="mensaje-centrado">No hay productos registrados.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+
+    </div>
+
+    <br>
+    <a href="{% url 'productos' %}" class="btn-global">⬅️ Volver</a>
+  </div>
+</div>
+{% endblock %}

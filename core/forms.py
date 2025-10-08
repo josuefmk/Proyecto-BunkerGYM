@@ -1,15 +1,10 @@
 from datetime import timedelta
 from django import forms
-from .models import Cliente, Precios, Producto, PlanPersonalizado
+from .models import Cliente, Precios, Producto, ClienteExterno
 import re
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
-
-
-import re
-from django import forms
-from django.utils import timezone
-from .models import Cliente
 
 def validar_rut(rut):
     try:
@@ -128,10 +123,6 @@ class ClienteForm(forms.ModelForm):
             raise forms.ValidationError("El teléfono debe tener exactamente 9 dígitos.")
         return telefono
 
-       
-
-    
-
     def save(self, commit=True):
         cliente = super().save(commit=False)
         if cliente.nombre:
@@ -176,3 +167,47 @@ class DescuentoUpdateForm(forms.ModelForm):
         widgets = {
             'descuento': forms.NumberInput(attrs={'class': 'input-bonito'}),
         }
+
+
+    
+class ClienteExternoForm(forms.ModelForm):
+    class Meta:
+        model = ClienteExterno
+        fields = ['nombre', 'apellido', 'rut']
+        labels = {
+            'nombre': 'Nombres',
+            'apellido': 'Apellidos',
+            'rut': 'RUT',
+        }
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'apellido': forms.TextInput(attrs={'class': 'form-control'}),
+            'rut': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: 12345678-9 o EX-111111111-1'
+            }),
+        }
+
+    def clean_rut(self):
+        rut = self.cleaned_data.get('rut', '').strip().upper().replace('.', '')
+
+        if not rut:
+            raise ValidationError("Este campo es obligatorio.")
+
+        # Validación de formato
+        if rut.startswith("EX-"):
+            if not re.match(r'^EX-\d{1,9}-[\dK]$', rut):
+                raise ValidationError("RUT extranjero inválido. Use EX- seguido de números y dígito verificador.")
+        else:
+            if not re.match(r'^\d{7,9}-[\dK]$', rut):
+                raise ValidationError("Formato inválido. Use 12345678-9")
+
+        # Verifica duplicado en ClienteExterno
+        if ClienteExterno.objects.filter(rut__iexact=rut).exclude(pk=self.instance.pk).exists():
+            raise ValidationError("⚠️ Este RUT ya está registrado como cliente externo.")
+
+        # Verifica duplicado en Cliente (clientes internos)
+        if Cliente.objects.filter(rut__iexact=rut).exists():
+            raise ValidationError("⚠️ Este RUT ya está registrado como cliente interno.")
+
+        return rut

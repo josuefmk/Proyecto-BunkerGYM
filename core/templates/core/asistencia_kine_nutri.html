@@ -6,13 +6,17 @@
     <div class="asistencia-contenedor-central">
         <h1 class="asistencia-titulo-pagina">🩺 Asistencia Kinesiología y Nutrición</h1>
 
+        <div style="margin-bottom: 20px;">
+            <a href="{% url 'registrar_cliente_externo' %}" class="btn-global">➕ Registrar Cliente Externo</a>
+        </div>
+
         <!-- Buscador -->
         <input type="text" id="asistencia-busqueda" class="asistencia-buscador" placeholder="Buscar cliente por nombre o RUT...">
 
         <!-- Tabla de clientes -->
         <div class="asistencia-tabla-wrapper">
             <table class="asistencia-table table table-hover table-striped" id="asistencia-tablaClientes">
-                <thead class="asistencia-table-dark table-dark">
+                <thead class="table-dark">
                     <tr>
                         <th>Cliente</th>
                         <th>Nutrición</th>
@@ -21,16 +25,23 @@
                 </thead>
                 <tbody>
                     {% for cliente in clientes %}
-                    <tr id="asistencia-cliente-{{ cliente.id }}">
+                    <tr>
                         <td>
-                            <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong><br>
-                            <small class="asistencia-text-muted text-muted">{{ cliente.rut }}</small>
+                            <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong>
+                            <small style="color:#555;">({{ cliente.tipo_objeto|capfirst }})</small><br>
+                            <small class="text-muted">{{ cliente.rut }}</small>
                         </td>
                         <td>
-                            <button class="asistencia-btn asistencia-btn-nutri registrar" data-id="{{ cliente.id }}" data-nombre="{{ cliente.nombre }} {{ cliente.apellido }}" data-tipo="Nutrición">🥗 Nutrición</button>
+                            <button class="asistencia-btn asistencia-btn-nutri registrar"
+                                data-id="{{ cliente.id }}"
+                                data-nombre="{{ cliente.nombre }} {{ cliente.apellido }}"
+                                data-tipo="nutricional">🥗 Nutrición</button>
                         </td>
                         <td>
-                            <button class="asistencia-btn asistencia-btn-kine registrar" data-id="{{ cliente.id }}" data-nombre="{{ cliente.nombre }} {{ cliente.apellido }}" data-tipo="Kinesiología">🏃‍♂️ Kinesiología</button>
+                            <button class="asistencia-btn asistencia-btn-kine registrar"
+                                data-id="{{ cliente.id }}"
+                                data-nombre="{{ cliente.nombre }} {{ cliente.apellido }}"
+                                data-tipo="kinesiologia">🏃‍♂️ Kinesiología</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -41,12 +52,13 @@
         <hr>
 
         <!-- Historial -->
-        <h2 class="asistencia-historial-titulo">📋 Últimas asistencias</h2>
-        <table class="asistencia-table-historial table table-sm table-striped">
+        <h2>📋 Últimas asistencias</h2>
+        <table class="table table-sm table-striped">
             <thead>
                 <tr>
                     <th>Cliente</th>
                     <th>Tipo</th>
+                    <th>Profesional</th>
                     <th>Fecha</th>
                 </tr>
             </thead>
@@ -55,66 +67,99 @@
                 <tr>
                     <td>{{ sesion.cliente.nombre }} {{ sesion.cliente.apellido }}</td>
                     <td>{{ sesion.get_tipo_sesion_display }}</td>
+                    <td>{{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</td>
                     <td>{{ sesion.fecha|date:"d/m/Y" }}</td>
                 </tr>
                 {% empty %}
-                <tr data-vacia="true"><td colspan="3">No hay asistencias registradas</td></tr>
+                <tr><td colspan="4">No hay asistencias registradas</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </main>
 
-<!-- Modal de confirmación -->
+<!-- Modal -->
 <div id="asistencia-modal" class="asistencia-modal">
     <div class="asistencia-modal-content">
         <span id="asistencia-close" class="asistencia-modal-close">&times;</span>
         <p id="asistencia-modal-text">¿Confirmar asistencia?</p>
+
+        <div id="profesional-select-container" style="display:none; margin-bottom:15px;">
+            <label for="profesional-select">Seleccionar profesional:</label>
+            <select id="profesional-select" class="form-select">
+                <option value="">Seleccione un profesional...</option>
+            </select>
+        </div>
+
         <div class="asistencia-modal-buttons">
-            <button id="asistencia-confirm" class="asistencia-btn asistencia-btn-confirm">Confirmar</button>
+            <button id="asistencia-confirm" class="asistencia-btn asistencia-btn-confirm" disabled>Confirmar</button>
             <button id="asistencia-cancel" class="asistencia-btn asistencia-btn-cancel">Cancelar</button>
         </div>
     </div>
 </div>
 
+{{ nutricionistas|json_script:"nutricionistas-data" }}
+{{ kinesiologos|json_script:"kinesiologos-data" }}
+
 <script>
 const csrfToken = "{{ csrf_token }}";
+const nutricionistas = JSON.parse(document.getElementById('nutricionistas-data').textContent);
+const kinesiologos = JSON.parse(document.getElementById('kinesiologos-data').textContent);
 
-// Búsqueda en tiempo real
-document.getElementById('asistencia-busqueda').addEventListener('keyup', function() {
-    let filtro = this.value.toLowerCase();
-    document.querySelectorAll('#asistencia-tablaClientes tbody tr').forEach(function(row) {
-        row.style.display = row.innerText.toLowerCase().includes(filtro) ? '' : 'none';
-    });
-});
-
-// Modal
 const modal = document.getElementById('asistencia-modal');
 const modalText = document.getElementById('asistencia-modal-text');
+const profesionalSelectContainer = document.getElementById('profesional-select-container');
+const profesionalSelect = document.getElementById('profesional-select');
 const btnClose = document.getElementById('asistencia-close');
 const btnCancel = document.getElementById('asistencia-cancel');
 const btnConfirm = document.getElementById('asistencia-confirm');
 
-let clienteIdGlobal, tipoSesionGlobal;
+let clienteIdGlobal, tipoSesionGlobal, profesionalIdGlobal;
 
-// Mostrar modal al hacer clic
+
+document.getElementById('asistencia-busqueda').addEventListener('input', function() {
+    const filtro = this.value.toLowerCase();
+    document.querySelectorAll('#asistencia-tablaClientes tbody tr').forEach(fila => {
+        fila.style.display = fila.innerText.toLowerCase().includes(filtro) ? '' : 'none';
+    });
+});
+
+
 document.querySelectorAll('.registrar').forEach(btn => {
     btn.addEventListener('click', function() {
         clienteIdGlobal = this.dataset.id;
         tipoSesionGlobal = this.dataset.tipo;
         const nombreCliente = this.dataset.nombre;
-        modalText.textContent = `¿Confirmar asistencia de ${nombreCliente} a ${tipoSesionGlobal}?`;
+
+        modalText.textContent = `¿Confirmar asistencia de ${nombreCliente} a ${tipoSesionGlobal === 'nutricional' ? 'Nutrición' : 'Kinesiología'}?`;
+        profesionalSelect.innerHTML = '<option value="">Seleccione un profesional...</option>';
+
+        const lista = tipoSesionGlobal === "nutricional" ? nutricionistas : kinesiologos;
+        lista.forEach(p => profesionalSelect.innerHTML += `<option value="${p.id}">${p.nombre} ${p.apellido}</option>`);
+
+        profesionalSelectContainer.style.display = 'block';
+        btnConfirm.disabled = true;
         modal.style.display = 'block';
     });
 });
 
-// Cerrar modal
+profesionalSelect.addEventListener('change', () => {
+    profesionalIdGlobal = profesionalSelect.value;
+    btnConfirm.disabled = !profesionalIdGlobal;
+});
+
 btnClose.onclick = () => modal.style.display = 'none';
 btnCancel.onclick = () => modal.style.display = 'none';
-window.onclick = e => { if(e.target == modal) modal.style.display = 'none'; };
+window.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
 
-// Confirmar asistencia
+
 btnConfirm.onclick = () => {
+    if (!profesionalIdGlobal) return;
+
+    const originalText = btnConfirm.textContent;
+    btnConfirm.textContent = "Ingresando...";
+    btnConfirm.disabled = true;
+
     fetch("{% url 'asistencia_kine_nutri' %}", {
         method: "POST",
         headers: {
@@ -122,29 +167,31 @@ btnConfirm.onclick = () => {
             "Content-Type": "application/x-www-form-urlencoded",
             "X-Requested-With": "XMLHttpRequest"
         },
-        body: `cliente_id=${clienteIdGlobal}&tipo_sesion=${tipoSesionGlobal}`
+        body: `cliente_id=${clienteIdGlobal}&tipo_sesion=${tipoSesionGlobal}&profesional_id=${profesionalIdGlobal}`
     })
     .then(res => res.json())
     .then(data => {
-        if(data.success) {
-            // Marcar fila como registrada
-            document.querySelector(`#asistencia-cliente-${clienteIdGlobal}`).classList.add('asistencia-registrado');
-
-            // Eliminar fila "No hay asistencias registradas" si existe
-            const filaVacia = document.querySelector('#asistencia-historial tr[data-vacia="true"]');
-            if(filaVacia) filaVacia.remove();
-
-            // Insertar nueva asistencia
+        if (data.success) {
             const fila = `<tr>
                 <td>${data.cliente}</td>
                 <td>${data.tipo}</td>
+                <td>${data.profesional}</td>
                 <td>${data.fecha}</td>
             </tr>`;
             document.querySelector('#asistencia-historial').insertAdjacentHTML('afterbegin', fila);
+            modal.style.display = 'none';
+        } else {
+            alert("Error: " + (data.error || "No se pudo registrar la asistencia."));
         }
-        modal.style.display = 'none';
     })
-    .catch(err => console.log(err));
+    .catch(err => {
+        console.error("Error al registrar asistencia:", err);
+        alert("Error al registrar la asistencia.");
+    })
+    .finally(() => {
+        btnConfirm.textContent = originalText;
+        btnConfirm.disabled = false;
+    });
 };
 </script>
 {% endblock %}
