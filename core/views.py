@@ -1358,24 +1358,39 @@ def dashboard(request):
 @admin_required
 @never_cache
 def asistencia_kine_nutri(request):
+
     if request.method == "POST" and request.headers.get("x-requested-with", "").lower() == "xmlhttprequest":
         cliente_id = request.POST.get("cliente_id")
         tipo_sesion = request.POST.get("tipo_sesion")
         profesional_id = request.POST.get("profesional_id")
+        tipo_objeto = request.POST.get("tipo_objeto")
 
         try:
-            if cliente_id and tipo_sesion and profesional_id:
-                cliente = get_object_or_404(Cliente, id=cliente_id)
+            if cliente_id and tipo_sesion and profesional_id and tipo_objeto:
                 profesional = get_object_or_404(NombresProfesionales, id=profesional_id)
-                sesion = Sesion.objects.create(
-                    cliente=cliente,
-                    tipo_sesion=tipo_sesion,
-                    fecha=timezone.localdate(),
-                    profesional=profesional
-                )
+
+                if tipo_objeto == "interno":
+                    cliente = get_object_or_404(Cliente, id=cliente_id)
+                    sesion = Sesion.objects.create(
+                        cliente=cliente,
+                        tipo_sesion=tipo_sesion,
+                        fecha=timezone.localdate(),
+                        profesional=profesional
+                    )
+                    cliente_nombre = f"{cliente.nombre} {cliente.apellido}"
+                else:
+                    cliente_externo = get_object_or_404(ClienteExterno, id=cliente_id)
+                    sesion = Sesion.objects.create(
+                        cliente_externo=cliente_externo,
+                        tipo_sesion=tipo_sesion,
+                        fecha=timezone.localdate(),
+                        profesional=profesional
+                    )
+                    cliente_nombre = f"{cliente_externo.nombre} {cliente_externo.apellido}"
+
                 return JsonResponse({
                     "success": True,
-                    "cliente": f"{cliente.nombre} {cliente.apellido}",
+                    "cliente": cliente_nombre,
                     "tipo": sesion.get_tipo_sesion_display(),
                     "profesional": f"{profesional.nombre} {profesional.apellido}",
                     "fecha": sesion.fecha.strftime("%d/%m/%Y")
@@ -1386,7 +1401,7 @@ def asistencia_kine_nutri(request):
         except Exception as e:
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-  
+
     clientes_internos = list(
         Cliente.objects.filter(tipo_publico__isnull=False)
         .exclude(tipo_publico__icontains="Pase Diario")
@@ -1416,6 +1431,8 @@ def asistencia_kine_nutri(request):
     })
 
 
+
+
 @admin_required
 @never_cache
 def registrar_cliente_externo(request):
@@ -1424,7 +1441,7 @@ def registrar_cliente_externo(request):
         if form.is_valid():
             form.save()
             messages.success(request, '✅ Cliente externo registrado correctamente.')
-            return redirect('asistencia_kine_nutri')
+            form = ClienteExternoForm()  
         else:
             messages.error(request, '❌ Por favor corrige los errores del formulario.')
     else:

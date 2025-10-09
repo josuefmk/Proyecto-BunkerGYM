@@ -35,13 +35,15 @@
                             <button class="asistencia-btn asistencia-btn-nutri registrar"
                                 data-id="{{ cliente.id }}"
                                 data-nombre="{{ cliente.nombre }} {{ cliente.apellido }}"
-                                data-tipo="nutricional">🥗 Nutrición</button>
+                                data-tipo="nutricional"
+                                data-tipo-objeto="{{ cliente.tipo_objeto }}">🥗 Nutrición</button>
                         </td>
                         <td>
                             <button class="asistencia-btn asistencia-btn-kine registrar"
                                 data-id="{{ cliente.id }}"
                                 data-nombre="{{ cliente.nombre }} {{ cliente.apellido }}"
-                                data-tipo="kinesiologia">🏃‍♂️ Kinesiología</button>
+                                data-tipo="kinesiologia"
+                                data-tipo-objeto="{{ cliente.tipo_objeto }}">🏃‍♂️ Kinesiología</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -65,8 +67,16 @@
             <tbody id="asistencia-historial">
                 {% for sesion in sesiones %}
                 <tr>
-                    <td>{{ sesion.cliente.nombre }} {{ sesion.cliente.apellido }}</td>
-                    <td>{{ sesion.get_tipo_sesion_display }}</td>
+                  <td>
+                    {% if sesion.cliente %}
+                        {{ sesion.cliente.nombre }} {{ sesion.cliente.apellido }}
+                    {% elif sesion.cliente_externo %}
+                        {{ sesion.cliente_externo.nombre }} {{ sesion.cliente_externo.apellido }}
+                    {% else %}
+                        <em>Sin cliente</em>
+                    {% endif %}
+                </td>
+                                    <td>{{ sesion.get_tipo_sesion_display }}</td>
                     <td>{{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</td>
                     <td>{{ sesion.fecha|date:"d/m/Y" }}</td>
                 </tr>
@@ -114,26 +124,27 @@ const btnClose = document.getElementById('asistencia-close');
 const btnCancel = document.getElementById('asistencia-cancel');
 const btnConfirm = document.getElementById('asistencia-confirm');
 
-let clienteIdGlobal, tipoSesionGlobal, profesionalIdGlobal;
+let clienteIdGlobal, tipoSesionGlobal, profesionalIdGlobal, tipoObjetoGlobal;
 
 
 document.getElementById('asistencia-busqueda').addEventListener('input', function() {
-    const filtro = this.value.toLowerCase();
+    const filtro = this.value.trim().toLowerCase();
     document.querySelectorAll('#asistencia-tablaClientes tbody tr').forEach(fila => {
-        fila.style.display = fila.innerText.toLowerCase().includes(filtro) ? '' : 'none';
+        const texto = fila.textContent.toLowerCase();
+        fila.style.display = texto.includes(filtro) ? '' : 'none';
     });
 });
-
 
 document.querySelectorAll('.registrar').forEach(btn => {
     btn.addEventListener('click', function() {
         clienteIdGlobal = this.dataset.id;
         tipoSesionGlobal = this.dataset.tipo;
+        tipoObjetoGlobal = this.dataset.tipoObjeto;
         const nombreCliente = this.dataset.nombre;
 
         modalText.textContent = `¿Confirmar asistencia de ${nombreCliente} a ${tipoSesionGlobal === 'nutricional' ? 'Nutrición' : 'Kinesiología'}?`;
-        profesionalSelect.innerHTML = '<option value="">Seleccione un profesional...</option>';
 
+        profesionalSelect.innerHTML = '<option value="">Seleccione un profesional...</option>';
         const lista = tipoSesionGlobal === "nutricional" ? nutricionistas : kinesiologos;
         lista.forEach(p => profesionalSelect.innerHTML += `<option value="${p.id}">${p.nombre} ${p.apellido}</option>`);
 
@@ -148,10 +159,10 @@ profesionalSelect.addEventListener('change', () => {
     btnConfirm.disabled = !profesionalIdGlobal;
 });
 
+
 btnClose.onclick = () => modal.style.display = 'none';
 btnCancel.onclick = () => modal.style.display = 'none';
 window.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
-
 
 btnConfirm.onclick = () => {
     if (!profesionalIdGlobal) return;
@@ -167,7 +178,7 @@ btnConfirm.onclick = () => {
             "Content-Type": "application/x-www-form-urlencoded",
             "X-Requested-With": "XMLHttpRequest"
         },
-        body: `cliente_id=${clienteIdGlobal}&tipo_sesion=${tipoSesionGlobal}&profesional_id=${profesionalIdGlobal}`
+        body: `cliente_id=${encodeURIComponent(clienteIdGlobal)}&tipo_sesion=${encodeURIComponent(tipoSesionGlobal)}&profesional_id=${encodeURIComponent(profesionalIdGlobal)}&tipo_objeto=${encodeURIComponent(tipoObjetoGlobal)}`
     })
     .then(res => res.json())
     .then(data => {
@@ -181,12 +192,12 @@ btnConfirm.onclick = () => {
             document.querySelector('#asistencia-historial').insertAdjacentHTML('afterbegin', fila);
             modal.style.display = 'none';
         } else {
-            alert("Error: " + (data.error || "No se pudo registrar la asistencia."));
+            alert("⚠️ Error: " + (data.error || "No se pudo registrar la asistencia."));
         }
     })
     .catch(err => {
         console.error("Error al registrar asistencia:", err);
-        alert("Error al registrar la asistencia.");
+        alert("❌ Error al registrar la asistencia.");
     })
     .finally(() => {
         btnConfirm.textContent = originalText;

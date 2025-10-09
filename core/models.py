@@ -68,20 +68,33 @@ class PlanPersonalizado(models.Model):
 # --------------------------
 # Modelo: Sesiones
 # --------------------------
+
 class Sesion(models.Model):
     TIPO_SESION = [
         ('nutricional', 'Asistió Sesión Nutricional'),
         ('kinesiologia', 'Asistió Sesión Kinesiología'),
     ]
 
-    cliente = models.ForeignKey('Cliente', on_delete=models.CASCADE, related_name="sesiones")
+    # Cliente interno
+    cliente = models.ForeignKey('Cliente', on_delete=models.CASCADE, null=True, blank=True, related_name="sesiones")
+    # Cliente externo
+    cliente_externo = models.ForeignKey('ClienteExterno', on_delete=models.CASCADE, null=True, blank=True, related_name="sesiones_externas")
+
     tipo_sesion = models.CharField(max_length=20, choices=TIPO_SESION)
-    fecha = models.DateField()
+    fecha = models.DateField(default=timezone.now)
     profesional = models.ForeignKey('NombresProfesionales', on_delete=models.SET_NULL, null=True, blank=True, related_name='sesiones')
 
     def __str__(self):
+        cliente_nombre = None
+        if self.cliente:
+            cliente_nombre = f"{self.cliente.nombre} {self.cliente.apellido}"
+        elif self.cliente_externo:
+            cliente_nombre = f"{self.cliente_externo.nombre} {self.cliente_externo.apellido}"
+        else:
+            cliente_nombre = "Cliente desconocido"
         profesional_str = f" - {self.profesional.nombre}" if self.profesional else ""
-        return f"{self.cliente.nombre} - {self.get_tipo_sesion_display()} ({self.fecha}){profesional_str}"
+        return f"{cliente_nombre} - {self.get_tipo_sesion_display()} ({self.fecha}){profesional_str}"
+
 
 
 # --------------------------
@@ -289,14 +302,14 @@ class Cliente(models.Model):
             nuevos_accesos = accesos_dict.get(self.sub_plan, 0)
 
             if self.sub_plan == "Titanio":
-                # Titanio es acceso ilimitado
+               
                 self.accesos_restantes = float("inf")
             else:
                 if forzar:
-                    # Activación inicial → setear accesos base
+                
                     self.accesos_restantes = nuevos_accesos
                 else:
-                    # Renovación → acumular accesos
+                 
                     self.accesos_restantes = (self.accesos_restantes or 0) + nuevos_accesos
 
         elif self.plan_personalizado_activo:
