@@ -229,23 +229,31 @@ def asistencia_cliente(request):
         hoy = timezone.localdate()
 
         # =========================
-        # Reseteo mensual de accesos según sub_plan
+        # Reseteo de accesos según ciclo del plan
         # =========================
         if cliente.sub_plan and cliente.sub_plan != "Titanio":
             accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
             accesos_por_mes = accesos_dict.get(cliente.sub_plan, 0)
 
-            # Determinar meses del plan
-            duraciones_dict = {"mensual": 1, "trimestral": 3, "semestral": 6, "anual": 12}
-            meses_plan = 1
+            # Determinar días del ciclo del plan
+            duraciones_dict = {"mensual": 30, "trimestral": 90, "semestral": 180, "anual": 360}
+            dias_plan = 30  
             if cliente.mensualidad:
                 key = cliente.mensualidad.duracion.strip().lower()
-                meses_plan = duraciones_dict.get(key, 1)
+                dias_plan = duraciones_dict.get(key, 30)
 
-            # Resetear si cambió el mes
-            if not cliente.ultimo_reset_mes or cliente.ultimo_reset_mes.month != hoy.month or cliente.ultimo_reset_mes.year != hoy.year:
-                cliente.accesos_restantes = (cliente.accesos_restantes or 0) + accesos_por_mes * meses_plan
-                cliente.ultimo_reset_mes = hoy
+            # Si es primer acceso, inicializar último reset
+            if not cliente.ultimo_reset_mes:
+                cliente.ultimo_reset_mes = cliente.fecha_inicio_plan or hoy
+                cliente.accesos_restantes = accesos_por_mes
+                cliente.save()
+
+            # Calcular si ya pasó el ciclo y resetear
+            dias_transcurridos = (hoy - cliente.ultimo_reset_mes).days
+            if dias_transcurridos >= 30:
+                ciclos_completos = dias_transcurridos // 30
+                cliente.accesos_restantes = (cliente.accesos_restantes or 0) + accesos_por_mes * ciclos_completos
+                cliente.ultimo_reset_mes = cliente.ultimo_reset_mes + timezone.timedelta(days=30 * ciclos_completos)
                 cliente.save()
 
         # =========================
@@ -325,28 +333,9 @@ def asistencia_cliente(request):
             ):
                 accesos_restantes_subplan = float("inf")
             else:
-                accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
-                accesos_totales = accesos_dict.get(cliente.sub_plan, 0)
-
-                usados_subplan = Asistencia.objects.filter(
-                    cliente=cliente,
-                    fecha__date__month=hoy.month,
-                    fecha__date__year=hoy.year,
-                    tipo_asistencia="subplan"
-                ).count()
-
-                accesos_restantes_subplan = max(accesos_totales - usados_subplan, 0)
+                accesos_restantes_subplan = cliente.accesos_restantes
 
             tipo_asistencia = "subplan"
-
-        # =========================
-        # Actualizar accesos_restantes históricos
-        # =========================
-        if tipo_asistencia == "plan_personalizado" and accesos_restantes_personalizado is not None:
-            cliente.accesos_restantes = accesos_restantes_personalizado
-        elif tipo_asistencia == "subplan" and accesos_restantes_subplan is not None:
-            cliente.accesos_restantes = accesos_restantes_subplan
-        cliente.save()
 
         # =========================
         # Verificar disponibilidad
@@ -417,6 +406,7 @@ def asistencia_cliente(request):
         return render(request, "core/AsistenciaCliente.html", contexto)
 
     return render(request, "core/AsistenciaCliente.html", contexto)
+
 
 @admin_required
 @never_cache
