@@ -465,8 +465,49 @@ def listaCliente_json(request):
 def renovarCliente(request):
     rut_buscado = request.POST.get('rut') or request.GET.get('rut', '')
     cliente_renovado = None
+    hoy = timezone.localdate()
+    if request.method == "POST" and request.POST.get("accion") == "cambiar_tipo_plan":
+        rut_cliente = request.POST.get("rut_cliente")
+        nuevo_tipo_id = request.POST.get("nuevo_tipo_plan")
 
-    # Procesar renovación por POST
+        cliente = Cliente.objects.filter(rut=rut_cliente).first()
+        if not cliente:
+            messages.error(request, "Cliente no encontrado.")
+            return redirect("renovarCliente")
+
+        if not nuevo_tipo_id:
+            messages.warning(request, "Debe seleccionar un tipo de plan válido.")
+            return redirect("renovarCliente")
+
+        try:
+            nuevo_plan = Mensualidad.objects.get(id=nuevo_tipo_id)
+        except Mensualidad.DoesNotExist:
+            messages.error(request, "El tipo de plan seleccionado no existe.")
+            return redirect("renovarCliente")
+
+        plan_anterior = cliente.mensualidad.tipo if cliente.mensualidad else "Sin plan"
+
+        # Asignar el nuevo tipo de plan
+        cliente.mensualidad = nuevo_plan
+        cliente.tipo_publico = nuevo_plan.tipo
+        cliente.save()
+
+        registrar_historial(
+            request.admin,
+            "modificar",
+            "Cliente",
+            cliente.id,
+            f"Cambió tipo de plan de '{plan_anterior}' a '{nuevo_plan.tipo}' para {cliente.nombre} {cliente.apellido}"
+        )
+
+        messages.success(
+            request,
+            f"✅ Se cambió correctamente el tipo de plan del cliente {cliente.nombre} {cliente.apellido}."
+        )
+
+        return redirect("renovarCliente")
+
+
     if request.method == 'POST' and 'renovar_rut' in request.POST:
         rut_renovar = request.POST.get('renovar_rut')
         metodo_pago = request.POST.get('metodo_pago')
@@ -518,7 +559,7 @@ def renovarCliente(request):
                 f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ha renovado su Pase Diario por 1 día."
             )
         else:
-            # Plan normal (mensual, titanio, etc.)
+         
             dias_extra = 0
             if cliente_renovado.fecha_fin_plan:
                 dias_extra = max((cliente_renovado.fecha_fin_plan - hoy).days, 0)
@@ -542,14 +583,10 @@ def renovarCliente(request):
                 f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ha renovado su plan correctamente."
             )
 
-    
         rut_buscado = rut_renovar
 
-    hoy = timezone.localdate()
 
- 
     filtro_tipo = request.GET.get("filtro_tipo", "")
-  
 
     if rut_buscado:
         clientes = Cliente.objects.filter(
@@ -563,23 +600,24 @@ def renovarCliente(request):
             Q(fecha_fin_plan__isnull=True)
         ).prefetch_related("planes_personalizados", "mensualidad")
 
-    # Filtrado adicional según tipo
+   
     if filtro_tipo == "gratis":
         clientes = clientes.filter(mensualidad__tipo="Gratis")
     elif filtro_tipo == "pase_diario":
         clientes = clientes.filter(mensualidad__tipo="Pase Diario")
     elif filtro_tipo == "inscritos":
         clientes = [
-            c for c in clientes 
-            if c.estado_plan in ("activo", "pendiente") 
+            c for c in clientes
+            if c.estado_plan in ("activo", "pendiente")
             and (not c.mensualidad or c.mensualidad.tipo not in ["Gratis", "Pase Diario"])
-     ]
-    
+        ]
+
     tipos_mensualidad = Mensualidad.objects.all()
 
     paginator = Paginator(clientes, 20)
     page_number = request.GET.get("page")
     clientes_page = paginator.get_page(page_number)
+
 
     return render(request, 'core/renovarCliente.html', {
         'clientes': clientes_page,
@@ -587,9 +625,8 @@ def renovarCliente(request):
         'rut_buscado': rut_buscado,
         'planes_personalizados': PlanPersonalizado.objects.all(),
         'tipos_mensualidad': tipos_mensualidad,
-         "filtro_tipo": filtro_tipo,
+        "filtro_tipo": filtro_tipo,
     })
-
 @admin_required
 @never_cache
 def registrar_sesion(request):

@@ -82,16 +82,23 @@
         <td>{{ cliente.rut }}</td>
 
         <!-- Tipo de plan -->
-        <td>
-            <select name="nuevo_plan" id="plan-{{ cliente.rut }}" class="select-bonito">
-                <option value="">-- Selecciona Mensualidad --</option>
+      
+    <td>
+        <form method="post" action="{% url 'renovarCliente' %}" id="form-cambiar-tipo-plan-{{ cliente.rut }}">
+            {% csrf_token %}
+            <input type="hidden" name="rut_cliente" value="{{ cliente.rut }}">
+            <input type="hidden" name="accion" value="cambiar_tipo_plan">
+            <select name="nuevo_tipo_plan" id="nuevo-tipo-plan-{{ cliente.rut }}" class="select-bonito" onchange="confirmarCambioTipoPlan('{{ cliente.rut }}')">
+                <option value="">-- Selecciona tipo de plan --</option>
                 {% for mensualidad in tipos_mensualidad %}
                     <option value="{{ mensualidad.id }}" {% if cliente.mensualidad and cliente.mensualidad.id == mensualidad.id %}selected{% endif %}>
-                        {{ mensualidad.tipo }} + Plan {{ mensualidad.duracion }}
+                        {{ mensualidad.tipo }} - {{ mensualidad.duracion }}
                     </option>
                 {% endfor %}
             </select>
-        </td>
+        </form>
+    </td>
+
 
         <!-- SubPlan -->
         <td>
@@ -206,6 +213,21 @@
             No se encontró el RUT del Cliente.
         </p>
     {% endif %}
+
+<!-- MODAL DE CONFIRMACIÓN DE CAMBIO DE TIPO DE PLAN -->
+<div id="modal-cambio-tipo-plan" class="modal-renovar" style="display: none;">
+  <div class="modal-content-renovar">
+    <h2>Confirmar cambio de tipo de plan</h2>
+    <p id="mensaje-cambio-tipo-plan"></p>
+    <div class="modal-cliente-actions">
+      <button type="button" class="btn-global" onclick="confirmarEnvioCambioTipoPlan()">✅ Sí, cambiar</button>
+      <button type="button" class="btn-cliente-cancelar" onclick="cerrarModalCambioTipoPlan()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+
+
 <!-- MODAL PARA LA FECHA DE SESIONES -->
     <div id="modal-sesion" class="modal-renovar" style="display:none;">
     <div class="modal-content-renovar">
@@ -587,6 +609,42 @@ function confirmarRenovacionPersonalizado() {
 function cerrarModalRenovarPersonalizado() {
     document.getElementById("modal-renovar-personalizado").style.display = 'none';
     rutPersonalizado = null;
+}
+
+
+let formCambioTipoPlan = null;
+let rutCambioTipoPlan = null;
+
+function confirmarCambioTipoPlan(rut) {
+    const select = document.getElementById(`nuevo-tipo-plan-${rut}`);
+    const opcionSeleccionada = select.options[select.selectedIndex];
+    const nombrePlan = opcionSeleccionada.text;
+
+    if (!select.value) return; // No hacer nada si no selecciona plan
+
+    // Guardamos el formulario para enviarlo luego
+    formCambioTipoPlan = document.getElementById(`form-cambiar-tipo-plan-${rut}`);
+    rutCambioTipoPlan = rut;
+
+    // Mostramos el mensaje
+    document.getElementById("mensaje-cambio-tipo-plan").innerText =
+        `¿Confirma que desea cambiar el tipo de plan del cliente ${rut} a "${nombrePlan}"?`;
+
+    // Mostramos el modal
+    document.getElementById("modal-cambio-tipo-plan").style.display = 'flex';
+}
+
+function confirmarEnvioCambioTipoPlan() {
+    if (formCambioTipoPlan) {
+        formCambioTipoPlan.submit();
+    }
+    cerrarModalCambioTipoPlan();
+}
+
+function cerrarModalCambioTipoPlan() {
+    document.getElementById("modal-cambio-tipo-plan").style.display = 'none';
+    formCambioTipoPlan = null;
+    rutCambioTipoPlan = null;
 }
 </script>
 
