@@ -467,9 +467,7 @@ def renovarCliente(request):
     cliente_renovado = None
     hoy = timezone.localdate()
 
-    # ==============================================================
-    # 🟦 1. CAMBIO DE TIPO DE PLAN (desde modal)
-    # ==============================================================
+  
     if request.method == "POST" and request.POST.get("accion") == "cambiar_tipo_plan":
         rut_cliente = request.POST.get("rut_cliente")
         nuevo_tipo_id = request.POST.get("nuevo_tipo_plan")
