@@ -228,7 +228,6 @@ def asistencia_cliente(request):
 
         hoy = timezone.localdate()
 
-      
         if (
             cliente.mensualidad
             and cliente.mensualidad.tipo.lower() == "pase diario"
@@ -238,17 +237,14 @@ def asistencia_cliente(request):
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-      
         if cliente.estado_plan == "vencido":
             contexto["plan_vencido"] = True
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-     
         if cliente.estado_plan == "pendiente":
             if not cliente.fecha_inicio_plan or cliente.fecha_inicio_plan > hoy:
                 cliente.activar_plan(fecha_activacion=hoy, forzar=True)
 
-    
         if cliente.planes_personalizados.exists():
             if cliente.planes_personalizados.count() > 1 and not confirmar:
                 contexto["planes_personalizados"] = cliente.planes_personalizados.all()
@@ -269,7 +265,6 @@ def asistencia_cliente(request):
         plan_libre = False
         plan_full = False
 
-       
         if plan_activo:
             if plan_activo.nombre_plan in ["Plan libre semi personalizado", "Plan libre personalizado"]:
                 plan_libre = True
@@ -279,7 +274,6 @@ def asistencia_cliente(request):
         accesos_restantes_personalizado = None
         accesos_restantes_subplan = None
         tipo_asistencia = None
-
 
         if plan_activo and (plan_activo.accesos_por_mes > 0 or plan_libre or plan_full):
             usados_mes_personalizado = Asistencia.objects.filter(
@@ -297,14 +291,12 @@ def asistencia_cliente(request):
 
             tipo_asistencia = "plan_personalizado"
 
-      
         if cliente.sub_plan and not tipo_asistencia:
             if cliente.sub_plan == "Titanio" or (
                 cliente.mensualidad and cliente.mensualidad.tipo == "Gratis + Plan Mensual"
             ):
                 accesos_restantes_subplan = float("inf")
             else:
-         
                 accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
                 accesos_totales = accesos_dict.get(cliente.sub_plan, 0)
 
@@ -319,14 +311,12 @@ def asistencia_cliente(request):
 
             tipo_asistencia = "subplan"
 
-       
         if tipo_asistencia == "plan_personalizado" and accesos_restantes_personalizado is not None:
             cliente.accesos_restantes = accesos_restantes_personalizado
         elif tipo_asistencia == "subplan" and accesos_restantes_subplan is not None:
             cliente.accesos_restantes = accesos_restantes_subplan
         cliente.save()
 
-        
         accesos_disponibles = (
             plan_libre
             or plan_full
@@ -341,16 +331,27 @@ def asistencia_cliente(request):
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-       
         if Asistencia.objects.filter(cliente=cliente, fecha__date=hoy).exists():
             contexto["asistencia_ya_registrada"] = True
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-     
-        Asistencia.objects.create(cliente=cliente, tipo_asistencia=tipo_asistencia or "subplan")
+        if cliente.mensualidad and cliente.mensualidad.tipo:
+            tipo_mensualidad = cliente.mensualidad.tipo.strip().upper()
+            if tipo_mensualidad in ["AM ESTUDIANTE", "AM NORMAL", "AM ADULTO MAYOR"]:
+                ahora = timezone.localtime().time() 
+                inicio = time(6, 30)
+                fin = time(11, 0)
 
-    
+                if not (inicio <= ahora <= fin):
+                    contexto["mensaje_error"] = (
+                        "El ingreso de asistencia para su plan solo está permitido entre las 6:30 AM y las 11:00 AM."
+                    )
+                    contexto["cliente"] = cliente
+              
+                    return render(request, "core/AsistenciaCliente.html", contexto)
+   
+
         if tipo_asistencia == "subplan":
             accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
             accesos_totales = accesos_dict.get(cliente.sub_plan, 0)
@@ -373,7 +374,6 @@ def asistencia_cliente(request):
             cliente.accesos_restantes = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
             cliente.save()
 
-      
         registrar_historial(
             request.admin,
             "asistencia",
@@ -382,7 +382,6 @@ def asistencia_cliente(request):
             f"Registró asistencia de {cliente.nombre} {cliente.apellido}"
         )
 
-   
         if cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario":
             cliente.fecha_fin_plan = hoy
             cliente.save()
@@ -405,7 +404,6 @@ def asistencia_cliente(request):
         return render(request, "core/AsistenciaCliente.html", contexto)
 
     return render(request, "core/AsistenciaCliente.html", contexto)
-
 
 @admin_required
 @never_cache

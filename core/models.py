@@ -33,12 +33,15 @@ class Admin(models.Model):
 # --------------------------
 class Mensualidad(models.Model):
     TIPOS = [
-        ('Estudiante', 'Estudiante'),
-        ('Normal', 'Normal'),
-        ('Adulto Mayor', 'Adulto Mayor'),
-        ('Pase Diario', 'Pase Diario'), 
-        ('Gratis', 'Gratis'), 
-    ]
+            ('Estudiante', 'Estudiante'),
+            ('Normal', 'Normal'),
+            ('Adulto Mayor', 'Adulto Mayor'),
+            ('Pase Diario', 'Pase Diario'),
+            ('Gratis', 'Gratis'),
+            ('Plan AM Estudiante', 'Plan AM (Estudiante)'),
+            ('Plan AM Normal', 'Plan AM (Normal)'),
+            ('Plan AM Adulto Mayor', 'Plan AM (Adulto Mayor)'),
+        ]
     DURACIONES = [
         ('Mensual', 'Mensual'),
         ('Trimestral', 'Trimestral'),

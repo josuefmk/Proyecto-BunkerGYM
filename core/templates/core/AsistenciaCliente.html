@@ -115,6 +115,16 @@
             </div>
         </div>
     {% endif %}
+    
+       {% if mensaje_error %}
+        <div class="modal-custom modal-error-custom">
+            <div class="modal-content-custom">
+                <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
+                <h2 style="color:#dc3545;">❌ Error de Horario</h2>
+                <p>{{ mensaje_error }}</p>
+            </div>
+        </div>
+    {% endif %}
 </main>
 
 <script>
