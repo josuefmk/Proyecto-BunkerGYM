@@ -245,6 +245,7 @@ def asistencia_cliente(request):
             if not cliente.fecha_inicio_plan or cliente.fecha_inicio_plan > hoy:
                 cliente.activar_plan(fecha_activacion=hoy, forzar=True)
 
+        # Manejo de planes personalizados
         if cliente.planes_personalizados.exists():
             if cliente.planes_personalizados.count() > 1 and not confirmar:
                 contexto["planes_personalizados"] = cliente.planes_personalizados.all()
@@ -278,8 +279,8 @@ def asistencia_cliente(request):
         if plan_activo and (plan_activo.accesos_por_mes > 0 or plan_libre or plan_full):
             usados_mes_personalizado = Asistencia.objects.filter(
                 cliente=cliente,
-                fecha__date__month=hoy.month,
-                fecha__date__year=hoy.year,
+                fecha__month=hoy.month,
+                fecha__year=hoy.year,
                 tipo_asistencia="plan_personalizado"
             ).count()
 
@@ -302,8 +303,8 @@ def asistencia_cliente(request):
 
                 usados_subplan = Asistencia.objects.filter(
                     cliente=cliente,
-                    fecha__date__gte=cliente.fecha_inicio_plan,
-                    fecha__date__lte=cliente.fecha_fin_plan,
+                    fecha__gte=cliente.fecha_inicio_plan,
+                    fecha__lte=cliente.fecha_fin_plan,
                     tipo_asistencia="subplan"
                 ).count()
 
@@ -331,15 +332,19 @@ def asistencia_cliente(request):
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-        if Asistencia.objects.filter(cliente=cliente, fecha__date=hoy).exists():
+        # ✅ Previene duplicados correctamente (rango horario del día actual)
+        inicio_dia = timezone.make_aware(datetime.combine(hoy, time.min))
+        fin_dia = timezone.make_aware(datetime.combine(hoy, time.max))
+        if Asistencia.objects.filter(cliente=cliente, fecha__range=(inicio_dia, fin_dia)).exists():
             contexto["asistencia_ya_registrada"] = True
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
+        # Validación de horario AM
         if cliente.mensualidad and cliente.mensualidad.tipo:
             tipo_mensualidad = cliente.mensualidad.tipo.strip().upper()
             if tipo_mensualidad in ["AM ESTUDIANTE", "AM NORMAL", "AM ADULTO MAYOR"]:
-                ahora = timezone.localtime().time() 
+                ahora = timezone.localtime().time()
                 inicio = time(6, 30)
                 fin = time(11, 0)
 
@@ -348,17 +353,16 @@ def asistencia_cliente(request):
                         "El ingreso de asistencia para su plan solo está permitido entre las 6:30 AM y las 11:00 AM."
                     )
                     contexto["cliente"] = cliente
-              
                     return render(request, "core/AsistenciaCliente.html", contexto)
-   
 
+        # Actualiza accesos disponibles después del registro
         if tipo_asistencia == "subplan":
             accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
             accesos_totales = accesos_dict.get(cliente.sub_plan, 0)
             usados_subplan = Asistencia.objects.filter(
                 cliente=cliente,
-                fecha__date__gte=cliente.fecha_inicio_plan,
-                fecha__date__lte=cliente.fecha_fin_plan,
+                fecha__gte=cliente.fecha_inicio_plan,
+                fecha__lte=cliente.fecha_fin_plan,
                 tipo_asistencia="subplan"
             ).count()
             cliente.accesos_restantes = max(accesos_totales - usados_subplan, 0)
@@ -367,13 +371,21 @@ def asistencia_cliente(request):
         elif tipo_asistencia == "plan_personalizado":
             usados_mes_personalizado = Asistencia.objects.filter(
                 cliente=cliente,
-                fecha__date__month=hoy.month,
-                fecha__date__year=hoy.year,
+                fecha__month=hoy.month,
+                fecha__year=hoy.year,
                 tipo_asistencia="plan_personalizado"
             ).count()
             cliente.accesos_restantes = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
             cliente.save()
 
+        # ✅ CREA el registro de asistencia (antes de registrar historial)
+        Asistencia.objects.create(
+            cliente=cliente,
+            fecha=timezone.now(),
+            tipo_asistencia=tipo_asistencia
+        )
+
+        # Registro en historial
         registrar_historial(
             request.admin,
             "asistencia",
