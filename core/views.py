@@ -1,4 +1,5 @@
 
+import logging
 import re
 from time import time
 from django.shortcuts import render, redirect
@@ -43,8 +44,9 @@ def registrar_historial(admin, accion, modelo, objeto_id=None, descripcion=""):
         descripcion=descripcion
     )
 
-def safe_view(view_func):
+logger = logging.getLogger(__name__)
 
+def safe_view(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         try:
@@ -54,6 +56,36 @@ def safe_view(view_func):
             return HttpResponseServerError("Ha ocurrido un error inesperado. Informa el problema al desarrollador :( )")
     return wrapper
 
+def role_required(allowed_roles):
+  
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            admin_id = request.session.get('admin_id')
+            if not admin_id:
+                return redirect('login')
+
+            try:
+                request.admin = get_object_or_404(Admin, id=admin_id)
+            except Admin.DoesNotExist:
+                return redirect('login')
+
+            if request.admin.profesion not in allowed_roles:
+                # Redirigir según el rol para evitar loops y acceso no autorizado
+                if request.admin.profesion == 'Administrador':
+                    return redirect('index')
+                elif request.admin.profesion in ['Kinesiologo', 'Nutricionista']:
+                    return redirect('agendar_hora_box')
+                else:
+                    # Rol no reconocido, cerrar sesión por seguridad
+                    request.session.flush()
+                    return redirect('login')
+
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+@safe_view
 def login_admin(request):
     if request.method == 'POST':
         rut = request.POST.get('rut', '').replace('.', '').replace('-', '').upper()
@@ -64,17 +96,22 @@ def login_admin(request):
         except Admin.DoesNotExist:
             return render(request, 'core/home.html', {'error': 'Credenciales incorrectas'})
 
-        # Guardar sesión
+        # Guardar info en sesión
         request.session['admin_id'] = admin.id
         request.session['admin_nombre'] = admin.nombre
         request.session['admin_profesion'] = admin.profesion
 
-        # Redirección según rol
-        if admin.profesion in ['Kinesiólogo', 'Nutricionista']:
+        # Redirigir según rol
+        if admin.profesion == 'Administrador':
+            return redirect('index')
+        elif admin.profesion in ['Kinesiologo', 'Nutricionista']:
             return redirect('agendar_hora_box')
-        return redirect('index')
+        else:
+            request.session.flush()
+            return render(request, 'core/home.html', {'error': 'Rol no reconocido'})
 
     return render(request, 'core/home.html')
+
 
 def logout_admin(request):
     request.session.flush()
@@ -91,17 +128,25 @@ def admin_required(view_func):
             request.admin = Admin.objects.get(id=admin_id)
         except Admin.DoesNotExist:
             return redirect('login')
+
+        # Si no es admin, lo redirijo a su vista correspondiente
+        if request.admin.profesion != 'Administrador':
+            return redirect('home')  # O 'agendar_hora_box', según convenga
+        
         return view_func(request, *args, **kwargs)
     return wrapper
 
 
 
-@admin_required
-@never_cache
+
+@safe_view
+@role_required(['Administrador'])
+@csrf_exempt
 def index(request):
     return render(request, 'core/index.html')
 
-@admin_required
+
+@role_required(['Administrador'])
 @never_cache
 def registro_cliente(request):
     mensaje = None
@@ -177,7 +222,7 @@ def enviar_contrato_correo(cliente):
 
     return True
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def activar_plan_cliente(request, cliente_id):
     cliente = get_object_or_404(Cliente, id=cliente_id)
@@ -199,7 +244,7 @@ def activar_plan_cliente(request, cliente_id):
     })
 
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def asistencia_cliente(request):
     contexto = {
@@ -329,7 +374,7 @@ def asistencia_cliente(request):
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-        # ✅ Previene duplicados correctamente (rango horario del día actual)
+
         inicio_dia = timezone.make_aware(datetime.combine(hoy, time.min))
         fin_dia = timezone.make_aware(datetime.combine(hoy, time.max))
         if Asistencia.objects.filter(cliente=cliente, fecha__range=(inicio_dia, fin_dia)).exists():
@@ -375,7 +420,8 @@ def asistencia_cliente(request):
             cliente.accesos_restantes = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
             cliente.save()
 
-        # ✅ CREA el registro de asistencia (antes de registrar historial)
+        if not tipo_asistencia and cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario":
+            tipo_asistencia = "pase_diario"
         Asistencia.objects.create(
             cliente=cliente,
             fecha=timezone.now(),
@@ -414,7 +460,7 @@ def asistencia_cliente(request):
 
     return render(request, "core/AsistenciaCliente.html", contexto)
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def listaCliente(request):
     hoy = timezone.localdate()
@@ -441,7 +487,7 @@ def listaCliente(request):
     return render(request, 'core/listaCliente.html', {'datos_clientes': datos_clientes})
 
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def listaCliente_json(request):
     hoy = timezone.localdate()
@@ -467,7 +513,7 @@ def listaCliente_json(request):
 
     return JsonResponse({'datos_clientes': datos_clientes})
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def renovarCliente(request):
     rut_buscado = request.POST.get('rut') or request.GET.get('rut', '')
@@ -636,7 +682,7 @@ def renovarCliente(request):
         'tipos_mensualidad': tipos_mensualidad,
         "filtro_tipo": filtro_tipo,
     })
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def registrar_sesion(request):
     if request.method == "POST":
@@ -668,7 +714,7 @@ def registrar_sesion(request):
     return redirect('renovarCliente')
 
 
-@admin_required
+@role_required(['Administrador'])
 def cambiar_sub_plan(request):
     if request.method == 'POST':
         rut_cliente = request.POST.get('rut_cliente')
@@ -700,7 +746,7 @@ def cambiar_sub_plan(request):
     return redirect(f'{reverse("renovarCliente")}?rut={rut_cliente}')
 
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def historial_cliente(request):
     rut = request.GET.get('rut') or request.POST.get('rut')
@@ -808,7 +854,7 @@ def historial_cliente(request):
 
     return render(request, 'core/historial_cliente.html', context)
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def modificar_cliente(request, cliente_id):
     cliente = get_object_or_404(Cliente, id=cliente_id)
@@ -842,7 +888,7 @@ def modificar_cliente(request, cliente_id):
 
     return render(request, 'core/modificar_cliente.html', {'cliente': cliente, 'form': form})
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def eliminar_cliente(request, cliente_id):
     cliente = get_object_or_404(Cliente, id=cliente_id)
@@ -862,7 +908,7 @@ def eliminar_cliente(request, cliente_id):
 
     return redirect('renovarCliente')
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def agregar_meses_plan(request):
     if request.method == 'POST':
@@ -888,8 +934,7 @@ def agregar_meses_plan(request):
             cliente.save()
 
         return redirect('renovarCliente')
-
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def panel_precios(request):
     precios = Precios.objects.all()
@@ -928,7 +973,7 @@ def panel_precios(request):
 
     return render(request, "core/panel_precios.html", {"forms_list": forms_list})
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def cambiar_tipo_plan_mensual(request):
     if request.method == 'POST':
@@ -943,7 +988,7 @@ def cambiar_tipo_plan_mensual(request):
 
         return redirect(f'{reverse("renovarCliente")}?rut={rut_cliente}')
     
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def cambiar_planes_personalizados(request):
     if request.method == 'POST':
@@ -963,7 +1008,7 @@ def cambiar_planes_personalizados(request):
         
     return redirect('renovarCliente')
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def renovar_plan_personalizado(request):
     if request.method == 'POST':
@@ -994,7 +1039,7 @@ def renovar_plan_personalizado(request):
 
     return redirect('renovarCliente')
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def productos(request):
     productos = Producto.objects.all().order_by("nombre")
@@ -1006,7 +1051,7 @@ def productos(request):
     })
 
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def registrar_venta(request):
     if request.method == 'POST':
@@ -1067,7 +1112,7 @@ def registrar_venta(request):
 
 
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def agregar_stock(request):
     productos = Producto.objects.all().order_by("nombre")
@@ -1120,13 +1165,13 @@ def agregar_stock(request):
     return render(request, 'core/agregar_stock.html', {'productos': productos})
 
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def historial_ventas(request):
     ventas = Venta.objects.select_related("producto").order_by("-fecha")
     return render(request, "core/historial_ventas.html", {"ventas": ventas})
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def agregar_producto(request):
     if request.method == 'POST':
@@ -1150,7 +1195,7 @@ def agregar_producto(request):
     return render(request, 'core/agregar_producto.html', {'form': form})
 
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def editar_producto(request, producto_id):
     producto = get_object_or_404(Producto, id=producto_id)
@@ -1188,7 +1233,7 @@ def editar_producto(request, producto_id):
 
     return render(request, 'core/editar_producto.html', {'producto': producto})
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def eliminar_producto(request, producto_id):
     producto = get_object_or_404(Producto, id=producto_id)
@@ -1208,7 +1253,7 @@ def eliminar_producto(request, producto_id):
 
     return redirect('productos')
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def dashboard(request):
     hoy = localdate()
@@ -1401,7 +1446,7 @@ def dashboard(request):
 
     return render(request, "core/dashboard.html", context)
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def asistencia_kine_nutri(request):
 
@@ -1479,7 +1524,7 @@ def asistencia_kine_nutri(request):
 
 
 
-@admin_required
+@role_required(['Administrador'])
 @never_cache
 def registrar_cliente_externo(request):
     if request.method == 'POST':
@@ -1497,113 +1542,197 @@ def registrar_cliente_externo(request):
 
 
 
-@admin_required
+@safe_view
+@role_required(['Kinesiologo', 'Nutricionista', 'Administrador'])
+@csrf_exempt
 def agendar_hora_box(request):
     admin_id = request.session.get('admin_id')
     admin = get_object_or_404(Admin, id=admin_id)
 
-  
-    profesional = None
-    if admin.profesion in ['Kinesiologo', 'Nutricionista']:
-        profesional = NombresProfesionales.objects.filter(
-            nombre=admin.nombre.strip(),
-            apellido=admin.apellido.strip()
-        ).first()
+    profesional = NombresProfesionales.objects.filter(
+        nombre__iexact=admin.nombre.strip(),
+        apellido__iexact=admin.apellido.strip()
+    ).first()
 
- 
-    if admin.profesion == 'Administrador':
-        agendas = AgendaProfesional.objects.all().order_by('fecha', 'hora_inicio')
-    elif profesional:
-        agendas = AgendaProfesional.objects.filter(profesional=profesional).order_by('fecha', 'hora_inicio')
-    else:
-        return HttpResponse("No tienes acceso a esta sección", status=403)
+    profesionales = NombresProfesionales.objects.all().order_by('nombre')
 
+    # Crear bloque nuevo
     if request.method == 'POST':
         fecha = request.POST.get('fecha')
         hora_inicio = request.POST.get('hora_inicio')
         hora_fin = request.POST.get('hora_fin')
         box = request.POST.get('box')
+        profesional_id = request.POST.get('profesional_id')
 
-        hora_inicio = datetime.strptime(hora_inicio, '%H:%M').time()
-        hora_fin = datetime.strptime(hora_fin, '%H:%M').time()
+        # Validación básica
+        if not (fecha and hora_inicio and hora_fin and box):
+            return JsonResponse({'error': 'Faltan datos obligatorios.'}, status=400)
+
+        try:
+            hora_inicio = datetime.strptime(hora_inicio, '%H:%M').time()
+            hora_fin = datetime.strptime(hora_fin, '%H:%M').time()
+        except Exception:
+            return JsonResponse({'error': 'Formato de hora inválido.'}, status=400)
+
+        if hora_inicio >= hora_fin:
+            return JsonResponse({'error': 'La hora de fin debe ser posterior a la de inicio.'}, status=400)
 
         if hora_inicio < time(6, 30) or hora_fin > time(23, 0):
-            return render(request, 'agendar_hora_box.html', {
-                'error': 'Las horas deben estar entre 6:30 AM y 11:00 PM.',
-                'agendas': agendas
-            })
+            return JsonResponse({'error': 'Las horas deben estar entre 06:30 y 23:00.'}, status=400)
 
-        if not profesional:
-            return HttpResponse("Solo un profesional puede crear bloques de agenda.", status=403)
+        # Determinar profesional
+        if admin.profesion == 'Administrador':
+            if not profesional_id:
+                return JsonResponse({'error': 'Debe seleccionar un profesional.'}, status=400)
+            profesional = get_object_or_404(NombresProfesionales, id=profesional_id)
+        elif not profesional:
+            return JsonResponse({'error': 'Solo un profesional puede crear bloques de agenda.'}, status=403)
 
-        bloque = AgendaProfesional.objects.create(
-            profesional=profesional,
-            fecha=fecha,
-            hora_inicio=hora_inicio,
-            hora_fin=hora_fin,
-            box=box,
-        )
+        # Crear bloque como reservado (disponible = False)
+        try:
+            bloque = AgendaProfesional.objects.create(
+                profesional=profesional,
+                fecha=fecha,
+                hora_inicio=hora_inicio,
+                hora_fin=hora_fin,
+                box=box,
+                disponible=False  
+            )
+        except IntegrityError:
+            return JsonResponse({'error': 'Ya existe un bloque en ese horario para ese box.'}, status=400)
+
         bloque.registrar_accion('crear', admin=admin)
-        return redirect('agendar_hora_box')
+
+        return JsonResponse({
+            'id': bloque.id,
+            'fecha': fecha,
+            'hora_inicio': str(hora_inicio),
+            'hora_fin': str(hora_fin),
+            'box': box,
+            'profesional': f"{profesional.nombre} {profesional.apellido}",
+            'mensaje': 'Bloque creado y marcado como RESERVADO.'
+        })
 
     return render(request, 'core/agendar_hora_box.html', {
-        'agendas': agendas,
         'admin': admin,
-        'profesional': profesional
+        'profesional': profesional,
+        'profesionales': profesionales
     })
 
+@safe_view
+@role_required(['Kinesiologo', 'Nutricionista', 'Administrador'])
+@csrf_exempt
+def listar_agendas(request):
+    admin_id = request.session.get('admin_id')
+    admin = get_object_or_404(Admin, id=admin_id)
+
+    profesional = NombresProfesionales.objects.filter(
+        nombre__iexact=admin.nombre.strip(),
+        apellido__iexact=admin.apellido.strip()
+    ).first()
+
+    if admin.profesion == 'Administrador':
+        agendas = AgendaProfesional.objects.all()
+    elif profesional and admin.profesion in ['Kinesiologo', 'Nutricionista']:
+        agendas = AgendaProfesional.objects.filter(profesional=profesional)
+    else:
+        return JsonResponse({'error': 'No autorizado'}, status=403)
+
+    eventos = []
+    for a in agendas:
+
+        start_time = a.hora_inicio.strftime('%H:%M:%S')
+        end_time = a.hora_fin.strftime('%H:%M:%S')
+
+        eventos.append({
+            'id': a.id,
+            'title': f"{a.box} - {a.profesional.nombre} {a.profesional.apellido} - {'Disponible' if a.disponible else 'Reservado'}",
+            'start': f"{a.fecha}T{start_time}",
+            'end': f"{a.fecha}T{end_time}",
+            'color': '#dc3545' if not a.disponible else ('#1E90FF' if a.box == 'Box 1' else '#28a745'),
+            'extendedProps': {
+                'disponible': a.disponible,
+                'fecha': str(a.fecha),
+                'hora_inicio': start_time,
+                'hora_fin': end_time
+            }
+        })
+
+    return JsonResponse(eventos, safe=False)
 
 
-@admin_required
+@safe_view
+@role_required(['Kinesiologo', 'Nutricionista', 'Administrador'])
+@csrf_exempt
 def cambiar_estado_agenda(request, agenda_id):
     agenda = get_object_or_404(AgendaProfesional, id=agenda_id)
-    profesional = request.user.perfil_profesional
 
-    if agenda.profesional != profesional:
-        return JsonResponse({'error': 'No autorizado'}, status=403)
+    admin_id = request.session.get('admin_id')
+    admin = Admin.objects.filter(id=admin_id).first()
+    profesional = None
+
+    if admin:
+        profesional = NombresProfesionales.objects.filter(
+            nombre__iexact=admin.nombre.strip(),
+            apellido__iexact=admin.apellido.strip()
+        ).first()
+
+    if profesional and agenda.profesional != profesional and admin.profesion != 'Administrador':
+        return JsonResponse({'error': 'No autorizado para modificar esta agenda.'}, status=403)
 
     agenda.disponible = not agenda.disponible
 
-    # Si pasa a reservado, asignar cliente o cliente externo (según caso)
     if not agenda.disponible:
         rut = request.GET.get('rut')
         cliente = Cliente.objects.filter(rut=rut).first()
-        cliente_externo = None
-        if not cliente:
-            cliente_externo = ClienteExterno.objects.filter(rut=rut).first()
-
+        cliente_externo = ClienteExterno.objects.filter(rut=rut).first() if not cliente else None
         agenda.cliente = cliente
         agenda.cliente_externo = cliente_externo
-
-      
         agenda.crear_sesion_si_corresponde()
+    else:
+        agenda.cliente = None
+        agenda.cliente_externo = None
 
     agenda.save()
-    agenda.registrar_accion('editar', admin=None)
+    agenda.registrar_accion('editar', admin=admin)
 
     return JsonResponse({
         'id': agenda.id,
-        'disponible': agenda.disponible
+        'disponible': agenda.disponible,
+        'color': '#2ECC71' if agenda.disponible else '#E74C3C',
+        'mensaje': 'Estado actualizado correctamente.'
     })
 
 
+@safe_view
+@role_required(['Kinesiologo', 'Nutricionista', 'Administrador'])
+@csrf_exempt
 def eliminar_agenda(request, agenda_id):
     agenda = get_object_or_404(AgendaProfesional, id=agenda_id)
-    profesional = request.user.perfil_profesional
+    admin_id = request.session.get('admin_id')
+    admin = Admin.objects.filter(id=admin_id).first()
 
-    if agenda.profesional != profesional:
-        return JsonResponse({'error': 'No autorizado'}, status=403)
+    if agenda.profesional != NombresProfesionales.objects.filter(
+        nombre__iexact=admin.nombre.strip(),
+        apellido__iexact=admin.apellido.strip()
+    ).first() and admin.profesion != 'Administrador':
+        return JsonResponse({'error': 'No autorizado para eliminar esta agenda.'}, status=403)
 
-    agenda.registrar_accion('eliminar', admin=None)
+    agenda.registrar_accion('eliminar', admin=admin)
     agenda.delete()
-
-    return JsonResponse({'status': 'ok'})
-
+    return JsonResponse({'status': 'ok', 'mensaje': 'Bloque eliminado correctamente.'})
 
 # ===========================
 # REDIRECCIÓN INICIAL
 # ===========================
+@safe_view
 def home(request):
-    return redirect('login')
-
+    admin_id = request.session.get('admin_id')
+    if not admin_id:
+        return redirect('login')
+    admin = get_object_or_404(Admin, id=admin_id)
+    if admin.profesion in ['Kinesiologo', 'Nutricionista']:
+        return redirect('agendar_hora_box')
+    # Si es admin, podría ir a index o a home según quieras
+    return redirect('index')
 

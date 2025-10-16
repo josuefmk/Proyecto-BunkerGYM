@@ -32,7 +32,10 @@ urlpatterns = [
     path('asistencia_kine_nutri/', views.asistencia_kine_nutri, name='asistencia_kine_nutri'),
     path('registrar_cliente_externo/', views.registrar_cliente_externo, name='registrar_cliente_externo'),
     path('agregar_stock/', views.agregar_stock, name='agregar_stock'),
-    path('agendar_hora_box/', views.agendar_hora_box, name='agendar_hora_box'),
+   path('agendar_hora_box/', views.agendar_hora_box, name='agendar_hora_box'),
+    path('agendar_hora_box/listar/', views.listar_agendas, name='listar_agendas'),
+    path('agendar_hora_box/<int:agenda_id>/cambiar_estado/', views.cambiar_estado_agenda, name='cambiar_estado_agenda'),
+    path('agendar_hora_box/<int:agenda_id>/eliminar/', views.eliminar_agenda, name='eliminar_agenda'),
     #path('api/registrar_asistencia/', views.api_registrar_asistencia, name='api_registrar_asistencia')
 
     # Login y logout

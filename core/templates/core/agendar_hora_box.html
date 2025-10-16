@@ -1,58 +1,410 @@
 {% extends 'core/home.html' %}
 {% load static %}
+
 {% block content %}
-{% if profesional %}
-  <h2>Agenda Profesional - {{ profesional.nombre }} {{ profesional.apellido }}</h2>
-{% else %}
-  <h2>Panel de Administración - Agenda Completa</h2>
-{% endif %}
-
-<div id="calendar"></div>
-
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.8/locales/es.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
+<style>
+body {
+  background-color: #f4f8fb;
+  color: #212529;
+  font-family: "Segoe UI", Roboto, sans-serif;
+}
+
+h2 {
+  font-weight: 600;
+  color: #000000;
+}
+
+#calendar {
+  max-width: 1000px;
+  margin: 0 auto;
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 15px;
+  border: 1px solid #dee2e6;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+
+.legend {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+  background-color: #f1f5f9;
+  border-radius: 8px;
+  padding: 8px 16px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #495057;
+}
+
+.legend-color {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+
+.fc-event {
+  border: none !important;
+  border-radius: 6px !important;
+  color: white !important;
+  padding: 3px 6px !important;
+  font-size: 0.85rem !important;
+  transition: transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+.fc-event:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+
+.fc-toolbar-title {
+  font-size: 1.3rem !important;
+  font-weight: 600;
+  color: #000000;
+}
+
+
+.fc-toolbar-chunk:first-child .fc-button-group .fc-button {
+  margin: 0 4px;
+}
+
+
+.fc-toolbar.fc-header-toolbar {
+  margin-bottom: 1.5rem;
+}
+
+.fc-button-primary {
+  background-color: #000000 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  font-weight: 500;
+}
+
+.fc-button-primary:hover {
+  background-color: #000000 !important;
+}
+
+
+.modal-header {
+  background-color: #000000;
+  color: white;
+}
+
+.modal-content {
+  border-radius: 12px;
+}
+
+.btn-primary {
+  background-color: #000000 !important;
+  border: none;
+}
+
+.btn-primary:hover {
+  background-color: #000000 !important;
+}
+
+#btnAbrirModal {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(90deg, #000000, #000000);
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  padding: 10px 20px;
+  font-size: 1rem;
+  color: #fff;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+
+#btnAbrirModal i {
+  font-size: 1.2rem;
+}
+
+.btn-outline-secondary {
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.btn-outline-secondary:hover {
+  background-color: #f1f1f1;
+}
+
+</style>
+
+<div class="container my-4">
+
+  {% if profesional %}
+    <h2 class="text-center mb-4">
+      Agenda - {{ profesional.nombre }} {{ profesional.apellido }}
+    </h2>
+  {% else %}
+    <h2 class="text-center mb-4">Agenda Completa (Administrador)</h2>
+  {% endif %}
+
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-color" style="background:#1E90FF"></div> Box 1</div>
+    <div class="legend-item"><div class="legend-color" style="background:#28a745"></div> Box 2</div>
+    <div class="legend-item"><div class="legend-color" style="background:#dc3545"></div> Reservado</div>
+  </div>
+
+
+  <div class="d-flex justify-content-end mb-3">
+    <button id="btnAbrirModal" class="btn btn-primary shadow-sm">
+      <i class="bi bi-plus-circle"></i> Agregar bloque
+    </button>
+  </div>
+
+  <!-- Calendario -->
+  <div id="calendar"></div>
+</div>
+
+<!-- MODAL CREAR BLOQUE -->
+<div class="modal fade" id="modalBloque" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-sm">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalLabel">Nuevo bloque</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+
+        {% if admin.profesion == 'Administrador' %}
+          <div class="mb-3">
+            <label class="form-label">Profesional</label>
+            <select id="profesional_id" class="form-select">
+              <option value="">-- Seleccione profesional --</option>
+              {% for p in profesionales %}
+                <option value="{{ p.id }}">{{ p.nombre }} {{ p.apellido }} - {{ p.profesion }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        {% endif %}
+
+        <div class="mb-3">
+          <label class="form-label">Fecha</label>
+          <input type="date" id="fecha" class="form-control">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Hora inicio</label>
+          <select id="hora_inicio" class="form-select"></select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Hora fin</label>
+          <select id="hora_fin" class="form-select"></select>
+        </div>
+
+  <div class="mb-3">
+          <label class="form-label">Box</label>
+          <select id="box" class="form-select">
+            {% if profesional %}
+              {% if profesional.profesion == 'Kinesiologo' %}
+                <option value="Box 1">Box 1</option>
+              {% elif profesional.profesion == 'Nutricionista' %}
+                <option value="Box 2">Box 2</option>
+              {% endif %}
+            {% else %}
+              <option value="Box 1">Box 1</option>
+              <option value="Box 2">Box 2</option>
+            {% endif %}
+          </select>
+        </div>
+
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" id="crearBloque" class="btn btn-primary fw-bold">Crear bloque</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  var calendarEl = document.getElementById('calendar');
 
-  var calendar = new FullCalendar.Calendar(calendarEl, {
+ 
+  function generarHoras(id) {
+    const select = document.getElementById(id);
+    select.innerHTML = '';
+    let h = 6, m = 30;
+    while (h < 23 || (h === 23 && m === 0)) {
+      const t = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t;
+      select.appendChild(opt);
+      m += 30;
+      if (m === 60) { m = 0; h++; }
+    }
+  }
+
+  generarHoras('hora_inicio');
+  generarHoras('hora_fin');
+
+  const calendarEl = document.getElementById('calendar');
+  const modal = new bootstrap.Modal(document.getElementById('modalBloque'));
+
+  const calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'timeGridWeek',
+    locale: 'es',
+    allDaySlot: false,
     slotMinTime: '06:30:00',
     slotMaxTime: '23:00:00',
-    allDaySlot: false,
-    selectable: true,
-    events: [
-      {% for a in agendas %}
-        {
-          id: '{{ a.id }}',
-          title: '{{ a.box }} - {% if a.disponible %}Disponible{% else %}Reservado{% endif %}',
-          start: '{{ a.fecha }}T{{ a.hora_inicio }}',
-          end: '{{ a.fecha }}T{{ a.hora_fin }}',
-          color: '{% if a.disponible %}#2E86C1{% else %}#E74C3C{% endif %}',
-        },
-      {% endfor %}
-    ],
+    slotDuration: '00:30:00',
+     dayHeaderFormat: { weekday: 'long' }, 
+      titleFormat: { year: 'numeric', month: 'long', day: 'numeric' },
+  headerToolbar: {
+    left: 'prev,next today',
+    center: 'title',
+    right: 'timeGridDay,timeGridWeek'
+  },
+    events: '/agendar_hora_box/listar/',
     eventClick: function(info) {
-      const id = info.event.id;
-      const estado = info.event.title.includes('Disponible') ? 'reservar' : 'liberar';
-      let rut = null;
-      if (estado === 'reservar') {
-        rut = prompt('Ingrese RUT del cliente o cliente externo:');
-        if (!rut) return;
-      }
+      Swal.fire({
+        title: '¿Qué deseas hacer?',
+        text: `${info.event.title}`,
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: 'Eliminar',
+        denyButtonText: info.event.extendedProps.disponible ? 'Reservar' : 'Liberar',
+      }).then((result) => {
+        if (result.isConfirmed) {
+          fetch(`/agendar_hora_box/${info.event.id}/eliminar/`)
+          .then(r=>r.json())
+          .then(d=>{
+            if(d.status === 'ok'){
+              Swal.fire('Eliminado','Bloque eliminado correctamente.','success');
+              calendar.refetchEvents();
+            } else {
+              Swal.fire('Error', d.error || 'No se pudo eliminar', 'error');
+            }
+          });
+        } else if (result.isDenied) {
+          fetch(`/agendar_hora_box/${info.event.id}/cambiar_estado/`)
+          .then(r=>r.json())
+          .then(d=>{
+            if(d.error) Swal.fire('Error', d.error, 'error');
+            else {
+              Swal.fire('Actualizado', d.mensaje, 'success');
+              calendar.refetchEvents();
+            }
+          });
+        }
+      });
+    },
+    loading: (isLoading) => {
+      document.body.style.cursor = isLoading ? 'wait' : 'default';
+    }
+  });
+  calendar.render();
 
-      fetch(`/agenda/${id}/cambiar_estado/?rut=${rut || ''}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.error) alert(data.error);
-          else location.reload();
-        });
-    },
-    eventDidMount: function(info) {
-      info.el.style.cursor = 'pointer';
-    },
+  // Abrir modal con hora redondeada
+  function redondearHoraAHalfHora(date) {
+    const minutes = date.getMinutes();
+    let roundedMinutes;
+    if (minutes === 0) roundedMinutes = 0;
+    else if (minutes <= 30) roundedMinutes = 30;
+    else {
+      roundedMinutes = 0;
+      date.setHours(date.getHours() + 1);
+    }
+    date.setMinutes(roundedMinutes);
+    date.setSeconds(0);
+    date.setMilliseconds(0);
+    return date;
+  }
+
+  document.getElementById('btnAbrirModal').addEventListener('click', () => {
+    const hoy = new Date();
+    document.getElementById('fecha').value = hoy.toISOString().split('T')[0];
+    const horaActualRedondeada = redondearHoraAHalfHora(new Date());
+    const horaInicioSelect = document.getElementById('hora_inicio');
+    const horaFinSelect = document.getElementById('hora_fin');
+    const horaStr = horaActualRedondeada.toTimeString().slice(0,5);
+
+    let encontrado = false;
+    for (let option of horaInicioSelect.options) {
+      if (option.value >= horaStr) {
+        horaInicioSelect.value = option.value;
+        encontrado = true;
+        break;
+      }
+    }
+    if (!encontrado) horaInicioSelect.value = '06:30';
+
+    let [h, m] = horaInicioSelect.value.split(':').map(Number);
+    m += 30;
+    if (m === 60) { m = 0; h++; }
+    const horaFinStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    if ([...horaFinSelect.options].some(o => o.value === horaFinStr)) {
+      horaFinSelect.value = horaFinStr;
+    } else {
+      horaFinSelect.value = horaFinSelect.options[horaFinSelect.options.length - 1].value;
+    }
+
+    modal.show();
   });
 
-  calendar.render();
+  // Crear bloque
+  document.getElementById('crearBloque').addEventListener('click', () => {
+    const fecha = document.getElementById('fecha').value;
+    const hora_inicio = document.getElementById('hora_inicio').value;
+    const hora_fin = document.getElementById('hora_fin').value;
+    const box = document.getElementById('box').value;
+    const profesional_id = document.getElementById('profesional_id')?.value || '';
+
+    if (!fecha || !hora_inicio || !hora_fin || !box) {
+      Swal.fire('Error', 'Debe completar todos los campos.', 'error');
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append('fecha', fecha);
+    fd.append('hora_inicio', hora_inicio);
+    fd.append('hora_fin', hora_fin);
+    fd.append('box', box);
+    fd.append('profesional_id', profesional_id);
+
+    fetch('/agendar_hora_box/', {
+      method: 'POST',
+      body: fd,
+      headers: {'X-CSRFToken': '{{ csrf_token }}'}
+    })
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.error) Swal.fire('Error', d.error, 'error');
+      else {
+        Swal.fire('Éxito', d.mensaje, 'success');
+        modal.hide();
+        calendar.refetchEvents();
+      }
+    })
+    .catch(err => Swal.fire('Error', 'Error de conexión o servidor.', 'error'));
+  });
+
 });
 </script>
+
 {% endblock %}

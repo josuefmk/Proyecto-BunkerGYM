@@ -21,7 +21,7 @@ SUB_PLANES = [
 class Admin(models.Model):
     ROLES = [
         ('Administrador', 'Administrador'),
-        ('Kinesiologo', 'Kinesiólogo'),
+        ('Kinesiologo', 'Kinesiologo'),
         ('Nutricionista', 'Nutricionista'),
     ]
 
@@ -524,7 +524,6 @@ class AgendaProfesional(models.Model):
         return f"{self.box} - {self.profesional.nombre} {self.profesional.apellido} ({self.fecha} {self.hora_inicio})"
 
     def crear_sesion_si_corresponde(self):
-        from .models import Sesion
         if not self.disponible and (self.cliente or self.cliente_externo):
             tipo = 'nutricional' if self.box == 'Box 1' else 'kinesiologia'
             Sesion.objects.create(
@@ -537,7 +536,7 @@ class AgendaProfesional(models.Model):
 
 
     def registrar_accion(self, accion, admin=None):
-        from .models import HistorialAccion
+    
         descripcion = f"{accion.capitalize()} agenda: {self.box} {self.fecha} {self.hora_inicio}-{self.hora_fin}"
         HistorialAccion.objects.create(
             admin=admin,
