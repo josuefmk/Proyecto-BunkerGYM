@@ -36,6 +36,8 @@ urlpatterns = [
     path('agendar_hora_box/listar/', views.listar_agendas, name='listar_agendas'),
     path('agendar_hora_box/<int:agenda_id>/cambiar_estado/', views.cambiar_estado_agenda, name='cambiar_estado_agenda'),
     path('agendar_hora_box/<int:agenda_id>/eliminar/', views.eliminar_agenda, name='eliminar_agenda'),
+    path('registro_pase_diario/', views.registro_pase_diario, name='registro_pase_diario'),
+
     #path('api/registrar_asistencia/', views.api_registrar_asistencia, name='api_registrar_asistencia')
 
     # Login y logout

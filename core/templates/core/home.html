@@ -29,14 +29,14 @@
                     <img src="{% static 'core/img/volver.png' %}" class="icon"> Volver
                 </button>
             {% else %}
-                <button class="btn-global" onclick="location.href='{% url 'agendar_hora_box' %}'">
+                 <button class="btn-global" onclick="location.href='{% url 'agendar_hora_box' %}'">
                     <img src="{% static 'core/img/volver.png' %}" class="icon"> Volver
                 </button>
             {% endif %}
         {% endif %}
     {% endif %}
 
-    <!-- Este se muestra SIEMPRE -->
+    
     <button class="btn-global" onclick="location.href='{% url 'logout' %}'">
         <img src="{% static 'core/img/logout.png' %}" class="icon"> Cerrar Sesión
     </button>

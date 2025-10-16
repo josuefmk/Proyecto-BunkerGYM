@@ -8,6 +8,10 @@
         <a href="{% url 'registro_cliente' %}">
             <button class="btn-index">➕ Registrar Nuevo Cliente</button>
         </a>
+
+        <a href="{% url 'registro_pase_diario' %}">
+                <button class="btn-index">⚡ Registro Rápido (Pase Diario)</button>
+            </a>
   <a href="{% url 'renovarCliente' %}">
         <button class="btn-index">🔁 Renovar Cliente</button>
  </a>
@@ -20,10 +24,12 @@
     </div>
 
     <div class="fila-botones">
-        <a href="{% url 'listaCliente' %}">
-            <button class="btn-index">📋 Lista Clientes</button>
-        </a>
-
+       <a href="{% url 'listaCliente' %}">
+        <button class="btn-index">
+            📆 Ingresos del Día — {% now "l" as dia %}{{ dia|capfirst }}
+        </button>
+    </a>
+    </a>
     <a href="{% url 'historial_cliente' %}">
             <button class="btn-index">📜 Historial Cliente</button>
         </a>

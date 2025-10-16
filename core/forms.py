@@ -1,6 +1,6 @@
 from datetime import timedelta
 from django import forms
-from .models import Cliente, Precios, Producto, ClienteExterno
+from .models import Cliente, Mensualidad, Precios, Producto, ClienteExterno
 import re
 from django.utils import timezone
 from django.core.exceptions import ValidationError
@@ -144,6 +144,65 @@ class ClienteForm(forms.ModelForm):
             self.save_m2m()
         return cliente
     
+
+class ClientePaseDiarioForm(forms.ModelForm):
+    class Meta:
+        model = Cliente
+        fields = ['nombre', 'apellido', 'rut'] 
+        labels = {
+            'nombre': 'Nombres',
+            'apellido': 'Apellidos',
+            'rut': 'RUT',
+        }
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'apellido': forms.TextInput(attrs={'class': 'form-control'}),
+            'rut': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 12345678-9 o EX-111111111-1'}),
+        }
+
+    def clean_rut(self):
+        rut = self.cleaned_data.get('rut', '').strip().upper()
+        if not rut:
+            raise forms.ValidationError("Este campo es obligatorio.")
+
+        if rut.startswith("EX-"):
+            if not re.match(r'^EX-\d{1,9}-[\dK]$', rut):
+                raise forms.ValidationError("RUT extranjero inválido. Use EX- seguido de números y dígito verificador.")
+        else:
+            if not re.match(r'^\d{7,9}-[\dK]$', rut):
+                raise forms.ValidationError("Formato inválido. Use 12345678-9")
+            if not validar_rut(rut):
+                raise forms.ValidationError("RUT inválido. Dígito verificador incorrecto.")
+
+        if Cliente.objects.filter(rut=rut).exists():
+            raise forms.ValidationError("⚠️ Este RUT ya está registrado.")
+
+        return rut
+
+    def save(self, commit=True):
+        cliente = super().save(commit=False)
+    
+        try:
+            plan_diario = Mensualidad.objects.get(tipo__iexact="Pase Diario")
+        except Mensualidad.DoesNotExist:
+            raise forms.ValidationError("No existe el plan 'Pase Diario' en la base de datos.")
+
+        cliente.mensualidad = plan_diario
+        cliente.metodo_pago = "Efectivo"
+        cliente.fecha_inicio_plan = timezone.localdate()
+        cliente.fecha_fin_plan = timezone.localdate()
+        cliente.accesos_restantes = 1
+
+        cliente.nombre = cliente.nombre.upper()
+        cliente.apellido = cliente.apellido.upper()
+
+        if commit:
+            cliente.save()
+
+        return cliente
+
+
+
 class ProductoForm(forms.ModelForm):
     class Meta:
         model = Producto

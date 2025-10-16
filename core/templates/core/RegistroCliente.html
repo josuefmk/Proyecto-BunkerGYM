@@ -26,10 +26,10 @@
     {% endif %}
 
     <div class="form-container">
+
         <form class="formulario" method="POST" onsubmit="return validarFormulario()" novalidate>
             {% csrf_token %}
             <h2>Creación De Cliente</h2>
-
             {% for field in form %}
                 {% if field.name != 'sub_plan' %}
                     <div class="mb-3 form-group">

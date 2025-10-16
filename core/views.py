@@ -7,7 +7,7 @@ from django.utils import timezone
 from psycopg import logger
 from pyparsing import wraps
 from .models import AgendaProfesional, Cliente, Asistencia, Admin, Mensualidad, NombresProfesionales, PlanPersonalizado, Precios,Producto, Sesion, Venta, ClienteExterno
-from .forms import ClienteExternoForm, ClienteForm, DescuentoUpdateForm, PrecioUpdateForm,ProductoForm
+from .forms import ClienteExternoForm, ClienteForm, ClientePaseDiarioForm, DescuentoUpdateForm, PrecioUpdateForm,ProductoForm
 from datetime import date, datetime, time,timedelta
 from dateutil.relativedelta import relativedelta
 import pytz
@@ -187,6 +187,33 @@ def registro_cliente(request):
         'cliente': cliente_creado,
     })
 
+@role_required(['Administrador'])
+@never_cache
+def registro_pase_diario(request):
+    mensaje = None
+
+    if request.method == 'POST':
+        form = ClientePaseDiarioForm(request.POST)
+        if form.is_valid():
+            cliente = form.save()
+            registrar_historial(
+                request.admin,
+                "crear",
+                "Cliente (Pase Diario)",
+                cliente.id,
+                f"Creó cliente Pase Diario {cliente.nombre} {cliente.apellido}"
+            )
+            mensaje = f"✅ Cliente {cliente.nombre} {cliente.apellido} registrado como Pase Diario."
+            form = ClientePaseDiarioForm()
+    else:
+        form = ClientePaseDiarioForm()
+
+    return render(request, 'core/RegistroPaseDiario.html', {
+        'form': form,
+        'mensaje': mensaje
+    })
+
+
 
 def enviar_contrato_correo(cliente):
 
@@ -270,6 +297,7 @@ def asistencia_cliente(request):
 
         hoy = timezone.localdate()
 
+        # Validar pase diario inactivo (ahora estado_plan incluye check de asistencia hoy)
         if (
             cliente.mensualidad
             and cliente.mensualidad.tipo.lower() == "pase diario"
@@ -374,7 +402,6 @@ def asistencia_cliente(request):
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-
         inicio_dia = timezone.make_aware(datetime.combine(hoy, time.min))
         fin_dia = timezone.make_aware(datetime.combine(hoy, time.max))
         if Asistencia.objects.filter(cliente=cliente, fecha__range=(inicio_dia, fin_dia)).exists():
@@ -397,31 +424,10 @@ def asistencia_cliente(request):
                     contexto["cliente"] = cliente
                     return render(request, "core/AsistenciaCliente.html", contexto)
 
-        # Actualiza accesos disponibles después del registro
-        if tipo_asistencia == "subplan":
-            accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
-            accesos_totales = accesos_dict.get(cliente.sub_plan, 0)
-            usados_subplan = Asistencia.objects.filter(
-                cliente=cliente,
-                fecha__gte=cliente.fecha_inicio_plan,
-                fecha__lte=cliente.fecha_fin_plan,
-                tipo_asistencia="subplan"
-            ).count()
-            cliente.accesos_restantes = max(accesos_totales - usados_subplan, 0)
-            cliente.save()
-
-        elif tipo_asistencia == "plan_personalizado":
-            usados_mes_personalizado = Asistencia.objects.filter(
-                cliente=cliente,
-                fecha__month=hoy.month,
-                fecha__year=hoy.year,
-                tipo_asistencia="plan_personalizado"
-            ).count()
-            cliente.accesos_restantes = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
-            cliente.save()
-
+        # Registrar asistencia
         if not tipo_asistencia and cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario":
             tipo_asistencia = "pase_diario"
+
         Asistencia.objects.create(
             cliente=cliente,
             fecha=timezone.now(),
@@ -437,6 +443,7 @@ def asistencia_cliente(request):
             f"Registró asistencia de {cliente.nombre} {cliente.apellido}"
         )
 
+        # Actualizar fecha_fin_plan para pase diario al registrar asistencia
         if cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario":
             cliente.fecha_fin_plan = hoy
             cliente.save()
@@ -459,7 +466,6 @@ def asistencia_cliente(request):
         return render(request, "core/AsistenciaCliente.html", contexto)
 
     return render(request, "core/AsistenciaCliente.html", contexto)
-
 @role_required(['Administrador'])
 @never_cache
 def listaCliente(request):
@@ -619,17 +625,17 @@ def renovarCliente(request):
             if cliente_renovado.fecha_fin_plan:
                 dias_extra = max((cliente_renovado.fecha_fin_plan - hoy).days, 0)
 
-            cliente_renovado.activar_plan(fecha_activacion=hoy, dias_extra=dias_extra, forzar=False)
+            tipo_accion = cliente_renovado.activar_plan(forzar=False)
             cliente_renovado.save()
             cliente_renovado.asignar_precio()
 
             registrar_historial(
-                request.admin,
-                "renovar",
-                "Cliente",
-                cliente_renovado.id,
-                f"Renovó plan {cliente_renovado.sub_plan} para {cliente_renovado.nombre} {cliente_renovado.apellido}"
-            )
+            request.admin,
+            "renovar",
+            "Cliente",
+            cliente_renovado.id,
+            f"{'Extendió' if tipo_accion == 'extensión' else 'Reinició'} plan {cliente_renovado.sub_plan} para {cliente_renovado.nombre} {cliente_renovado.apellido}"
+        )
 
             enviar_contrato_correo(cliente_renovado)
 
@@ -682,6 +688,8 @@ def renovarCliente(request):
         'tipos_mensualidad': tipos_mensualidad,
         "filtro_tipo": filtro_tipo,
     })
+
+
 @role_required(['Administrador'])
 @never_cache
 def registrar_sesion(request):

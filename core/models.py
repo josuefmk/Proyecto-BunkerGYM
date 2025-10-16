@@ -1,7 +1,8 @@
+
 from django.db import models
 from django.utils import timezone
 from dateutil.relativedelta import relativedelta 
-from datetime import timedelta,datetime
+from datetime import timedelta,datetime, time
 from django.utils import timezone
 from django.db.models import Sum
 
@@ -172,6 +173,7 @@ class Cliente(models.Model):
         ('activo', 'Activo'),
         ('vencido', 'Vencido'),
         ('suspendido', 'Suspendido'),
+        ('inactivo', 'Inactivo'),
     ]
 
     TIPOS_PUBLICO = [
@@ -186,19 +188,19 @@ class Cliente(models.Model):
     correo = models.EmailField()
     telefono = models.CharField(max_length=15)
     ultimo_reset_mes = models.DateField(null=True, blank=True)
+
     mensualidad = models.ForeignKey('Mensualidad', on_delete=models.SET_NULL, null=True, blank=True)
     planes_personalizados = models.ManyToManyField('PlanPersonalizado', blank=True)
     plan_personalizado_activo = models.ForeignKey(
-        "PlanPersonalizado", null=True, blank=True, on_delete=models.SET_NULL, related_name="clientes_activos"
+        "PlanPersonalizado", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="clientes_activos"
     )
 
     metodo_pago = models.CharField(max_length=20, choices=METODOS_PAGO, null=True, blank=True)
     fecha_inicio_plan = models.DateField(null=True, blank=True)
     fecha_fin_plan = models.DateField(null=True, blank=True)
-
     tipo_publico = models.CharField(max_length=20, choices=TIPOS_PUBLICO, default='Normal')
     sub_plan = models.CharField(max_length=20, choices=SUB_PLANES, null=True, blank=True)
-
     accesos_restantes = models.FloatField(default=0)
     precio_asignado = models.PositiveIntegerField(null=True, blank=True)
 
@@ -209,10 +211,15 @@ class Cliente(models.Model):
         "anual": 365,
     }
 
+    # ===============================================================
+    # 💰 ASIGNAR PRECIO SEGÚN PLAN Y SUBPLAN
+    # ===============================================================
     def asignar_precio(self):
         if self.mensualidad and self.sub_plan:
+            from core.models import Precios
             precio_obj = Precios.objects.filter(
-                tipo_publico=self.mensualidad.tipo, sub_plan=self.sub_plan
+                tipo_publico=self.mensualidad.tipo,
+                sub_plan=self.sub_plan
             ).first()
             if precio_obj:
                 self.precio_asignado = precio_obj.precio
@@ -221,33 +228,9 @@ class Cliente(models.Model):
         else:
             self.precio_asignado = None
 
-    def save(self, *args, **kwargs):
-        if isinstance(self.fecha_inicio_plan, datetime):
-            self.fecha_inicio_plan = self.fecha_inicio_plan.date()
-
-        if not self.fecha_inicio_plan:
-            self.fecha_inicio_plan = timezone.localdate()
-
-        dias_total = 30
-        if self.mensualidad:
-            key = self.mensualidad.duracion.strip().lower()
-            if self.mensualidad.tipo.lower() == 'pase diario':
-                dias_total = 1
-            else:
-                dias_total = self.duraciones_a_dias.get(key, 30)
-
-
-        if not self.fecha_fin_plan:
-            self.fecha_fin_plan = self.fecha_inicio_plan + timedelta(days=dias_total)
-
-        super().save(*args, **kwargs)
-
-    @property
-    def ultima_sesion_tipo(self):
-            if self.sesiones.exists():
-                return self.sesiones.last().tipo_sesion
-            return ""
-
+    # ===============================================================
+    # 🧮 ESTADO DEL PLAN
+    # ===============================================================
     @property
     def estado_plan(self):
         hoy = timezone.localdate()
@@ -266,11 +249,15 @@ class Cliente(models.Model):
             return 'pendiente'
         else:
             return 'activo'
+
+    # ===============================================================
+    # 📅 DÍAS RESTANTES DEL PLAN
+    # ===============================================================
     @property
     def dias_restantes(self):
         hoy = timezone.localdate()
 
-        # Para planes que empiezan en el futuro
+        # Si el plan empieza en el futuro
         if self.fecha_inicio_plan and self.fecha_inicio_plan > hoy:
             return (self.fecha_inicio_plan - hoy).days
 
@@ -285,56 +272,73 @@ class Cliente(models.Model):
         vencimiento = self.fecha_fin_plan or (self.fecha_inicio_plan + timedelta(days=dias_default))
         return max((vencimiento - hoy).days, 0)
 
+    # ===============================================================
+    # ⚙️ ACTIVAR O RENOVAR PLAN
+    # ===============================================================
     def activar_plan(self, fecha_activacion=None, dias_extra=0, forzar=False):
         hoy = timezone.localdate()
-        
-        if fecha_activacion is None:
-            if self.fecha_fin_plan and self.fecha_fin_plan > hoy and not forzar:
-                fecha_activacion = self.fecha_fin_plan
-            else:
-                fecha_activacion = hoy
 
+        # Duración base
         dias_total = 30
         if self.mensualidad:
             key = self.mensualidad.duracion.strip().lower()
-            if self.mensualidad.tipo == "Pase Diario":
+            if self.mensualidad.tipo.lower() == "pase diario":
                 dias_total = 1
             else:
                 dias_total = self.duraciones_a_dias.get(key, 30)
 
-        dias_total += dias_extra
+        # ----------------------------------------------------------------
+        # 💡 Nueva lógica: extender si sigue activo, reiniciar si vencido
+        # ----------------------------------------------------------------
+        if self.fecha_fin_plan and self.fecha_fin_plan >= hoy and not forzar:
+            # 🔁 Extiende desde la fecha actual de fin
+            self.fecha_inicio_plan = self.fecha_inicio_plan or hoy
+            self.fecha_fin_plan = self.fecha_fin_plan + timedelta(days=dias_total + dias_extra)
+            tipo_accion = "extensión"
+        else:
+            # 🆕 Reinicia el plan desde hoy (o fecha indicada)
+            fecha_activacion = fecha_activacion or hoy
+            self.fecha_inicio_plan = fecha_activacion
+            self.fecha_fin_plan = fecha_activacion + timedelta(days=dias_total + dias_extra)
+            tipo_accion = "reinicio"
 
-        self.fecha_inicio_plan = fecha_activacion
-        self.fecha_fin_plan = fecha_activacion + timedelta(days=dias_total)
-
-        # accesos
+        # ----------------------------------------------------------------
+        # 🧮 Accesos según subplan
+        # ----------------------------------------------------------------
         if self.sub_plan:
             accesos_dict = {'Bronce': 4, 'Hierro': 8, 'Acero': 12, 'Titanio': 0}
             nuevos_accesos = accesos_dict.get(self.sub_plan, 0)
 
             if self.sub_plan == "Titanio":
-               
                 self.accesos_restantes = float("inf")
             else:
-                if forzar:
-                
-                    self.accesos_restantes = nuevos_accesos
-                else:
-                 
+                if tipo_accion == "extensión" and not forzar:
+                    # Suma accesos si el plan sigue activo
                     self.accesos_restantes = (self.accesos_restantes or 0) + nuevos_accesos
+                else:
+                    # Reinicia los accesos si es un plan nuevo o forzado
+                    self.accesos_restantes = nuevos_accesos
 
         elif self.plan_personalizado_activo:
             self.accesos_restantes = self.plan_personalizado_activo.accesos_por_mes
 
+        # ----------------------------------------------------------------
+        # 💰 Asigna precio y guarda
+        # ----------------------------------------------------------------
         self.asignar_precio()
         super().save()
 
+        return tipo_accion  # Para usar en logs o mensajes
+
+    # ===============================================================
+    # 🔢 REPRESENTACIÓN Y META
+    # ===============================================================
     class Meta:
-            ordering = ["nombre", "apellido"]
+        ordering = ["nombre", "apellido"]
 
     def __str__(self):
         return f"{self.nombre} {self.apellido} - {self.rut}"
-
+    
 class Asistencia(models.Model):
     TIPO_ASISTENCIA_CHOICES = [
         ("subplan", "Subplan"),
