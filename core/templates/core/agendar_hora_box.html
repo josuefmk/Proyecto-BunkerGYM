@@ -1,0 +1,58 @@
+{% extends 'core/home.html' %}
+{% load static %}
+{% block content %}
+{% if profesional %}
+  <h2>Agenda Profesional - {{ profesional.nombre }} {{ profesional.apellido }}</h2>
+{% else %}
+  <h2>Panel de Administración - Agenda Completa</h2>
+{% endif %}
+
+<div id="calendar"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var calendarEl = document.getElementById('calendar');
+
+  var calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'timeGridWeek',
+    slotMinTime: '06:30:00',
+    slotMaxTime: '23:00:00',
+    allDaySlot: false,
+    selectable: true,
+    events: [
+      {% for a in agendas %}
+        {
+          id: '{{ a.id }}',
+          title: '{{ a.box }} - {% if a.disponible %}Disponible{% else %}Reservado{% endif %}',
+          start: '{{ a.fecha }}T{{ a.hora_inicio }}',
+          end: '{{ a.fecha }}T{{ a.hora_fin }}',
+          color: '{% if a.disponible %}#2E86C1{% else %}#E74C3C{% endif %}',
+        },
+      {% endfor %}
+    ],
+    eventClick: function(info) {
+      const id = info.event.id;
+      const estado = info.event.title.includes('Disponible') ? 'reservar' : 'liberar';
+      let rut = null;
+      if (estado === 'reservar') {
+        rut = prompt('Ingrese RUT del cliente o cliente externo:');
+        if (!rut) return;
+      }
+
+      fetch(`/agenda/${id}/cambiar_estado/?rut=${rut || ''}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) alert(data.error);
+          else location.reload();
+        });
+    },
+    eventDidMount: function(info) {
+      info.el.style.cursor = 'pointer';
+    },
+  });
+
+  calendar.render();
+});
+</script>
+{% endblock %}

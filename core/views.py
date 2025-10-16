@@ -5,7 +5,7 @@ from django.shortcuts import render, redirect
 from django.utils import timezone
 from psycopg import logger
 from pyparsing import wraps
-from .models import Cliente, Asistencia, Admin, Mensualidad, NombresProfesionales, PlanPersonalizado, Precios,Producto, Sesion, Venta, ClienteExterno
+from .models import AgendaProfesional, Cliente, Asistencia, Admin, Mensualidad, NombresProfesionales, PlanPersonalizado, Precios,Producto, Sesion, Venta, ClienteExterno
 from .forms import ClienteExternoForm, ClienteForm, DescuentoUpdateForm, PrecioUpdateForm,ProductoForm
 from datetime import date, datetime, time,timedelta
 from dateutil.relativedelta import relativedelta
@@ -19,7 +19,7 @@ from django.utils.timezone import now
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
-from django.http import HttpResponseRedirect, HttpResponseServerError
+from django.http import HttpResponse, HttpResponseRedirect, HttpResponseServerError
 from django.http import JsonResponse
 from django.contrib import messages
 import calendar
@@ -54,30 +54,27 @@ def safe_view(view_func):
             return HttpResponseServerError("Ha ocurrido un error inesperado. Informa el problema al desarrollador :( )")
     return wrapper
 
-# ===========================
-# LOGIN PERSONALIZADO (con Admin)
-# ===========================
-@safe_view
 def login_admin(request):
     if request.method == 'POST':
-        rut_input = request.POST.get('rut', '')
+        rut = request.POST.get('rut', '').replace('.', '').replace('-', '').upper()
         password = request.POST.get('password', '')
 
-    
-        rut_limpio = rut_input.replace('.', '').replace('-', '').upper()
+        try:
+            admin = Admin.objects.get(rut=rut, password=password)
+        except Admin.DoesNotExist:
+            return render(request, 'core/home.html', {'error': 'Credenciales incorrectas'})
 
-     
-        admin = Admin.objects.filter(rut__iexact=rut_limpio, password=password).first()
+        # Guardar sesión
+        request.session['admin_id'] = admin.id
+        request.session['admin_nombre'] = admin.nombre
+        request.session['admin_profesion'] = admin.profesion
 
-        if admin:
-            request.session['admin_id'] = admin.id
-            return redirect('index')
-        else:
-            request.session['login_error'] = 'Credenciales inválidas'
-            return redirect('login')  
-    else:
-        error = request.session.pop('login_error', None)
-        return render(request, 'core/home.html', {'error': error})
+        # Redirección según rol
+        if admin.profesion in ['Kinesiólogo', 'Nutricionista']:
+            return redirect('agendar_hora_box')
+        return redirect('index')
+
+    return render(request, 'core/home.html')
 
 def logout_admin(request):
     request.session.flush()
@@ -1497,6 +1494,111 @@ def registrar_cliente_externo(request):
         form = ClienteExternoForm()
 
     return render(request, 'core/registrar_cliente_externo.html', {'form': form})
+
+
+
+@admin_required
+def agendar_hora_box(request):
+    admin_id = request.session.get('admin_id')
+    admin = get_object_or_404(Admin, id=admin_id)
+
+  
+    profesional = None
+    if admin.profesion in ['Kinesiologo', 'Nutricionista']:
+        profesional = NombresProfesionales.objects.filter(
+            nombre=admin.nombre.strip(),
+            apellido=admin.apellido.strip()
+        ).first()
+
+ 
+    if admin.profesion == 'Administrador':
+        agendas = AgendaProfesional.objects.all().order_by('fecha', 'hora_inicio')
+    elif profesional:
+        agendas = AgendaProfesional.objects.filter(profesional=profesional).order_by('fecha', 'hora_inicio')
+    else:
+        return HttpResponse("No tienes acceso a esta sección", status=403)
+
+    if request.method == 'POST':
+        fecha = request.POST.get('fecha')
+        hora_inicio = request.POST.get('hora_inicio')
+        hora_fin = request.POST.get('hora_fin')
+        box = request.POST.get('box')
+
+        hora_inicio = datetime.strptime(hora_inicio, '%H:%M').time()
+        hora_fin = datetime.strptime(hora_fin, '%H:%M').time()
+
+        if hora_inicio < time(6, 30) or hora_fin > time(23, 0):
+            return render(request, 'agendar_hora_box.html', {
+                'error': 'Las horas deben estar entre 6:30 AM y 11:00 PM.',
+                'agendas': agendas
+            })
+
+        if not profesional:
+            return HttpResponse("Solo un profesional puede crear bloques de agenda.", status=403)
+
+        bloque = AgendaProfesional.objects.create(
+            profesional=profesional,
+            fecha=fecha,
+            hora_inicio=hora_inicio,
+            hora_fin=hora_fin,
+            box=box,
+        )
+        bloque.registrar_accion('crear', admin=admin)
+        return redirect('agendar_hora_box')
+
+    return render(request, 'core/agendar_hora_box.html', {
+        'agendas': agendas,
+        'admin': admin,
+        'profesional': profesional
+    })
+
+
+
+@admin_required
+def cambiar_estado_agenda(request, agenda_id):
+    agenda = get_object_or_404(AgendaProfesional, id=agenda_id)
+    profesional = request.user.perfil_profesional
+
+    if agenda.profesional != profesional:
+        return JsonResponse({'error': 'No autorizado'}, status=403)
+
+    agenda.disponible = not agenda.disponible
+
+    # Si pasa a reservado, asignar cliente o cliente externo (según caso)
+    if not agenda.disponible:
+        rut = request.GET.get('rut')
+        cliente = Cliente.objects.filter(rut=rut).first()
+        cliente_externo = None
+        if not cliente:
+            cliente_externo = ClienteExterno.objects.filter(rut=rut).first()
+
+        agenda.cliente = cliente
+        agenda.cliente_externo = cliente_externo
+
+      
+        agenda.crear_sesion_si_corresponde()
+
+    agenda.save()
+    agenda.registrar_accion('editar', admin=None)
+
+    return JsonResponse({
+        'id': agenda.id,
+        'disponible': agenda.disponible
+    })
+
+
+def eliminar_agenda(request, agenda_id):
+    agenda = get_object_or_404(AgendaProfesional, id=agenda_id)
+    profesional = request.user.perfil_profesional
+
+    if agenda.profesional != profesional:
+        return JsonResponse({'error': 'No autorizado'}, status=403)
+
+    agenda.registrar_accion('eliminar', admin=None)
+    agenda.delete()
+
+    return JsonResponse({'status': 'ok'})
+
 
 # ===========================
 # REDIRECCIÓN INICIAL

@@ -39,7 +39,11 @@
         <a href="{% url 'dashboard' %}">
             <button class="btn-index">📊 Dashboard</button>
         </a>
-      
+    {% if request.session.admin_profesion == 'Administrador' %}
+        <a href="{% url 'agendar_hora_box' %}">
+            <button class="btn-index">🕒 Panel Profesionales</button>
+        </a>
+    {% endif %}
     </div>
 </div>
 

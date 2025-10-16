@@ -12,20 +12,29 @@ SUB_PLANES = [
         ('Titanio', 'Titanio (Acceso Libre)'),
     ]
 
+
+    
+
 # --------------------------
 # Modelo: Administrador
 # --------------------------
-    
-
 class Admin(models.Model):
+    ROLES = [
+        ('Administrador', 'Administrador'),
+        ('Kinesiologo', 'Kinesiólogo'),
+        ('Nutricionista', 'Nutricionista'),
+    ]
+
     nombreUsuario = models.CharField(max_length=50, default="usuario")
     nombre = models.CharField(max_length=50)
     apellido = models.CharField(max_length=50)
     rut = models.CharField(max_length=12, unique=True)
     password = models.CharField(max_length=128)
+    profesion = models.CharField(max_length=20, choices=ROLES, default='Administrador')  
 
     def __str__(self):
-        return f'{self.nombre} {self.apellido}'
+        return f'{self.nombre} {self.apellido} ({self.profesion})'
+
 
 
 # --------------------------
@@ -176,7 +185,6 @@ class Cliente(models.Model):
     rut = models.CharField(max_length=15, unique=True)
     correo = models.EmailField()
     telefono = models.CharField(max_length=15)
-    huella_template = models.BinaryField(null=True, blank=True)
     ultimo_reset_mes = models.DateField(null=True, blank=True)
     mensualidad = models.ForeignKey('Mensualidad', on_delete=models.SET_NULL, null=True, blank=True)
     planes_personalizados = models.ManyToManyField('PlanPersonalizado', blank=True)
@@ -485,3 +493,56 @@ class ClienteExterno(models.Model):
 
             def __str__(self):
                 return f"{self.nombre} {self.apellido} ({self.rut})"
+            
+
+
+
+class AgendaProfesional(models.Model):
+    BOX_CHOICES = [
+        ('Box 1', 'Box 1 - Kinesiología'),
+        ('Box 2', 'Box 2 - Nutrición'),
+    ]
+
+    profesional = models.ForeignKey('NombresProfesionales', on_delete=models.CASCADE, related_name='agendas')
+    box = models.CharField(max_length=20, choices=BOX_CHOICES)
+    fecha = models.DateField()
+    hora_inicio = models.TimeField()
+    hora_fin = models.TimeField()
+    disponible = models.BooleanField(default=True)
+    cliente = models.ForeignKey('Cliente', on_delete=models.SET_NULL, null=True, blank=True)
+    cliente_externo = models.ForeignKey('ClienteExterno', on_delete=models.SET_NULL, null=True, blank=True)
+    comentario = models.TextField(blank=True, null=True)
+
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['fecha', 'hora_inicio']
+        unique_together = ('box', 'fecha', 'hora_inicio')
+
+    def __str__(self):
+        return f"{self.box} - {self.profesional.nombre} {self.profesional.apellido} ({self.fecha} {self.hora_inicio})"
+
+    def crear_sesion_si_corresponde(self):
+        from .models import Sesion
+        if not self.disponible and (self.cliente or self.cliente_externo):
+            tipo = 'nutricional' if self.box == 'Box 1' else 'kinesiologia'
+            Sesion.objects.create(
+                cliente=self.cliente,
+                cliente_externo=self.cliente_externo,
+                tipo_sesion=tipo,
+                fecha=self.fecha,
+                profesional=self.profesional
+            )
+
+
+    def registrar_accion(self, accion, admin=None):
+        from .models import HistorialAccion
+        descripcion = f"{accion.capitalize()} agenda: {self.box} {self.fecha} {self.hora_inicio}-{self.hora_fin}"
+        HistorialAccion.objects.create(
+            admin=admin,
+            accion=accion,
+            modelo_afectado='AgendaProfesional',
+            objeto_id=self.id,
+            descripcion=descripcion
+        )
