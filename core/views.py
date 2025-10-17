@@ -77,7 +77,6 @@ def role_required(allowed_roles):
                 elif request.admin.profesion in ['Kinesiologo', 'Nutricionista']:
                     return redirect('agendar_hora_box')
                 else:
-                    # Rol no reconocido, cerrar sesión por seguridad
                     request.session.flush()
                     return redirect('login')
 
@@ -209,7 +208,7 @@ def registro_pase_diario(request):
     else:
         form = ClientePaseDiarioForm()
 
-    return render(request, 'core/RegistroPaseDiario.html', {
+    return render(request, 'core/registropasediario.html', {
         'form': form,
         'mensaje': mensaje
     })
@@ -308,15 +307,17 @@ def asistencia_cliente(request):
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
+        # Plan vencido
         if cliente.estado_plan == "vencido":
             contexto["plan_vencido"] = True
             return render(request, "core/AsistenciaCliente.html", contexto)
 
+        # Activar plan pendiente
         if cliente.estado_plan == "pendiente":
             if not cliente.fecha_inicio_plan or cliente.fecha_inicio_plan > hoy:
                 cliente.activar_plan(fecha_activacion=hoy, forzar=True)
 
-        # Manejo de planes personalizados
+        # === Manejo de planes personalizados ===
         if cliente.planes_personalizados.exists():
             if cliente.planes_personalizados.count() > 1 and not confirmar:
                 contexto["planes_personalizados"] = cliente.planes_personalizados.all()
@@ -347,6 +348,7 @@ def asistencia_cliente(request):
         accesos_restantes_subplan = None
         tipo_asistencia = None
 
+        # === Calcular accesos de plan personalizado ===
         if plan_activo and (plan_activo.accesos_por_mes > 0 or plan_libre or plan_full):
             usados_mes_personalizado = Asistencia.objects.filter(
                 cliente=cliente,
@@ -359,10 +361,10 @@ def asistencia_cliente(request):
                 accesos_restantes_personalizado = float("inf")
             else:
                 accesos_restantes_personalizado = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
-                accesos_restantes_personalizado = int(accesos_restantes_personalizado)
 
             tipo_asistencia = "plan_personalizado"
 
+        # === Calcular accesos de subplan ===
         if cliente.sub_plan and not tipo_asistencia:
             if cliente.sub_plan == "Titanio" or (
                 cliente.mensualidad and cliente.mensualidad.tipo == "Gratis + Plan Mensual"
@@ -383,19 +385,29 @@ def asistencia_cliente(request):
 
             tipo_asistencia = "subplan"
 
+        # === Guardar accesos restantes en el cliente ===
         if tipo_asistencia == "plan_personalizado" and accesos_restantes_personalizado is not None:
-            cliente.accesos_restantes = accesos_restantes_personalizado
+            cliente.accesos_personalizados_restantes = accesos_restantes_personalizado
         elif tipo_asistencia == "subplan" and accesos_restantes_subplan is not None:
-            cliente.accesos_restantes = accesos_restantes_subplan
-        cliente.save()
+            cliente.accesos_subplan_restantes = accesos_restantes_subplan
 
+        cliente.accesos_restantes = max(
+            cliente.accesos_subplan_restantes or 0,
+            cliente.accesos_personalizados_restantes or 0
+        )
+        cliente.save(update_fields=[
+            'accesos_personalizados_restantes', 'accesos_subplan_restantes', 'accesos_restantes'
+        ])
+
+        # === Verificar accesos disponibles ===
         accesos_disponibles = (
             plan_libre
             or plan_full
             or cliente.sub_plan == "Titanio"
             or (cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario")
             or (cliente.mensualidad and cliente.mensualidad.tipo == "Gratis + Plan Mensual")
-            or cliente.accesos_restantes > 0
+            or cliente.accesos_personalizados_restantes > 0
+            or cliente.accesos_subplan_restantes > 0
         )
 
         if not accesos_disponibles:
@@ -403,6 +415,7 @@ def asistencia_cliente(request):
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
+        # === Evitar doble asistencia el mismo día ===
         inicio_dia = timezone.make_aware(datetime.combine(hoy, time.min))
         fin_dia = timezone.make_aware(datetime.combine(hoy, time.max))
         if Asistencia.objects.filter(cliente=cliente, fecha__range=(inicio_dia, fin_dia)).exists():
@@ -410,14 +423,13 @@ def asistencia_cliente(request):
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-        # Validación de horario AM
+        # === Validación de horario AM ===
         if cliente.mensualidad and cliente.mensualidad.tipo:
             tipo_mensualidad = cliente.mensualidad.tipo.strip().upper()
             if tipo_mensualidad in ["AM ESTUDIANTE", "AM NORMAL", "AM ADULTO MAYOR"]:
                 ahora = timezone.localtime().time()
                 inicio = time(6, 30)
                 fin = time(11, 0)
-
                 if not (inicio <= ahora <= fin):
                     contexto["mensaje_error"] = (
                         "El ingreso de asistencia para su plan solo está permitido entre las 6:30 AM y las 11:00 AM."
@@ -425,7 +437,7 @@ def asistencia_cliente(request):
                     contexto["cliente"] = cliente
                     return render(request, "core/AsistenciaCliente.html", contexto)
 
-        # Registrar asistencia
+        # === Registrar asistencia ===
         if not tipo_asistencia and cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario":
             tipo_asistencia = "pase_diario"
 
@@ -435,21 +447,40 @@ def asistencia_cliente(request):
             tipo_asistencia=tipo_asistencia
         )
 
-        if cliente.sub_plan and cliente.sub_plan not in ["Titanio"]:
-            if cliente.accesos_restantes > 0 and tipo_asistencia == "subplan":
-                cliente.accesos_restantes -= 1
-                cliente.save(update_fields=["accesos_restantes"])
+        # === Descontar accesos según tipo ===
+        if tipo_asistencia == "subplan":
+            # Si entra por subplan, solo se descuenta del subplan
+            if cliente.sub_plan not in ["Titanio"] and cliente.accesos_subplan_restantes > 0:
+                cliente.accesos_subplan_restantes -= 1
 
-        elif cliente.plan_personalizado_activo and not plan_libre and not plan_full:
-            if cliente.accesos_restantes > 0 and tipo_asistencia == "plan_personalizado":
-                cliente.accesos_restantes -= 1
-                cliente.save(update_fields=["accesos_restantes"])
+        elif tipo_asistencia == "plan_personalizado":
+            # Si entra por plan personalizado, se descuentan ambos (personalizado + subplan si aplica)
+            if not plan_libre and not plan_full and cliente.accesos_personalizados_restantes > 0:
+                cliente.accesos_personalizados_restantes -= 1
+
+            # También descuenta del subplan si no es Titanio
+            if cliente.sub_plan not in ["Titanio"] and cliente.accesos_subplan_restantes > 0:
+                cliente.accesos_subplan_restantes -= 1
 
         elif cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario":
+            cliente.accesos_subplan_restantes = 0
+            cliente.accesos_personalizados_restantes = 0
             cliente.accesos_restantes = 0
-            cliente.save(update_fields=["accesos_restantes"])
+            cliente.fecha_fin_plan = hoy
 
-        # Registro en historial
+        # === Actualizar accesos restantes ===
+        cliente.accesos_restantes = max(
+            cliente.accesos_subplan_restantes or 0,
+            cliente.accesos_personalizados_restantes or 0
+        )
+        cliente.save(update_fields=[
+            "accesos_subplan_restantes",
+            "accesos_personalizados_restantes",
+            "accesos_restantes",
+            "fecha_fin_plan"
+        ])
+
+        # === Registrar historial ===
         registrar_historial(
             request.admin,
             "asistencia",
@@ -458,11 +489,7 @@ def asistencia_cliente(request):
             f"Registró asistencia de {cliente.nombre} {cliente.apellido}"
         )
 
-        # Actualizar fecha_fin_plan para pase diario
-        if cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario":
-            cliente.fecha_fin_plan = hoy
-            cliente.save()
-
+        # === Mostrar confirmación ===
         sub_plan_para_modal = cliente.sub_plan
         if cliente.mensualidad and cliente.mensualidad.tipo == "Gratis + Plan Mensual":
             sub_plan_para_modal = "Titanio (por plan Gratis + Plan Mensual)"
@@ -473,14 +500,17 @@ def asistencia_cliente(request):
             "vencimiento_plan": cliente.fecha_fin_plan,
             "plan_libre": plan_libre,
             "plan_full": plan_full,
-            "accesos_restantes_subplan": cliente.accesos_restantes,
-            "accesos_restantes_personalizado": accesos_restantes_personalizado,
+            "accesos_restantes_subplan": cliente.accesos_subplan_restantes,
+            "accesos_restantes_personalizado": cliente.accesos_personalizados_restantes,
             "sub_plan_mostrar": sub_plan_para_modal,
         })
 
         return render(request, "core/AsistenciaCliente.html", contexto)
 
+    # Si es GET
     return render(request, "core/AsistenciaCliente.html", contexto)
+
+
 
 
 @role_required(['Administrador'])

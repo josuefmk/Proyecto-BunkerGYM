@@ -201,7 +201,11 @@ class Cliente(models.Model):
     fecha_fin_plan = models.DateField(null=True, blank=True)
     tipo_publico = models.CharField(max_length=20, choices=TIPOS_PUBLICO, default='Normal')
     sub_plan = models.CharField(max_length=20, choices=SUB_PLANES, null=True, blank=True)
+    
+    accesos_subplan_restantes = models.FloatField(default=0)
+    accesos_personalizados_restantes = models.FloatField(default=0)
     accesos_restantes = models.FloatField(default=0)
+
     precio_asignado = models.PositiveIntegerField(null=True, blank=True)
 
     duraciones_a_dias = {
@@ -210,7 +214,6 @@ class Cliente(models.Model):
         "semestral": 180,
         "anual": 365,
     }
-
 
     def asignar_precio(self):
         if self.mensualidad and self.sub_plan:
@@ -226,14 +229,12 @@ class Cliente(models.Model):
         else:
             self.precio_asignado = None
 
-
     @property
     def estado_plan(self):
         hoy = timezone.localdate()
 
-          # Pase Diario
+        # Pase Diario
         if self.mensualidad and self.mensualidad.tipo.lower() == 'pase diario':
-            # Cambié para que sea activo si fecha_fin_plan es igual o mayor a hoy
             if not self.fecha_fin_plan or self.fecha_fin_plan < hoy:
                 return 'inactivo'
             else:
@@ -246,12 +247,10 @@ class Cliente(models.Model):
         else:
             return 'activo'
 
- 
     @property
     def dias_restantes(self):
         hoy = timezone.localdate()
 
-      
         if self.fecha_inicio_plan and self.fecha_inicio_plan > hoy:
             return (self.fecha_inicio_plan - hoy).days
 
@@ -266,14 +265,10 @@ class Cliente(models.Model):
         vencimiento = self.fecha_fin_plan or (self.fecha_inicio_plan + timedelta(days=dias_default))
         return max((vencimiento - hoy).days, 0)
 
-  
     def activar_plan(self, fecha_activacion=None, dias_extra=0, forzar=False):
-    
-
         hoy = timezone.localdate()
         tolerancia_vencido = 1
 
-  
         dias_total = 30
         if self.mensualidad:
             key = self.mensualidad.duracion.strip().lower()
@@ -281,7 +276,6 @@ class Cliente(models.Model):
                 dias_total = 1
             else:
                 dias_total = self.duraciones_a_dias.get(key, 30)
-
 
         if (
             self.fecha_fin_plan
@@ -299,23 +293,28 @@ class Cliente(models.Model):
             self.fecha_fin_plan = fecha_activacion + timedelta(days=dias_total + dias_extra)
             tipo_accion = "reinicio"
 
- 
         if self.sub_plan:
             accesos_dict = {'Bronce': 4, 'Hierro': 8, 'Acero': 12, 'Titanio': 0}
             nuevos_accesos = accesos_dict.get(self.sub_plan, 0)
 
             if self.sub_plan == "Titanio":
-                self.accesos_restantes = float("inf")
+                self.accesos_subplan_restantes = float("inf")
             else:
                 if tipo_accion == "extensión" and not forzar:
-             
-                    self.accesos_restantes = (self.accesos_restantes or 0) + nuevos_accesos
+                    self.accesos_subplan_restantes = (self.accesos_subplan_restantes or 0) + nuevos_accesos
                 else:
-           
-                    self.accesos_restantes = nuevos_accesos
+                    self.accesos_subplan_restantes = nuevos_accesos
+
+            # Reseteamos accesos personalizados si corresponde
+            self.accesos_personalizados_restantes = 0
 
         elif self.plan_personalizado_activo:
-            self.accesos_restantes = self.plan_personalizado_activo.accesos_por_mes
+            self.accesos_personalizados_restantes = self.plan_personalizado_activo.accesos_por_mes
+            # Reseteamos accesos subplan
+            self.accesos_subplan_restantes = 0
+
+        # Actualizar campo legacy para compatibilidad, si quieres
+        self.accesos_restantes = max(self.accesos_subplan_restantes, self.accesos_personalizados_restantes)
 
         # Asigna precio actualizado
         self.asignar_precio()
@@ -323,12 +322,11 @@ class Cliente(models.Model):
 
         return tipo_accion
 
-
     class Meta:
         ordering = ["nombre", "apellido"]
 
     def __str__(self):
-        return f"{self.nombre} {self.apellido} - {self.rut}"
+        return f"{self.nombre} {self.apellido} - {self.rut}" 
     
 class Asistencia(models.Model):
     TIPO_ASISTENCIA_CHOICES = [
