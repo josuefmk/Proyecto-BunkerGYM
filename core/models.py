@@ -211,9 +211,7 @@ class Cliente(models.Model):
         "anual": 365,
     }
 
-    # ===============================================================
-    # 💰 ASIGNAR PRECIO SEGÚN PLAN Y SUBPLAN
-    # ===============================================================
+
     def asignar_precio(self):
         if self.mensualidad and self.sub_plan:
             from core.models import Precios
@@ -228,20 +226,18 @@ class Cliente(models.Model):
         else:
             self.precio_asignado = None
 
-    # ===============================================================
-    # 🧮 ESTADO DEL PLAN
-    # ===============================================================
+
     @property
     def estado_plan(self):
         hoy = timezone.localdate()
 
-        # Pase Diario
+          # Pase Diario
         if self.mensualidad and self.mensualidad.tipo.lower() == 'pase diario':
-            if not self.fecha_fin_plan or self.fecha_fin_plan < hoy or self.fecha_fin_plan == hoy:
+            # Cambié para que sea activo si fecha_fin_plan es igual o mayor a hoy
+            if not self.fecha_fin_plan or self.fecha_fin_plan < hoy:
                 return 'inactivo'
             else:
                 return 'activo'
-
         # Planes normales
         if self.fecha_fin_plan and self.fecha_fin_plan < hoy:
             return 'vencido'
@@ -250,14 +246,12 @@ class Cliente(models.Model):
         else:
             return 'activo'
 
-    # ===============================================================
-    # 📅 DÍAS RESTANTES DEL PLAN
-    # ===============================================================
+ 
     @property
     def dias_restantes(self):
         hoy = timezone.localdate()
 
-        # Si el plan empieza en el futuro
+      
         if self.fecha_inicio_plan and self.fecha_inicio_plan > hoy:
             return (self.fecha_inicio_plan - hoy).days
 
@@ -272,13 +266,14 @@ class Cliente(models.Model):
         vencimiento = self.fecha_fin_plan or (self.fecha_inicio_plan + timedelta(days=dias_default))
         return max((vencimiento - hoy).days, 0)
 
-    # ===============================================================
-    # ⚙️ ACTIVAR O RENOVAR PLAN
-    # ===============================================================
+  
     def activar_plan(self, fecha_activacion=None, dias_extra=0, forzar=False):
-        hoy = timezone.localdate()
+    
 
-        # Duración base
+        hoy = timezone.localdate()
+        tolerancia_vencido = 1
+
+  
         dias_total = 30
         if self.mensualidad:
             key = self.mensualidad.duracion.strip().lower()
@@ -287,24 +282,24 @@ class Cliente(models.Model):
             else:
                 dias_total = self.duraciones_a_dias.get(key, 30)
 
-        # ----------------------------------------------------------------
-        # 💡 Nueva lógica: extender si sigue activo, reiniciar si vencido
-        # ----------------------------------------------------------------
-        if self.fecha_fin_plan and self.fecha_fin_plan >= hoy and not forzar:
-            # 🔁 Extiende desde la fecha actual de fin
+
+        if (
+            self.fecha_fin_plan
+            and (self.fecha_fin_plan + timedelta(days=tolerancia_vencido)) >= hoy
+            and not forzar
+        ):
+            # Extiende plan
             self.fecha_inicio_plan = self.fecha_inicio_plan or hoy
             self.fecha_fin_plan = self.fecha_fin_plan + timedelta(days=dias_total + dias_extra)
             tipo_accion = "extensión"
         else:
-            # 🆕 Reinicia el plan desde hoy (o fecha indicada)
+            # Reinicia plan completamente
             fecha_activacion = fecha_activacion or hoy
             self.fecha_inicio_plan = fecha_activacion
             self.fecha_fin_plan = fecha_activacion + timedelta(days=dias_total + dias_extra)
             tipo_accion = "reinicio"
 
-        # ----------------------------------------------------------------
-        # 🧮 Accesos según subplan
-        # ----------------------------------------------------------------
+ 
         if self.sub_plan:
             accesos_dict = {'Bronce': 4, 'Hierro': 8, 'Acero': 12, 'Titanio': 0}
             nuevos_accesos = accesos_dict.get(self.sub_plan, 0)
@@ -313,26 +308,22 @@ class Cliente(models.Model):
                 self.accesos_restantes = float("inf")
             else:
                 if tipo_accion == "extensión" and not forzar:
-                    # Suma accesos si el plan sigue activo
+             
                     self.accesos_restantes = (self.accesos_restantes or 0) + nuevos_accesos
                 else:
-                    # Reinicia los accesos si es un plan nuevo o forzado
+           
                     self.accesos_restantes = nuevos_accesos
 
         elif self.plan_personalizado_activo:
             self.accesos_restantes = self.plan_personalizado_activo.accesos_por_mes
 
-        # ----------------------------------------------------------------
-        # 💰 Asigna precio y guarda
-        # ----------------------------------------------------------------
+        # Asigna precio actualizado
         self.asignar_precio()
         super().save()
 
-        return tipo_accion  # Para usar en logs o mensajes
+        return tipo_accion
 
-    # ===============================================================
-    # 🔢 REPRESENTACIÓN Y META
-    # ===============================================================
+
     class Meta:
         ordering = ["nombre", "apellido"]
 

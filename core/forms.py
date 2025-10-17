@@ -148,17 +148,30 @@ class ClienteForm(forms.ModelForm):
 class ClientePaseDiarioForm(forms.ModelForm):
     class Meta:
         model = Cliente
-        fields = ['nombre', 'apellido', 'rut'] 
+        fields = ['nombre', 'apellido', 'rut', 'metodo_pago'] 
         labels = {
             'nombre': 'Nombres',
             'apellido': 'Apellidos',
             'rut': 'RUT',
+            'metodo_pago': 'Método de pago',
         }
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
             'apellido': forms.TextInput(attrs={'class': 'form-control'}),
-            'rut': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 12345678-9 o EX-111111111-1'}),
+            'rut': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: 12345678-9 o EX-111111111-1'
+            }),
+            'metodo_pago': forms.Select(attrs={'class': 'form-control'}),  
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        choices = [('', 'Seleccione un método de pago...')] + [
+            c for c in self.fields['metodo_pago'].choices if c[0]
+        ]
+        self.fields['metodo_pago'].choices = choices
 
     def clean_rut(self):
         rut = self.cleaned_data.get('rut', '').strip().upper()
@@ -176,19 +189,17 @@ class ClientePaseDiarioForm(forms.ModelForm):
 
         if Cliente.objects.filter(rut=rut).exists():
             raise forms.ValidationError("⚠️ Este RUT ya está registrado.")
-
         return rut
 
     def save(self, commit=True):
         cliente = super().save(commit=False)
-    
+
         try:
             plan_diario = Mensualidad.objects.get(tipo__iexact="Pase Diario")
         except Mensualidad.DoesNotExist:
             raise forms.ValidationError("No existe el plan 'Pase Diario' en la base de datos.")
 
         cliente.mensualidad = plan_diario
-        cliente.metodo_pago = "Efectivo"
         cliente.fecha_inicio_plan = timezone.localdate()
         cliente.fecha_fin_plan = timezone.localdate()
         cliente.accesos_restantes = 1
@@ -200,7 +211,6 @@ class ClientePaseDiarioForm(forms.ModelForm):
             cliente.save()
 
         return cliente
-
 
 
 class ProductoForm(forms.ModelForm):

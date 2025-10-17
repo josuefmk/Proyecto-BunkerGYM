@@ -131,7 +131,7 @@ def admin_required(view_func):
 
         # Si no es admin, lo redirijo a su vista correspondiente
         if request.admin.profesion != 'Administrador':
-            return redirect('home')  # O 'agendar_hora_box', según convenga
+            return redirect('home')  
         
         return view_func(request, *args, **kwargs)
     return wrapper
@@ -196,6 +196,7 @@ def registro_pase_diario(request):
         form = ClientePaseDiarioForm(request.POST)
         if form.is_valid():
             cliente = form.save()
+            cliente.activar_plan() 
             registrar_historial(
                 request.admin,
                 "crear",
@@ -297,7 +298,7 @@ def asistencia_cliente(request):
 
         hoy = timezone.localdate()
 
-        # Validar pase diario inactivo (ahora estado_plan incluye check de asistencia hoy)
+        # Validar pase diario inactivo
         if (
             cliente.mensualidad
             and cliente.mensualidad.tipo.lower() == "pase diario"
@@ -434,6 +435,20 @@ def asistencia_cliente(request):
             tipo_asistencia=tipo_asistencia
         )
 
+        if cliente.sub_plan and cliente.sub_plan not in ["Titanio"]:
+            if cliente.accesos_restantes > 0 and tipo_asistencia == "subplan":
+                cliente.accesos_restantes -= 1
+                cliente.save(update_fields=["accesos_restantes"])
+
+        elif cliente.plan_personalizado_activo and not plan_libre and not plan_full:
+            if cliente.accesos_restantes > 0 and tipo_asistencia == "plan_personalizado":
+                cliente.accesos_restantes -= 1
+                cliente.save(update_fields=["accesos_restantes"])
+
+        elif cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario":
+            cliente.accesos_restantes = 0
+            cliente.save(update_fields=["accesos_restantes"])
+
         # Registro en historial
         registrar_historial(
             request.admin,
@@ -443,7 +458,7 @@ def asistencia_cliente(request):
             f"Registró asistencia de {cliente.nombre} {cliente.apellido}"
         )
 
-        # Actualizar fecha_fin_plan para pase diario al registrar asistencia
+        # Actualizar fecha_fin_plan para pase diario
         if cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario":
             cliente.fecha_fin_plan = hoy
             cliente.save()
@@ -466,6 +481,8 @@ def asistencia_cliente(request):
         return render(request, "core/AsistenciaCliente.html", contexto)
 
     return render(request, "core/AsistenciaCliente.html", contexto)
+
+
 @role_required(['Administrador'])
 @never_cache
 def listaCliente(request):
@@ -787,9 +804,21 @@ def historial_cliente(request):
     asistencias_dict = {}
     sesiones_dict = {}
 
-    # Generar lista de días del mes para calendario
+    # Diccionario con accesos máximos por subplan
+    ACCESOS_POR_SUBPLAN = {
+        'Bronce': 4,
+        'Hierro': 8,
+        'Acero': 12,
+        'Titanio': float('inf'),  # Acceso libre
+    }
+
     first_weekday, num_days = calendar.monthrange(year, month)
     dias_mes = [None] * ((first_weekday + 1) % 7) + list(range(1, num_days + 1))
+
+    # Inicializar variables para accesos
+    total_accesos_permitidos = 0
+    accesos_usados = 0
+    accesos_restantes = 0
 
     if rut:
         try:
@@ -799,25 +828,27 @@ def historial_cliente(request):
             inicio_mes = datetime(year, month, 1).date()
             fin_mes = datetime(year, month, num_days).date()
 
+   
             asistencias = Asistencia.objects.filter(
                 cliente=cliente,
                 fecha__gte=inicio_mes,
                 fecha__lte=fin_mes
             ).order_by('fecha')
 
+            # Diccionario para mostrar asistencias por día con horas
             asistencias_temp = defaultdict(list)
             for a in asistencias:
-                # Si fecha tiene hora (DateTimeField), convertir a hora Chile
                 if hasattr(a.fecha, 'hour'):
                     fecha_local = timezone.localtime(a.fecha, zona_chile)
                     dia = fecha_local.day
                     hora = fecha_local.strftime("%H:%M:%S")
-                else:  
+                else:
                     dia = a.fecha.day
                     hora = "Entrada"
                 asistencias_temp[dia].append(hora)
             asistencias_dict = dict(asistencias_temp)
 
+            # Sesiones en el mes
             sesiones = Sesion.objects.filter(
                 cliente=cliente,
                 fecha__gte=inicio_mes,
@@ -828,8 +859,19 @@ def historial_cliente(request):
             for s in sesiones:
                 dia = s.fecha.day
                 tipo = s.get_tipo_sesion_display()
-                sesiones_temp[dia].append(tipo)  # solo tipo, sin hora
+                sesiones_temp[dia].append(tipo)  
             sesiones_dict = dict(sesiones_temp)
+
+           
+            total_accesos_permitidos = ACCESOS_POR_SUBPLAN.get(cliente.sub_plan, 0)
+
+        
+            if total_accesos_permitidos == float('inf'):
+                accesos_restantes = None
+                accesos_usados = asistencias.count()  
+            else:
+                accesos_usados = asistencias.count()
+                accesos_restantes = max(total_accesos_permitidos - accesos_usados, 0)
 
         except Cliente.DoesNotExist:
             rut_invalido = True
@@ -844,6 +886,9 @@ def historial_cliente(request):
         'asistencias_dict': asistencias_dict,
         'sesiones_dict': sesiones_dict,
         'rut': rut or '',
+        'total_accesos_permitidos': total_accesos_permitidos,
+        'accesos_usados': accesos_usados,
+        'accesos_restantes': accesos_restantes,
     }
 
     # Respuesta AJAX
@@ -861,6 +906,7 @@ def historial_cliente(request):
         })
 
     return render(request, 'core/historial_cliente.html', context)
+
 
 @role_required(['Administrador'])
 @never_cache

@@ -8,6 +8,24 @@
     <p><strong>Plan Actual:</strong> {{ cliente.mensualidad }} {{ cliente.sub_plan }}</p>
     <p><strong>Días Restantes:</strong> {{ cliente.dias_restantes }}</p>
 
+    <!-- Accesos según Subplan -->
+    {% if cliente.sub_plan %}
+        {% if cliente.sub_plan == "Titanio" %}
+            <p><strong>Accesos:</strong> Acceso Libre (Titanio)</p>
+        {% else %}
+            <p><strong>Accesos Permitidos:</strong>
+                {% if cliente.sub_plan == "Bronce" %}4
+                {% elif cliente.sub_plan == "Hierro" %}8
+                {% elif cliente.sub_plan == "Acero" %}12
+                {% else %}0
+                {% endif %}
+            </p>
+            <p><strong>Accesos Restantes:</strong> {{ cliente.accesos_restantes|floatformat:0 }}</p>
+        {% endif %}
+    {% else %}
+        <p><strong>Accesos:</strong> No asignado</p>
+    {% endif %}
+
     <!-- Historial de sesiones -->
     {% if sesiones_dict %}
         <h4>Historial de Sesiones del Mes</h4>
@@ -23,6 +41,5 @@
         <p>No hay sesiones registradas para este mes.</p>
     {% endif %}
 
-  
 </div>
 {% endif %}
