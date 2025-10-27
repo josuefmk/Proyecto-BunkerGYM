@@ -350,10 +350,10 @@ def asistencia_cliente(request):
 
         # === Calcular accesos de plan personalizado ===
         if plan_activo and (plan_activo.accesos_por_mes > 0 or plan_libre or plan_full):
+            fecha_inicio_conteo = cliente.ultimo_reset_mes or cliente.fecha_inicio_plan
             usados_mes_personalizado = Asistencia.objects.filter(
                 cliente=cliente,
-                fecha__month=hoy.month,
-                fecha__year=hoy.year,
+                fecha__gte=fecha_inicio_conteo,
                 tipo_asistencia="plan_personalizado"
             ).count()
 
@@ -1111,17 +1111,40 @@ def renovar_plan_personalizado(request):
         hoy = timezone.localdate()
         plan = cliente.planes_personalizados.first()
 
-  
-        cliente.accesos_restantes = plan.accesos_por_mes
+        #  Reiniciar accesos personalizados
+        if plan.accesos_por_mes > 0:
+            cliente.accesos_personalizados_restantes = plan.accesos_por_mes
+            cliente.accesos_restantes = plan.accesos_por_mes
+        else:
+            # Si es un plan libre o sin límite
+            cliente.accesos_personalizados_restantes = float('inf')
+            cliente.accesos_restantes = float('inf')
+
+   
         cliente.fecha_inicio_plan = hoy
         cliente.fecha_fin_plan = hoy + timedelta(days=30)
         cliente.ultimo_reset_mes = hoy
-        cliente.save()
+        cliente.save(update_fields=[
+            'accesos_personalizados_restantes',
+            'accesos_restantes',
+            'fecha_inicio_plan',
+            'fecha_fin_plan',
+            'ultimo_reset_mes'
+        ])
 
-        messages.success(request, f"Plan personalizado renovado para {cliente.nombre} {cliente.apellido}")
+        registrar_historial(
+            request.admin,
+            "renovar",
+            "Cliente",
+            cliente.id,
+            f"Renovó plan personalizado '{plan.nombre_plan}' para {cliente.nombre} {cliente.apellido}"
+        )
+
+        messages.success(request, f"✅ Plan personalizado '{plan.nombre_plan}' renovado para {cliente.nombre} {cliente.apellido}")
         return redirect('renovarCliente')
 
     return redirect('renovarCliente')
+
 
 @role_required(['Administrador'])
 @never_cache
