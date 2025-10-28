@@ -1,0 +1,214 @@
+{% extends 'core/home.html' %}
+{% load static %}
+
+{% block content %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.8/locales/es.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<style>
+/* ...tus estilos existentes... */
+</style>
+
+<div class="container my-4">
+  {% if profesional %}
+    <h2 class="text-center mb-4 fw-bold text-dark">Agenda de {{ profesional.nombre }} {{ profesional.apellido }}</h2>
+  {% elif usuario_profesion == 'Administrador' %}
+    <h2 class="text-center mb-4 fw-bold text-dark">Agenda de Administración</h2>
+  {% else %}
+    <h2 class="text-center mb-4 text-danger fw-bold">No se encontró profesional vinculado</h2>
+  {% endif %}
+
+{% if usuario_profesion == 'Administrador' or usuario_profesion == 'Coach' %}
+  <div class="d-flex justify-content-end mb-3">
+    <button id="btnAbrirModal" class="btn btn-dark shadow-sm">
+      <i class="bi bi-plus-circle"></i> Agendar sesión con cliente
+    </button>
+  </div>
+  {% endif %}
+
+  <div id="calendar" class="shadow-sm rounded p-2" style="background-color: #f8f9fa;"></div>
+</div>
+
+<!-- Modal para agendar sesión -->
+<div class="modal fade" id="modalBloque" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-sm rounded">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title">Nueva sesión personalizada</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        {% if usuario_profesion == 'Administrador' %}
+        <div class="mb-3">
+          <label class="form-label">Profesional (Coach)</label>
+          <select id="profesional_id" class="form-select">
+            <option value="">-- Seleccione profesional --</option>
+            {% for p in profesionales_disponibles %}
+              <option value="{{ p.id }}">{{ p.nombre }} {{ p.apellido }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+
+        <div class="mb-3">
+          <label class="form-label">Cliente</label>
+          <select id="cliente_id" class="form-select">
+            <option value="">-- Seleccione cliente --</option>
+            {% for c in clientes %}
+              {% if c.plan_personalizado_activo %}
+                <option value="{{ c.id }}">{{ c.nombre }} {{ c.apellido }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Fecha</label>
+          <input type="date" id="fecha" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Hora inicio</label>
+          <select id="hora_inicio" class="form-select"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Hora fin</label>
+          <select id="hora_fin" class="form-select"></select>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" id="crearSesion" class="btn btn-dark fw-bold">Agendar sesión</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.startsWith(name + '=')) {
+              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+              break;
+          }
+      }
+  }
+  return cookieValue;
+}
+const csrftoken = getCookie('csrftoken');
+
+document.addEventListener('DOMContentLoaded', function() {
+  const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+    initialView: 'timeGridWeek',
+    locale: 'es',
+    allDaySlot: false,
+    slotMinTime: '06:30:00',
+    slotMaxTime: '23:00:00',
+    events: '/agenda_pf/listar/',
+    eventClassNames: function(arg) {
+      if(arg.event.extendedProps.estado === 'no_asistio') return ['no-asistio'];
+      return ['agendado'];
+    },
+    eventClick: function(info) {
+      Swal.fire({
+        title: '¿Qué deseas hacer?',
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonText: 'Eliminar sesión',
+        denyButtonText: 'Marcar como No asistió'
+      }).then(result => {
+        if (result.isConfirmed) {
+          fetch(`/agenda_pf/${info.event.id}/eliminar/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrftoken},
+          })
+          .then(r => r.json())
+          .then(() => calendar.refetchEvents())
+          .catch(() => Swal.fire('Error', 'No se pudo eliminar la sesión', 'error'));
+        } else if (result.isDenied) {
+          fetch(`/agenda_pf/${info.event.id}/no_asistio/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrftoken},
+          })
+          .then(r => r.json())
+          .then(data => {
+            if (data.descuento_realizado) {
+              Swal.fire('Actualizado', 'Se descontó un acceso del plan personalizado', 'success');
+            } else {
+              Swal.fire('Actualizado', 'No hay accesos para descontar', 'info');
+            }
+            calendar.refetchEvents();
+          })
+          .catch(() => Swal.fire('Error', 'No se pudo actualizar la sesión', 'error'));
+        }
+      });
+    }
+  });
+
+  calendar.render();
+
+  function generarHoras(id) {
+    const select = document.getElementById(id);
+    select.innerHTML = '';
+    for (let h = 6; h <= 22; h++) {
+      for (let m of [0,30]) {
+        const hora = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+        const opt = document.createElement('option');
+        opt.value = hora;
+        opt.textContent = hora;
+        select.appendChild(opt);
+      }
+    }
+  }
+  generarHoras('hora_inicio');
+  generarHoras('hora_fin');
+
+  document.getElementById('btnAbrirModal').addEventListener('click', () => {
+    document.getElementById('fecha').value = new Date().toISOString().split('T')[0];
+    new bootstrap.Modal('#modalBloque').show();
+  });
+
+  document.getElementById('crearSesion').addEventListener('click', () => {
+    const cliente_id = document.getElementById('cliente_id').value;
+    const fecha = document.getElementById('fecha').value;
+    const hora_inicio = document.getElementById('hora_inicio').value;
+    const hora_fin = document.getElementById('hora_fin').value;
+    const profesional_elem = document.getElementById('profesional_id');
+    const profesional_id = profesional_elem ? profesional_elem.value : null;
+
+    if (!cliente_id || !fecha || !hora_inicio || !hora_fin || (profesional_elem && !profesional_id)) {
+      Swal.fire('Error', 'Completa todos los campos', 'error');
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append('cliente_id', cliente_id);
+    fd.append('fecha', fecha);
+    fd.append('hora_inicio', hora_inicio);
+    fd.append('hora_fin', hora_fin);
+    if (profesional_id) fd.append('profesional_id', profesional_id);
+
+    fetch('/agenda_pf/', {
+      method: 'POST',
+      body: fd,
+      headers: {'X-CSRFToken': csrftoken},
+      credentials: 'same-origin'
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) Swal.fire('Error', d.error, 'error');
+      else {
+        Swal.fire('Agendado', d.mensaje, 'success');
+        bootstrap.Modal.getInstance(document.getElementById('modalBloque')).hide();
+        calendar.refetchEvents();
+      }
+    })
+    .catch(() => Swal.fire('Error', 'Ocurrió un error inesperado.', 'error'));
+  });
+});
+</script>
+{% endblock %}

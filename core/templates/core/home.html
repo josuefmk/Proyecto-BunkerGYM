@@ -15,35 +15,39 @@
 
     {% if request.session.admin_id %}
     <div class="header-right">
- 
-{% if request.session.admin_id and request.resolver_match.view_name == 'index' or request.resolver_match.view_name == 'home' %}
-    <span class="welcome-message">
-        Bienvenido, {{ request.admin.nombre }}!
-    </span>
-{% endif %}
-<div class="header-buttons">
-    {% if request.resolver_match.view_name != 'index' %}
-        {% if request.resolver_match.view_name != 'agendar_hora_box' or request.session.admin_profesion not in 'Kinesiologo Nutricionista' %}
-            {% if request.session.admin_profesion == 'Administrador' %}
-                <button class="btn-global" onclick="location.href='{% url 'index' %}'">
-                    <img src="{% static 'core/img/volver.png' %}" class="icon"> Volver
-                </button>
-            {% else %}
-                 <button class="btn-global" onclick="location.href='{% url 'agendar_hora_box' %}'">
-                    <img src="{% static 'core/img/volver.png' %}" class="icon"> Volver
-                </button>
-            {% endif %}
+
+        {# MENSAJE DE BIENVENIDA SOLO EN INDEX #}
+        {% if request.resolver_match.view_name == 'index' %}
+            <span class="welcome-message">
+                Bienvenido, {{ username }}!
+            </span>
         {% endif %}
-    {% endif %}
 
-    
-    <button class="btn-global" onclick="location.href='{% url 'logout' %}'">
-        <img src="{% static 'core/img/logout.png' %}" class="icon"> Cerrar Sesión
-    </button>
-</div>
+        <div class="header-buttons">
 
+            {# BOTÓN VOLVER SOLO PARA ADMIN EN TODAS LAS VISTAS MENOS INDEX Y HOME #}
+            {% if request.session.admin_profesion == 'Administrador' %}
+                {% if request.resolver_match.view_name != 'index' and request.resolver_match.view_name != 'home' %}
+                    <button class="btn-global" onclick="location.href='{% url 'index' %}'">
+                        <img src="{% static 'core/img/volver.png' %}" class="icon"> Volver
+                    </button>
+                {% endif %}
+            {% endif %}
+
+            {# BOTÓN CERRAR SESIÓN #}
+            <button class="btn-global" onclick="location.href='{% url 'logout' %}'">
+                <img src="{% static 'core/img/logout.png' %}" class="icon"> Cerrar Sesión
+            </button>
+
+        </div>
+    </div>
     {% endif %}
 </header>
+
+
+
+
+
 {% if not request.session.admin_id %}
 <main class="form-container">
     <form method="post" class='formulario' id="login-form">

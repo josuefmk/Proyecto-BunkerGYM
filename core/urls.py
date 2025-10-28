@@ -37,7 +37,10 @@ urlpatterns = [
     path('agendar_hora_box/<int:agenda_id>/cambiar_estado/', views.cambiar_estado_agenda, name='cambiar_estado_agenda'),
     path('agendar_hora_box/<int:agenda_id>/eliminar/', views.eliminar_agenda, name='eliminar_agenda'),
     path('registro_pase_diario/', views.registro_pase_diario, name='registro_pase_diario'),
-
+    path('agenda_pf/', views.agenda_pf, name='agenda_pf'),
+ path('agenda_pf/<int:agenda_id>/no_asistio/', views.marcar_no_asistio, name='marcar_no_asistio'),
+     path('agenda_pf/listar/', views.listar_agenda_pf, name='listar_agenda_pf'),
+         path('agenda_pf/<int:agenda_id>/eliminar/', views.eliminar_agenda_pf, name='eliminar_agenda_pf'),
     #path('api/registrar_asistencia/', views.api_registrar_asistencia, name='api_registrar_asistencia')
 
     # Login y logout

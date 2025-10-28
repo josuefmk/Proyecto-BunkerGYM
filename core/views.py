@@ -2,6 +2,7 @@
 import logging
 import re
 from time import time
+from timeit import Timer
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from psycopg import logger
@@ -57,30 +58,54 @@ def safe_view(view_func):
     return wrapper
 
 def role_required(allowed_roles):
-  
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
+            user_role = None
+            username = None
+
+            # 🔹 Revisamos si es Admin
             admin_id = request.session.get('admin_id')
-            if not admin_id:
-                return redirect('login')
+            if admin_id:
+                try:
+                    request.user_obj = get_object_or_404(Admin, id=admin_id)
+                    user_role = request.user_obj.profesion.strip().capitalize() if request.user_obj.profesion else None
+                    username = request.user_obj.nombre
+                except Admin.DoesNotExist:
+                    request.session.flush()
+                    return redirect('login')
+            else:
+                # 🔹 Si no es Admin, revisamos si es User
+                usuario_id = request.session.get('usuario_id')
+                if usuario_id:
+                    try:
+                        request.user_obj = get_object_or_404(User, id=usuario_id)
+                        user_role = request.user_obj.rol.strip().capitalize() if request.user_obj.rol else None
+                        username = request.user_obj.nombre
+                    except User.DoesNotExist:
+                        request.session.flush()
+                        return redirect('login')
+                else:
+                    return redirect('login')
 
-            try:
-                request.admin = get_object_or_404(Admin, id=admin_id)
-            except Admin.DoesNotExist:
-                return redirect('login')
-
-            if request.admin.profesion not in allowed_roles:
-                # Redirigir según el rol para evitar loops y acceso no autorizado
-                if request.admin.profesion == 'Administrador':
+            # 🔹 Verificación de rol permitido
+            if user_role not in allowed_roles:
+                if user_role == 'Administrador':
                     return redirect('index')
-                elif request.admin.profesion in ['Kinesiologo', 'Nutricionista']:
+                elif user_role in ['Kinesiologo', 'Nutricionista']:
                     return redirect('agendar_hora_box')
+                elif user_role == 'Coach':
+                    return redirect('agenda_pf')
                 else:
                     request.session.flush()
                     return redirect('login')
 
-            return view_func(request, *args, **kwargs)
+            # 🔹 Pasar username al contexto
+            response = view_func(request, *args, **kwargs)
+            if hasattr(response, 'context_data'):
+                response.context_data['username'] = username
+            return response
+
         return wrapper
     return decorator
 
@@ -105,6 +130,8 @@ def login_admin(request):
             return redirect('index')
         elif admin.profesion in ['Kinesiologo', 'Nutricionista']:
             return redirect('agendar_hora_box')
+        elif admin.profesion == 'Coach':
+            return redirect('agenda_pf')
         else:
             request.session.flush()
             return render(request, 'core/home.html', {'error': 'Rol no reconocido'})
@@ -138,23 +165,25 @@ def admin_required(view_func):
 
 
 
-@safe_view
 @role_required(['Administrador'])
-@csrf_exempt
 def index(request):
-    return render(request, 'core/index.html')
 
+    return render(request, 'core/index.html', {'username': request.user_obj.nombre})
 
 @role_required(['Administrador'])
 @never_cache
 def registro_cliente(request):
     mensaje = None
     cliente_creado = None
-
+    coaches = NombresProfesionales.objects.filter(profesion='Coach')
     if request.method == 'POST':
         form = ClienteForm(request.POST)
+    
         if form.is_valid():
+            # Guardar cliente sin commit para modificar campos
             cliente_creado = form.save(commit=False)
+
+     
             accesos_dict = {
                 'Bronce': 4,
                 'Hierro': 8,
@@ -162,21 +191,27 @@ def registro_cliente(request):
                 'Titanio': 9999  # acceso libre
             }
             cliente_creado.accesos_restantes = accesos_dict.get(cliente_creado.sub_plan, 0)
+
+    
+            # Guardar el cliente
             cliente_creado.save()
-            registrar_historial(
-            request.admin,
-            "crear",
-            "Cliente",
-            cliente_creado.id,
-            f"Creó cliente {cliente_creado.nombre} {cliente_creado.apellido}"
-            )      
+
             form.save_m2m()
-            
+
+            # Registrar historial
+            registrar_historial(
+                request.admin,
+                "crear",
+                "Cliente",
+                cliente_creado.id,
+                f"Creó cliente {cliente_creado.nombre} {cliente_creado.apellido}"
+            )
+
             # Enviar contrato por correo
             enviar_contrato_correo(cliente_creado)
-            
+
             mensaje = f"✅ El Cliente {cliente_creado.nombre} {cliente_creado.apellido} ha sido creado correctamente."
-            form = ClienteForm()
+            form = ClienteForm()  # Limpiar formulario
     else:
         form = ClienteForm()
 
@@ -184,6 +219,7 @@ def registro_cliente(request):
         'form': form,
         'mensaje': mensaje,
         'cliente': cliente_creado,
+        'coaches': coaches 
     })
 
 @role_required(['Administrador'])
@@ -1829,6 +1865,250 @@ def eliminar_agenda(request, agenda_id):
     agenda.delete()
     return JsonResponse({'status': 'ok', 'mensaje': 'Bloque eliminado correctamente.'})
 
+
+
+
+
+
+@role_required(['Coach', 'Administrador'])
+def agenda_pf(request):
+    usuario = getattr(request, 'user_obj', None)
+    if not usuario:
+        return JsonResponse({'error': 'Usuario no autenticado'}, status=403)
+
+    usuario_profesion = getattr(usuario, 'profesion', None)
+    if not usuario_profesion:
+        return JsonResponse({'error': 'Usuario sin profesión definida'}, status=403)
+
+    profesional = None
+    clientes = []
+    profesionales_disponibles = []
+
+    # Determinar datos según profesión
+    if usuario_profesion == 'Administrador':
+        clientes = Cliente.objects.filter(plan_personalizado_activo__isnull=False)
+        profesionales_disponibles = NombresProfesionales.objects.filter(profesion='Coach')
+
+    elif usuario_profesion == 'Coach':
+        profesional = NombresProfesionales.objects.filter(
+            nombre__iexact=usuario.nombre.strip(),
+            apellido__iexact=usuario.apellido.strip(),
+            profesion='Coach'
+        ).first()
+        if profesional:
+            clientes = Cliente.objects.filter(
+                coach_asignado=profesional,
+                plan_personalizado_activo__isnull=False
+            )
+        else:
+            return JsonResponse({'error': 'No se encontró el profesional vinculado.'}, status=400)
+
+    # 🟡 👉 Si FullCalendar pide los eventos (GET con /listar/)
+    if request.path.endswith('/listar/'):
+        eventos = []
+
+        if usuario_profesion == 'Administrador':
+            sesiones = AgendaProfesional.objects.all()
+        elif usuario_profesion == 'Coach' and profesional:
+            sesiones = AgendaProfesional.objects.filter(profesional=profesional)
+        else:
+            sesiones = []
+
+        for s in sesiones:
+            eventos.append({
+                'id': s.id,
+                'title': f'{s.cliente.nombre} {s.cliente.apellido}',
+                'start': f'{s.fecha}T{s.hora_inicio}',
+                'end': f'{s.fecha}T{s.hora_fin}',
+                'estado': getattr(s, 'estado', 'agendado')
+            })
+
+        return JsonResponse(eventos, safe=False)
+
+    # 🟢 CREACIÓN DE SESIÓN (POST)
+    if request.method == 'POST':
+        try:
+            cliente_id = request.POST.get('cliente_id')
+            fecha = request.POST.get('fecha')
+            hora_inicio = request.POST.get('hora_inicio')
+            hora_fin = request.POST.get('hora_fin')
+
+            if usuario_profesion == 'Administrador':
+                profesional_id = request.POST.get('profesional_id')
+                profesional = NombresProfesionales.objects.filter(id=profesional_id, profesion='Coach').first()
+                if not profesional:
+                    return JsonResponse({'error': 'Debe seleccionar un profesional válido.'}, status=400)
+            else:
+                if not profesional:
+                    return JsonResponse({'error': 'No se encontró el profesional vinculado.'}, status=400)
+
+            if not cliente_id:
+                return JsonResponse({'error': 'Debe seleccionar un cliente.'}, status=400)
+
+            cliente = Cliente.objects.filter(id=cliente_id).first()
+            if not cliente:
+                return JsonResponse({'error': 'Cliente no encontrado.'}, status=404)
+
+            fecha_dt = datetime.strptime(fecha, '%Y-%m-%d').date()
+            hora_inicio_obj = datetime.strptime(hora_inicio, '%H:%M').time()
+            hora_fin_obj = datetime.strptime(hora_fin, '%H:%M').time()
+
+            AgendaProfesional.objects.create(
+                profesional=profesional,
+                cliente=cliente,
+                fecha=fecha_dt,
+                hora_inicio=hora_inicio_obj,
+                hora_fin=hora_fin_obj,
+                disponible=False
+            )
+
+            return JsonResponse({'mensaje': f'Sesión agendada con {cliente.nombre} {cliente.apellido}.'})
+
+        except Exception as e:
+            return JsonResponse({'error': f'Ocurrió un error inesperado: {str(e)}'}, status=500)
+
+    # 🟣 Render normal (HTML)
+    return render(request, 'core/agenda_pf.html', {
+        'profesional': profesional,
+        'clientes': clientes,
+        'profesionales_disponibles': profesionales_disponibles,
+        'usuario_profesion': usuario_profesion
+    })
+
+
+
+# MARCAR NO ASISTIÓ
+@csrf_exempt
+@safe_view
+@role_required(['Coach', 'Administrador'])
+def marcar_no_asistio(request, agenda_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+
+    agenda = get_object_or_404(AgendaProfesional, id=agenda_id)
+    cliente = agenda.cliente
+
+    if not cliente:
+        return JsonResponse({"error": "Esta sesión no tiene cliente asignado"}, status=400)
+
+    plan_activo = cliente.plan_personalizado_activo
+    descuento_realizado = False
+
+    if plan_activo and cliente.accesos_personalizados_restantes > 0:
+        cliente.accesos_personalizados_restantes -= 1
+        descuento_realizado = True
+
+    # Actualizamos accesos generales
+    cliente.accesos_restantes = max(
+        cliente.accesos_personalizados_restantes or 0,
+        cliente.accesos_subplan_restantes or 0
+    )
+    cliente.save(update_fields=["accesos_personalizados_restantes", "accesos_restantes"])
+
+    agenda.comentario = (agenda.comentario or '') + " | Marcado NO ASISTIÓ"
+    agenda.save(update_fields=['comentario'])
+
+    return JsonResponse({
+        "mensaje": "Acceso descontado correctamente." if descuento_realizado else "No se pudo descontar acceso.",
+        "descuento_realizado": descuento_realizado
+    })
+
+
+
+@safe_view
+@role_required(['Coach', 'Administrador'])
+def listar_agenda_pf(request):
+    usuario = getattr(request, 'user_obj', None)
+    if not usuario:
+        return JsonResponse({'error': 'Usuario no autenticado'}, status=403)
+
+    usuario_profesion = getattr(usuario, 'profesion', None)
+    print("🧩 DEBUG — Usuario autenticado:", usuario)
+    print("🧩 DEBUG — Profesión detectada:", usuario_profesion)
+
+    if not usuario_profesion:
+        return JsonResponse({'error': 'Usuario sin profesión definida'}, status=403)
+
+    # 🔹 Obtener sesiones según tipo de usuario
+    if usuario_profesion == 'Administrador':
+        sesiones = AgendaProfesional.objects.select_related('profesional', 'cliente').all()
+    elif usuario_profesion == 'Coach':
+        profesional = NombresProfesionales.objects.filter(
+            nombre__iexact=usuario.nombre.strip(),
+            apellido__iexact=usuario.apellido.strip(),
+            profesion='Coach'
+        ).first()
+        if not profesional:
+            return JsonResponse({'error': 'No se encontró profesional vinculado'}, status=400)
+        sesiones = AgendaProfesional.objects.select_related('profesional', 'cliente').filter(profesional=profesional)
+    else:
+        return JsonResponse({'error': f'Rol no autorizado: {usuario_profesion}'}, status=403)
+
+    # 🔹 Asignar color distinto por cada coach
+    colores = [
+        "#1E90FF", "#FF4500", "#32CD32", "#FFD700", "#8A2BE2",
+        "#FF1493", "#20B2AA", "#DC143C", "#FF8C00", "#00CED1"
+    ]
+    color_por_coach = {}
+    eventos = []
+
+    for a in sesiones:
+        if not a.cliente or not a.profesional:
+            print(f"⚠️ Sesión {a.id} omitida: cliente o profesional nulo")
+            continue
+
+        coach_nombre = f"{a.profesional.nombre} {a.profesional.apellido}"
+
+        # Color por cada coach
+        if coach_nombre not in color_por_coach:
+            color_por_coach[coach_nombre] = colores[len(color_por_coach) % len(colores)]
+        color = color_por_coach[coach_nombre]
+
+        # Estado de la sesión
+        estado = "Agendado"
+        if a.comentario and "NO ASISTIÓ" in a.comentario.upper():
+            estado = "No asistió"
+            color = "#ffc107"
+
+        start_time = a.hora_inicio.strftime('%H:%M:%S')
+        end_time = a.hora_fin.strftime('%H:%M:%S')
+
+        # 🔸 Mostrar nombre del coach solo al Administrador
+        if usuario_profesion == 'Administrador':
+            title = f"{a.cliente.nombre} {a.cliente.apellido} ({coach_nombre})"
+        else:
+            title = f"{a.cliente.nombre} {a.cliente.apellido}"
+
+        # Si la sesión es "no asistió", lo añadimos también al título
+        if estado == "No asistió":
+            title += " ⚠️"
+
+        eventos.append({
+            'id': a.id,
+            'title': title,
+            'start': f"{a.fecha}T{start_time}",
+            'end': f"{a.fecha}T{end_time}",
+            'color': color,
+            'extendedProps': {
+                'estado': estado.lower().replace(" ", "_"),
+                'cliente_id': a.cliente.id,
+                'profesional_id': a.profesional.id,
+                'coach': coach_nombre,
+                'hora_inicio': start_time,
+                'hora_fin': end_time,
+            }
+        })
+
+    print(f"✅ Total de eventos enviados: {len(eventos)}")
+    return JsonResponse(eventos, safe=False)
+
+# ELIMINAR SESIÓN
+@safe_view
+@role_required(['Coach', 'Administrador'])
+def eliminar_agenda_pf(request, agenda_id):
+    AgendaProfesional.objects.filter(id=agenda_id).delete()
+    return JsonResponse({'mensaje': 'Sesión eliminada.'})
+
 # ===========================
 # REDIRECCIÓN INICIAL
 # ===========================
@@ -1840,6 +2120,5 @@ def home(request):
     admin = get_object_or_404(Admin, id=admin_id)
     if admin.profesion in ['Kinesiologo', 'Nutricionista']:
         return redirect('agendar_hora_box')
-    # Si es admin, podría ir a index o a home según quieras
     return redirect('index')
 

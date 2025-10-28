@@ -75,8 +75,18 @@ class Mensualidad(models.Model):
 class PlanPersonalizado(models.Model):
     nombre_plan = models.CharField(max_length=100, unique=True)
     accesos_por_mes = models.IntegerField(default=0)
+    coach = models.ForeignKey(
+        'NombresProfesionales', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name="planes_asignados"
+    )
+
     def __str__(self):
-        return self.nombre_plan
+        coach_str = f" - Coach: {self.coach.nombre}" if self.coach else ""
+        return f"{self.nombre_plan}{coach_str}"
+
     
 # --------------------------
 # Modelo: Sesiones
@@ -194,6 +204,14 @@ class Cliente(models.Model):
     plan_personalizado_activo = models.ForeignKey(
         "PlanPersonalizado", null=True, blank=True,
         on_delete=models.SET_NULL, related_name="clientes_activos"
+    )
+
+    coach_asignado = models.ForeignKey(
+        'NombresProfesionales',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="clientes_asignados"
     )
 
     metodo_pago = models.CharField(max_length=20, choices=METODOS_PAGO, null=True, blank=True)
@@ -463,7 +481,8 @@ class HistorialAccion(models.Model):
 class NombresProfesionales(models.Model):
             NombreProfesion = [
             ('Kinesiologo', 'Kinesiologo'),
-            ('Nutricionista', 'Nutricionista')
+            ('Nutricionista', 'Nutricionista'),
+            ('Coach', 'Coach')
         ]
             nombre = models.CharField(max_length=50)
             apellido = models.CharField(max_length=50)

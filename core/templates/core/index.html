@@ -47,9 +47,16 @@
         </a>
     {% if request.session.admin_profesion == 'Administrador' %}
         <a href="{% url 'agendar_hora_box' %}">
-            <button class="btn-index">🕒 Panel Profesionales</button>
+            <button class="btn-index">🕒 Panel Horas Nutris y Kines</button>
         </a>
     {% endif %}
+    
+        {% if request.session.admin_profesion == 'Administrador' %}
+    <a href="{% url 'agenda_pf' %}">
+        <button class="btn-index">🏋️‍♂️ Agenda Personal Trainers (PF)</button>
+    </a>
+{% endif %}
+
     </div>
 </div>
 

@@ -36,7 +36,7 @@ class ClienteForm(forms.ModelForm):
         model = Cliente
         fields = [
             'nombre', 'apellido', 'correo', 'telefono', 'rut',
-            'mensualidad', 'planes_personalizados', 'metodo_pago', 'fecha_inicio_plan', 'sub_plan'
+            'mensualidad', 'planes_personalizados', 'metodo_pago', 'fecha_inicio_plan', 'sub_plan', 'coach_asignado'
         ]
         labels = {
             'nombre': 'Nombres',
@@ -59,7 +59,8 @@ class ClienteForm(forms.ModelForm):
             'planes_personalizados': forms.SelectMultiple(attrs={'class': 'form-control select2', 'style': 'width: 100%;'}),
             'metodo_pago': forms.Select(attrs={'class': 'form-control'}),
             'fecha_inicio_plan': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'sub_plan': forms.HiddenInput()
+            'sub_plan': forms.HiddenInput(),
+            'coach_asignado': forms.HiddenInput()
         }
 
     def __init__(self, *args, **kwargs):
