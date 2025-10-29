@@ -351,7 +351,7 @@ def asistencia_cliente(request):
             if not cliente.fecha_inicio_plan or cliente.fecha_inicio_plan > hoy:
                 cliente.activar_plan(fecha_activacion=hoy, forzar=True)
 
-        # === NUEVO ===
+        
         # Reinicio mensual automático con acumulación de accesos
         if (
             cliente.sub_plan in ["Bronce", "Hierro", "Acero"]
@@ -368,8 +368,7 @@ def asistencia_cliente(request):
 
                 cliente.ultimo_reset_mes = hoy
                 cliente.save(update_fields=["accesos_subplan_restantes", "ultimo_reset_mes"])
-        # === FIN NUEVO ===
-
+    
         # === Manejo de planes personalizados ===
         if cliente.planes_personalizados.exists():
             if cliente.planes_personalizados.count() > 1 and not confirmar:
