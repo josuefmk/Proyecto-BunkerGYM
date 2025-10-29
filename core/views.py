@@ -32,7 +32,6 @@ from django.core.mail import EmailMessage
 from xhtml2pdf import pisa
 import io
 from django.core.paginator import Paginator
-from .utils import validar_rut, validar_correo, validar_telefono
 from django.views.decorators.cache import never_cache
 from .models import HistorialAccion
 
@@ -857,7 +856,6 @@ def historial_cliente(request):
     except (TypeError, ValueError):
         month = now.month
 
-    # Localización para nombres de meses
     try:
         locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
     except locale.Error:
@@ -870,51 +868,42 @@ def historial_cliente(request):
     asistencias_dict = {}
     sesiones_dict = {}
 
-    # Diccionario con accesos máximos por subplan
     ACCESOS_POR_SUBPLAN = {
         'Bronce': 4,
         'Hierro': 8,
         'Acero': 12,
-        'Titanio': float('inf'),  # Acceso libre
+        'Titanio': None,  # None representa acceso libre
     }
 
     first_weekday, num_days = calendar.monthrange(year, month)
     dias_mes = [None] * ((first_weekday + 1) % 7) + list(range(1, num_days + 1))
 
-    # Inicializar variables para accesos
+    total_subplan = 0
+    restantes_subplan = 0
+    total_personalizado = 0
+    restantes_personalizado = 0
     total_accesos_permitidos = 0
-    accesos_usados = 0
     accesos_restantes = 0
 
     if rut:
         try:
             cliente = Cliente.objects.get(rut=rut)
-
-            # Rangos de fechas para el mes
             inicio_mes = datetime(year, month, 1).date()
             fin_mes = datetime(year, month, num_days).date()
 
-   
             asistencias = Asistencia.objects.filter(
                 cliente=cliente,
                 fecha__gte=inicio_mes,
                 fecha__lte=fin_mes
             ).order_by('fecha')
 
-            # Diccionario para mostrar asistencias por día con horas
             asistencias_temp = defaultdict(list)
             for a in asistencias:
-                if hasattr(a.fecha, 'hour'):
-                    fecha_local = timezone.localtime(a.fecha, zona_chile)
-                    dia = fecha_local.day
-                    hora = fecha_local.strftime("%H:%M:%S")
-                else:
-                    dia = a.fecha.day
-                    hora = "Entrada"
+                dia = a.fecha.day
+                hora = a.fecha.strftime("%H:%M:%S") if hasattr(a.fecha, 'hour') else "Entrada"
                 asistencias_temp[dia].append(hora)
             asistencias_dict = dict(asistencias_temp)
 
-            # Sesiones en el mes
             sesiones = Sesion.objects.filter(
                 cliente=cliente,
                 fecha__gte=inicio_mes,
@@ -925,19 +914,25 @@ def historial_cliente(request):
             for s in sesiones:
                 dia = s.fecha.day
                 tipo = s.get_tipo_sesion_display()
-                sesiones_temp[dia].append(tipo)  
+                sesiones_temp[dia].append(tipo)
             sesiones_dict = dict(sesiones_temp)
 
-           
-            total_accesos_permitidos = ACCESOS_POR_SUBPLAN.get(cliente.sub_plan, 0)
+            # --- Subplan ---
+            total_subplan = ACCESOS_POR_SUBPLAN.get(cliente.sub_plan, 0)
+            restantes_subplan = cliente.accesos_subplan_restantes or 0
 
-        
-            if total_accesos_permitidos == float('inf'):
+            # --- Plan personalizado ---
+            if cliente.plan_personalizado_activo:
+                total_personalizado = cliente.plan_personalizado_activo.accesos_por_mes or 0
+                restantes_personalizado = cliente.accesos_personalizados_restantes or 0
+
+            # --- Totales combinados ---
+            if cliente.sub_plan == "Titanio":
+                total_accesos_permitidos = None  # acceso libre
                 accesos_restantes = None
-                accesos_usados = asistencias.count()  
             else:
-                accesos_usados = asistencias.count()
-                accesos_restantes = max(total_accesos_permitidos - accesos_usados, 0)
+                total_accesos_permitidos = (total_subplan or 0) + (total_personalizado or 0)
+                accesos_restantes = (restantes_subplan or 0) + (restantes_personalizado or 0)
 
         except Cliente.DoesNotExist:
             rut_invalido = True
@@ -952,12 +947,14 @@ def historial_cliente(request):
         'asistencias_dict': asistencias_dict,
         'sesiones_dict': sesiones_dict,
         'rut': rut or '',
+        'total_subplan': total_subplan,
+        'restantes_subplan': restantes_subplan,
+        'total_personalizado': total_personalizado,
+        'restantes_personalizado': restantes_personalizado,
         'total_accesos_permitidos': total_accesos_permitidos,
-        'accesos_usados': accesos_usados,
         'accesos_restantes': accesos_restantes,
     }
 
-    # Respuesta AJAX
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         html_calendario = ''
         if cliente:
@@ -1685,82 +1682,133 @@ def registrar_cliente_externo(request):
 
 
 
-@safe_view
+
 @role_required(['Kinesiologo', 'Nutricionista', 'Administrador'])
-@csrf_exempt
 def agendar_hora_box(request):
-    admin_id = request.session.get('admin_id')
-    admin = get_object_or_404(Admin, id=admin_id)
+    usuario = getattr(request, 'user_obj', None)
+    if not usuario:
+        return JsonResponse({'error': 'Usuario no autenticado'}, status=403)
+
+    profesion = getattr(usuario, 'profesion', None)
+    if not profesion:
+        return JsonResponse({'error': 'Usuario sin profesión definida'}, status=403)
 
     profesional = NombresProfesionales.objects.filter(
-        nombre__iexact=admin.nombre.strip(),
-        apellido__iexact=admin.apellido.strip()
+        nombre__iexact=usuario.nombre.strip(),
+        apellido__iexact=usuario.apellido.strip(),
+        profesion=profesion
     ).first()
 
-    profesionales = NombresProfesionales.objects.all().order_by('nombre')
+    # === LISTAR EVENTOS ===
+    if request.path.endswith('/listar/'):
+        eventos = []
 
-    # Crear bloque nuevo
+        if profesion == 'Administrador':
+            sesiones = AgendaProfesional.objects.all()
+        elif profesion == 'Nutricionista':
+            sesiones = AgendaProfesional.objects.filter(box='Box 1')
+        elif profesion == 'Kinesiologo':
+            sesiones = AgendaProfesional.objects.filter(box='Box 2')
+        else:
+            sesiones = []
+
+        for s in sesiones:
+            if s.profesional == profesional:
+                title = f"{s.box} - {'Disponible' if s.disponible else 'Tu bloque'}"
+                color = '#87CEFA'
+            else:
+                title = f"{s.box} - {'Disponible' if s.disponible else f'Ocupado por {s.profesional.nombre}'}"
+                color = '#1E90FF' if s.box == 'Box 1' else '#28a745'
+
+            eventos.append({
+                'id': s.id,
+                'title': title,
+                'start': f'{s.fecha}T{s.hora_inicio}',
+                'end': f'{s.fecha}T{s.hora_fin}',
+                'disponible': s.disponible,
+                'profesional_id': s.profesional.id,
+                'box': s.box,
+                'backgroundColor': color
+            })
+        return JsonResponse(eventos, safe=False)
+
+    # === CREAR BLOQUE ===
     if request.method == 'POST':
-        fecha = request.POST.get('fecha')
-        hora_inicio = request.POST.get('hora_inicio')
-        hora_fin = request.POST.get('hora_fin')
-        box = request.POST.get('box')
-        profesional_id = request.POST.get('profesional_id')
-
-        # Validación básica
-        if not (fecha and hora_inicio and hora_fin and box):
-            return JsonResponse({'error': 'Faltan datos obligatorios.'}, status=400)
-
         try:
-            hora_inicio = datetime.strptime(hora_inicio, '%H:%M').time()
-            hora_fin = datetime.strptime(hora_fin, '%H:%M').time()
-        except Exception:
-            return JsonResponse({'error': 'Formato de hora inválido.'}, status=400)
+            fecha = request.POST.get('fecha')
+            hora_inicio = request.POST.get('hora_inicio')
+            hora_fin = request.POST.get('hora_fin')
+            box = request.POST.get('box')
+            profesional_id = request.POST.get('profesional_id')
 
-        if hora_inicio >= hora_fin:
-            return JsonResponse({'error': 'La hora de fin debe ser posterior a la de inicio.'}, status=400)
+            # Validaciones de profesión y box
+            if profesion == 'Nutricionista' and box != 'Box 1':
+                return JsonResponse({'error': 'Los nutricionistas solo pueden crear en Box 1.'}, status=403)
+            if profesion == 'Kinesiologo' and box != 'Box 2':
+                return JsonResponse({'error': 'Los kinesiólogos solo pueden crear en Box 2.'}, status=403)
 
-        if hora_inicio < time(6, 30) or hora_fin > time(23, 0):
-            return JsonResponse({'error': 'Las horas deben estar entre 06:30 y 23:00.'}, status=400)
+            # Solo admin puede elegir profesional
+            if profesion == 'Administrador' and profesional_id:
+                profesional = NombresProfesionales.objects.filter(id=profesional_id).first()
+            elif not profesional:
+                return JsonResponse({'error': 'No se encontró el profesional vinculado.'}, status=400)
 
-        # Determinar profesional
-        if admin.profesion == 'Administrador':
-            if not profesional_id:
-                return JsonResponse({'error': 'Debe seleccionar un profesional.'}, status=400)
-            profesional = get_object_or_404(NombresProfesionales, id=profesional_id)
-        elif not profesional:
-            return JsonResponse({'error': 'Solo un profesional puede crear bloques de agenda.'}, status=403)
+            fecha_dt = datetime.strptime(fecha, '%Y-%m-%d').date()
+            hora_inicio_obj = datetime.strptime(hora_inicio, '%H:%M').time()
+            hora_fin_obj = datetime.strptime(hora_fin, '%H:%M').time()
 
-        # Crear bloque como reservado (disponible = False)
-        try:
-            bloque = AgendaProfesional.objects.create(
-                profesional=profesional,
-                fecha=fecha,
-                hora_inicio=hora_inicio,
-                hora_fin=hora_fin,
+            # ✅ Verificar si ya existe un bloque en ese box/fecha/hora
+            existe_bloque = AgendaProfesional.objects.filter(
                 box=box,
-                disponible=False  
+                fecha=fecha_dt,
+                hora_inicio=hora_inicio_obj
+            ).exists()
+
+            if existe_bloque:
+                return JsonResponse({
+                    'error': f'Ya existe un bloque en {box} a las {hora_inicio}. Por favor, elige otro horario.'
+                }, status=400)
+
+            # Crear el bloque si no hay conflicto
+            AgendaProfesional.objects.create(
+                profesional=profesional,
+                fecha=fecha_dt,
+                hora_inicio=hora_inicio_obj,
+                hora_fin=hora_fin_obj,
+                box=box,
+                disponible=True
             )
+
+            return JsonResponse({'mensaje': f'Bloque creado correctamente en {box}.'})
+
         except IntegrityError:
-            return JsonResponse({'error': 'Ya existe un bloque en ese horario para ese box.'}, status=400)
+            return JsonResponse({
+                'error': 'Ya existe un bloque en ese horario y box. Intenta con otro horario.'
+            }, status=400)
+        except Exception as e:
+            return JsonResponse({'error': f'Error inesperado: {str(e)}'}, status=500)
 
-        bloque.registrar_accion('crear', admin=admin)
+    # === ELIMINAR BLOQUE ===
+    if '/eliminar/' in request.path:
+        bloque_id = request.path.split('/')[-2]
+        bloque = AgendaProfesional.objects.filter(id=bloque_id).first()
+        if not bloque:
+            return JsonResponse({'error': 'Bloque no encontrado.'}, status=404)
 
-        return JsonResponse({
-            'id': bloque.id,
-            'fecha': fecha,
-            'hora_inicio': str(hora_inicio),
-            'hora_fin': str(hora_fin),
-            'box': box,
-            'profesional': f"{profesional.nombre} {profesional.apellido}",
-            'mensaje': 'Bloque creado y marcado como RESERVADO.'
-        })
+        # Solo admin o el dueño puede eliminar
+        if profesion != 'Administrador' and bloque.profesional != profesional:
+            return JsonResponse({'error': 'No puedes eliminar bloques de otro profesional.'}, status=403)
+
+        bloque.delete()
+        return JsonResponse({'status': 'ok'})
 
     return render(request, 'core/agendar_hora_box.html', {
-        'admin': admin,
         'profesional': profesional,
-        'profesionales': profesionales
+        'profesionales': NombresProfesionales.objects.all() if profesion == 'Administrador' else [],
+        'usuario_profesion': profesion
     })
+
+
 
 @safe_view
 @role_required(['Kinesiologo', 'Nutricionista', 'Administrador'])
@@ -1770,34 +1818,50 @@ def listar_agendas(request):
     admin = get_object_or_404(Admin, id=admin_id)
 
     profesional = NombresProfesionales.objects.filter(
-        nombre__iexact=admin.nombre.strip(),
-        apellido__iexact=admin.apellido.strip()
+        Q(nombre__icontains=admin.nombre.strip()) &
+        Q(apellido__icontains=admin.apellido.strip()) &
+        Q(profesion__in=['Kinesiologo', 'Nutricionista'])
     ).first()
 
+    # Mostrar todo a administradores y profesionales, pero solo Kine/Nutri
     if admin.profesion == 'Administrador':
-        agendas = AgendaProfesional.objects.all()
-    elif profesional and admin.profesion in ['Kinesiologo', 'Nutricionista']:
-        agendas = AgendaProfesional.objects.filter(profesional=profesional)
+        agendas = AgendaProfesional.objects.filter(profesional__profesion__in=['Kinesiologo', 'Nutricionista'])
+    elif admin.profesion in ['Kinesiologo', 'Nutricionista']:
+        agendas = AgendaProfesional.objects.filter(profesional__profesion__in=['Kinesiologo', 'Nutricionista'])
     else:
         return JsonResponse({'error': 'No autorizado'}, status=403)
 
+    # Filtro por box según profesión
+    if admin.profesion == 'Nutricionista':
+        agendas = agendas.filter(box='Box 1')
+    elif admin.profesion == 'Kinesiologo':
+        agendas = agendas.filter(box='Box 2')
+
     eventos = []
     for a in agendas:
+     
+        if a.profesional == profesional:
+            titulo = f"{a.box} - {'Disponible' if a.disponible else 'Tu bloque'}"
+            color = '#87CEFA'
+        else:
+            titulo = f"{a.box} - {'Disponible' if a.disponible else f'Ocupado por {a.profesional.nombre}'}"
+            color = '#dc3545' if not a.disponible else ('#1E90FF' if a.box == 'Box 1' else '#28a745')
 
-        start_time = a.hora_inicio.strftime('%H:%M:%S')
-        end_time = a.hora_fin.strftime('%H:%M:%S')
+        puede_editar = admin.profesion == 'Administrador' or a.profesional == profesional
 
         eventos.append({
             'id': a.id,
-            'title': f"{a.box} - {a.profesional.nombre} {a.profesional.apellido} - {'Disponible' if a.disponible else 'Reservado'}",
-            'start': f"{a.fecha}T{start_time}",
-            'end': f"{a.fecha}T{end_time}",
-            'color': '#dc3545' if not a.disponible else ('#1E90FF' if a.box == 'Box 1' else '#28a745'),
+            'title': titulo,
+            'start': f"{a.fecha}T{a.hora_inicio.strftime('%H:%M:%S')}",
+            'end': f"{a.fecha}T{a.hora_fin.strftime('%H:%M:%S')}",
+            'color': color,
+            'editable': puede_editar,  
             'extendedProps': {
                 'disponible': a.disponible,
                 'fecha': str(a.fecha),
-                'hora_inicio': start_time,
-                'hora_fin': end_time
+                'hora_inicio': a.hora_inicio.strftime('%H:%M:%S'),
+                'hora_fin': a.hora_fin.strftime('%H:%M:%S'),
+                'puede_editar': puede_editar
             }
         })
 
@@ -1869,7 +1933,7 @@ def eliminar_agenda(request, agenda_id):
 
 
 
-
+@safe_view
 @role_required(['Coach', 'Administrador'])
 def agenda_pf(request):
     usuario = getattr(request, 'user_obj', None)
@@ -1884,7 +1948,6 @@ def agenda_pf(request):
     clientes = []
     profesionales_disponibles = []
 
-    # Determinar datos según profesión
     if usuario_profesion == 'Administrador':
         clientes = Cliente.objects.filter(plan_personalizado_activo__isnull=False)
         profesionales_disponibles = NombresProfesionales.objects.filter(profesion='Coach')
@@ -1903,12 +1966,12 @@ def agenda_pf(request):
         else:
             return JsonResponse({'error': 'No se encontró el profesional vinculado.'}, status=400)
 
-    # 🟡 👉 Si FullCalendar pide los eventos (GET con /listar/)
+    # Listado de eventos
     if request.path.endswith('/listar/'):
         eventos = []
 
         if usuario_profesion == 'Administrador':
-            sesiones = AgendaProfesional.objects.all()
+            sesiones = AgendaProfesional.objects.filter(profesional__profesion='Coach')
         elif usuario_profesion == 'Coach' and profesional:
             sesiones = AgendaProfesional.objects.filter(profesional=profesional)
         else:
@@ -1925,7 +1988,7 @@ def agenda_pf(request):
 
         return JsonResponse(eventos, safe=False)
 
-    # 🟢 CREACIÓN DE SESIÓN (POST)
+    # Crear sesión
     if request.method == 'POST':
         try:
             cliente_id = request.POST.get('cliente_id')
@@ -1941,9 +2004,6 @@ def agenda_pf(request):
             else:
                 if not profesional:
                     return JsonResponse({'error': 'No se encontró el profesional vinculado.'}, status=400)
-
-            if not cliente_id:
-                return JsonResponse({'error': 'Debe seleccionar un cliente.'}, status=400)
 
             cliente = Cliente.objects.filter(id=cliente_id).first()
             if not cliente:
@@ -1967,7 +2027,6 @@ def agenda_pf(request):
         except Exception as e:
             return JsonResponse({'error': f'Ocurrió un error inesperado: {str(e)}'}, status=500)
 
-    # 🟣 Render normal (HTML)
     return render(request, 'core/agenda_pf.html', {
         'profesional': profesional,
         'clientes': clientes,
@@ -2023,15 +2082,11 @@ def listar_agenda_pf(request):
         return JsonResponse({'error': 'Usuario no autenticado'}, status=403)
 
     usuario_profesion = getattr(usuario, 'profesion', None)
-    print("🧩 DEBUG — Usuario autenticado:", usuario)
-    print("🧩 DEBUG — Profesión detectada:", usuario_profesion)
-
     if not usuario_profesion:
         return JsonResponse({'error': 'Usuario sin profesión definida'}, status=403)
 
-    # 🔹 Obtener sesiones según tipo de usuario
     if usuario_profesion == 'Administrador':
-        sesiones = AgendaProfesional.objects.select_related('profesional', 'cliente').all()
+        sesiones = AgendaProfesional.objects.select_related('profesional', 'cliente').filter(profesional__profesion='Coach')
     elif usuario_profesion == 'Coach':
         profesional = NombresProfesionales.objects.filter(
             nombre__iexact=usuario.nombre.strip(),
@@ -2044,7 +2099,6 @@ def listar_agenda_pf(request):
     else:
         return JsonResponse({'error': f'Rol no autorizado: {usuario_profesion}'}, status=403)
 
-    # 🔹 Asignar color distinto por cada coach
     colores = [
         "#1E90FF", "#FF4500", "#32CD32", "#FFD700", "#8A2BE2",
         "#FF1493", "#20B2AA", "#DC143C", "#FF8C00", "#00CED1"
@@ -2054,17 +2108,14 @@ def listar_agenda_pf(request):
 
     for a in sesiones:
         if not a.cliente or not a.profesional:
-            print(f"⚠️ Sesión {a.id} omitida: cliente o profesional nulo")
             continue
 
         coach_nombre = f"{a.profesional.nombre} {a.profesional.apellido}"
 
-        # Color por cada coach
         if coach_nombre not in color_por_coach:
             color_por_coach[coach_nombre] = colores[len(color_por_coach) % len(colores)]
         color = color_por_coach[coach_nombre]
 
-        # Estado de la sesión
         estado = "Agendado"
         if a.comentario and "NO ASISTIÓ" in a.comentario.upper():
             estado = "No asistió"
@@ -2073,13 +2124,9 @@ def listar_agenda_pf(request):
         start_time = a.hora_inicio.strftime('%H:%M:%S')
         end_time = a.hora_fin.strftime('%H:%M:%S')
 
-        # 🔸 Mostrar nombre del coach solo al Administrador
+        title = f"{a.cliente.nombre} {a.cliente.apellido}"
         if usuario_profesion == 'Administrador':
-            title = f"{a.cliente.nombre} {a.cliente.apellido} ({coach_nombre})"
-        else:
-            title = f"{a.cliente.nombre} {a.cliente.apellido}"
-
-        # Si la sesión es "no asistió", lo añadimos también al título
+            title += f" ({coach_nombre})"
         if estado == "No asistió":
             title += " ⚠️"
 
@@ -2099,8 +2146,8 @@ def listar_agenda_pf(request):
             }
         })
 
-    print(f"✅ Total de eventos enviados: {len(eventos)}")
     return JsonResponse(eventos, safe=False)
+
 
 # ELIMINAR SESIÓN
 @safe_view

@@ -8,43 +8,101 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <style>
-/* ...tus estilos existentes... */
+
+  .container {
+    max-width: 100%;
+    padding: 10px;
+  }
+
+  h2 {
+    font-size: clamp(1.2rem, 4vw, 1.6rem);
+  }
+
+
+  #calendar {
+    font-size: 0.85rem;
+  }
+
+  @media (max-width: 768px) {
+    #calendar {
+      font-size: 0.75rem;
+    }
+    .fc-toolbar-chunk {
+      flex-wrap: wrap;
+    }
+    .fc-header-toolbar {
+      flex-direction: column;
+      gap: 4px;
+    }
+  }
+
+
+  .modal-content {
+    border-radius: 1rem;
+  }
+
+  .form-select, .form-control {
+    font-size: 0.95rem;
+    padding: 10px;
+  }
+
+  @media (max-width: 768px) {
+    #btnAbrirModal {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      border-radius: 50%;
+      padding: 14px 17px;
+      font-size: 1.4rem;
+      z-index: 999;
+    }
+    #btnAbrirModal i {
+      margin: 0;
+    }
+  }
 </style>
 
 <div class="container my-4">
   {% if profesional %}
-    <h2 class="text-center mb-4 fw-bold text-dark">Agenda de {{ profesional.nombre }} {{ profesional.apellido }}</h2>
+    <h2 class="text-center mb-3 fw-bold text-dark">Agenda de {{ profesional.nombre }} {{ profesional.apellido }}</h2>
   {% elif usuario_profesion == 'Administrador' %}
-    <h2 class="text-center mb-4 fw-bold text-dark">Agenda de Administración</h2>
+    <h2 class="text-center mb-3 fw-bold text-dark">Agenda de Administración</h2>
   {% else %}
-    <h2 class="text-center mb-4 text-danger fw-bold">No se encontró profesional vinculado</h2>
+    <h2 class="text-center mb-3 text-danger fw-bold">No se encontró profesional vinculado</h2>
   {% endif %}
 
-{% if usuario_profesion == 'Administrador' or usuario_profesion == 'Coach' %}
-  <div class="d-flex justify-content-end mb-3">
-    <button id="btnAbrirModal" class="btn btn-dark shadow-sm">
-      <i class="bi bi-plus-circle"></i> Agendar sesión con cliente
-    </button>
-  </div>
+  {% if usuario_profesion == 'Administrador' or usuario_profesion == 'Coach' %}
+    <div class="d-flex justify-content-end mb-3 d-none d-md-flex">
+      <button id="btnAbrirModal" class="btn btn-dark shadow-sm">
+        <i class="bi bi-plus-circle"></i> Agendar sesión
+      </button>
+    </div>
   {% endif %}
 
-  <div id="calendar" class="shadow-sm rounded p-2" style="background-color: #f8f9fa;"></div>
+  <div id="calendar" class="shadow-sm rounded p-2 bg-light"></div>
 </div>
 
-<!-- Modal para agendar sesión -->
+{% if usuario_profesion == 'Administrador' or usuario_profesion == 'Coach' %}
+  <!-- Botón flotante solo visible en móviles -->
+  <button id="btnAbrirModal" class="btn btn-dark shadow-lg d-md-none">
+    <i class="bi bi-plus"></i>
+  </button>
+{% endif %}
+
+<!-- Modal -->
 <div class="modal fade" id="modalBloque" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 shadow-sm rounded">
+    <div class="modal-content border-0 shadow-sm">
       <div class="modal-header bg-dark text-white">
-        <h5 class="modal-title">Nueva sesión personalizada</h5>
+        <h5 class="modal-title">Nueva sesión</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         {% if usuario_profesion == 'Administrador' %}
         <div class="mb-3">
-          <label class="form-label">Profesional (Coach)</label>
+          <label class="form-label">Profesional</label>
           <select id="profesional_id" class="form-select">
-            <option value="">-- Seleccione profesional --</option>
+            <option value="">-- Seleccione --</option>
             {% for p in profesionales_disponibles %}
               <option value="{{ p.id }}">{{ p.nombre }} {{ p.apellido }}</option>
             {% endfor %}
@@ -55,7 +113,7 @@
         <div class="mb-3">
           <label class="form-label">Cliente</label>
           <select id="cliente_id" class="form-select">
-            <option value="">-- Seleccione cliente --</option>
+            <option value="">-- Seleccione --</option>
             {% for c in clientes %}
               {% if c.plan_personalizado_activo %}
                 <option value="{{ c.id }}">{{ c.nombre }} {{ c.apellido }}</option>
@@ -63,22 +121,24 @@
             {% endfor %}
           </select>
         </div>
-        <div class="mb-3">
-          <label class="form-label">Fecha</label>
-          <input type="date" id="fecha" class="form-control">
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Hora inicio</label>
-          <select id="hora_inicio" class="form-select"></select>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Hora fin</label>
-          <select id="hora_fin" class="form-select"></select>
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label">Fecha</label>
+            <input type="date" id="fecha" class="form-control">
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Hora inicio</label>
+            <select id="hora_inicio" class="form-select"></select>
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Hora fin</label>
+            <select id="hora_fin" class="form-select"></select>
+          </div>
         </div>
       </div>
       <div class="modal-footer border-0">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" id="crearSesion" class="btn btn-dark fw-bold">Agendar sesión</button>
+        <button type="button" id="crearSesion" class="btn btn-dark fw-bold">Agendar</button>
       </div>
     </div>
   </div>
@@ -88,62 +148,53 @@
 function getCookie(name) {
   let cookieValue = null;
   if (document.cookie && document.cookie !== '') {
-      const cookies = document.cookie.split(';');
-      for (let i = 0; i < cookies.length; i++) {
-          const cookie = cookies[i].trim();
-          if (cookie.startsWith(name + '=')) {
-              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-              break;
-          }
+    for (let cookie of document.cookie.split(';')) {
+      cookie = cookie.trim();
+      if (cookie.startsWith(name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
       }
+    }
   }
   return cookieValue;
 }
 const csrftoken = getCookie('csrftoken');
 
 document.addEventListener('DOMContentLoaded', function() {
-  const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
-    initialView: 'timeGridWeek',
+  const calendarEl = document.getElementById('calendar');
+  const isMobile = window.innerWidth < 768;
+
+  const calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: isMobile ? 'timeGridDay' : 'timeGridWeek',
     locale: 'es',
     allDaySlot: false,
     slotMinTime: '06:30:00',
     slotMaxTime: '23:00:00',
-    events: '/agenda_pf/listar/',
-    eventClassNames: function(arg) {
-      if(arg.event.extendedProps.estado === 'no_asistio') return ['no-asistio'];
-      return ['agendado'];
+    headerToolbar: {
+      left: isMobile ? 'title' : 'prev,next today',
+      center: isMobile ? '' : 'title',
+      right: isMobile ? 'prev,next' : 'timeGridDay,timeGridWeek'
     },
-    eventClick: function(info) {
+    events: '/agenda_pf/listar/',
+    eventClassNames: arg => arg.event.extendedProps.estado === 'no_asistio' ? ['no-asistio'] : ['agendado'],
+    eventClick(info) {
       Swal.fire({
         title: '¿Qué deseas hacer?',
         showCancelButton: true,
         showDenyButton: true,
-        confirmButtonText: 'Eliminar sesión',
-        denyButtonText: 'Marcar como No asistió'
+        confirmButtonText: 'Eliminar',
+        denyButtonText: 'No asistió'
       }).then(result => {
         if (result.isConfirmed) {
           fetch(`/agenda_pf/${info.event.id}/eliminar/`, {
             method: 'POST',
-            headers: {'X-CSRFToken': csrftoken},
-          })
-          .then(r => r.json())
-          .then(() => calendar.refetchEvents())
-          .catch(() => Swal.fire('Error', 'No se pudo eliminar la sesión', 'error'));
+            headers: {'X-CSRFToken': csrftoken}
+          }).then(() => calendar.refetchEvents());
         } else if (result.isDenied) {
           fetch(`/agenda_pf/${info.event.id}/no_asistio/`, {
             method: 'POST',
-            headers: {'X-CSRFToken': csrftoken},
-          })
-          .then(r => r.json())
-          .then(data => {
-            if (data.descuento_realizado) {
-              Swal.fire('Actualizado', 'Se descontó un acceso del plan personalizado', 'success');
-            } else {
-              Swal.fire('Actualizado', 'No hay accesos para descontar', 'info');
-            }
-            calendar.refetchEvents();
-          })
-          .catch(() => Swal.fire('Error', 'No se pudo actualizar la sesión', 'error'));
+            headers: {'X-CSRFToken': csrftoken}
+          }).then(() => calendar.refetchEvents());
         }
       });
     }
@@ -151,27 +202,37 @@ document.addEventListener('DOMContentLoaded', function() {
 
   calendar.render();
 
+  // Generar horas
   function generarHoras(id) {
     const select = document.getElementById(id);
     select.innerHTML = '';
     for (let h = 6; h <= 22; h++) {
-      for (let m of [0,30]) {
-        const hora = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-        const opt = document.createElement('option');
-        opt.value = hora;
-        opt.textContent = hora;
-        select.appendChild(opt);
+      for (let m of [0, 30]) {
+        const hora = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        const opt = new Option(hora, hora);
+        select.add(opt);
       }
     }
   }
   generarHoras('hora_inicio');
   generarHoras('hora_fin');
 
-  document.getElementById('btnAbrirModal').addEventListener('click', () => {
-    document.getElementById('fecha').value = new Date().toISOString().split('T')[0];
-    new bootstrap.Modal('#modalBloque').show();
+  // Abrir modal
+  document.querySelectorAll('#btnAbrirModal').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ahora = new Date();
+      const minutosRedondeados = ahora.getMinutes() < 30 ? 0 : 30;
+      ahora.setMinutes(minutosRedondeados, 0, 0);
+
+      const fin = new Date(ahora.getTime() + 60 * 60 * 1000);
+      document.getElementById('fecha').value = ahora.toISOString().split('T')[0];
+      document.getElementById('hora_inicio').value = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+      document.getElementById('hora_fin').value = `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`;
+      new bootstrap.Modal('#modalBloque').show();
+    });
   });
 
+  // Crear sesión
   document.getElementById('crearSesion').addEventListener('click', () => {
     const cliente_id = document.getElementById('cliente_id').value;
     const fecha = document.getElementById('fecha').value;
@@ -195,8 +256,7 @@ document.addEventListener('DOMContentLoaded', function() {
     fetch('/agenda_pf/', {
       method: 'POST',
       body: fd,
-      headers: {'X-CSRFToken': csrftoken},
-      credentials: 'same-origin'
+      headers: {'X-CSRFToken': csrftoken}
     })
     .then(r => r.json())
     .then(d => {
@@ -207,7 +267,7 @@ document.addEventListener('DOMContentLoaded', function() {
         calendar.refetchEvents();
       }
     })
-    .catch(() => Swal.fire('Error', 'Ocurrió un error inesperado.', 'error'));
+    .catch(() => Swal.fire('Error', 'Ocurrió un error inesperado', 'error'));
   });
 });
 </script>

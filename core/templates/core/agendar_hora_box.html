@@ -16,21 +16,23 @@ body {
   font-family: "Segoe UI", Roboto, sans-serif;
 }
 
+
 h2 {
-  font-weight: 600;
-  color: #000000;
+  font-weight: 700;
+  color: #000;
 }
+
 
 #calendar {
-  max-width: 1000px;
+  max-width: 1200px;
+  height: 85vh;
   margin: 0 auto;
   background-color: #ffffff;
-  border-radius: 12px;
-  padding: 15px;
+  border-radius: 16px;
+  padding: 20px;
   border: 1px solid #dee2e6;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
 }
-
 
 .legend {
   display: flex;
@@ -39,15 +41,16 @@ h2 {
   gap: 16px;
   margin-bottom: 20px;
   background-color: #f1f5f9;
-  border-radius: 8px;
-  padding: 8px 16px;
+  border-radius: 10px;
+  padding: 10px 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .legend-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: #495057;
 }
 
@@ -63,28 +66,22 @@ h2 {
   border: none !important;
   border-radius: 6px !important;
   color: white !important;
-  padding: 3px 6px !important;
-  font-size: 0.85rem !important;
+  padding: 4px 6px !important;
+  font-size: 0.9rem !important;
   transition: transform 0.1s ease, box-shadow 0.2s ease;
 }
 
 .fc-event:hover {
-  transform: scale(1.02);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transform: scale(1.03);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
 }
 
-
+/* Barra superior */
 .fc-toolbar-title {
-  font-size: 1.3rem !important;
+  font-size: 1.5rem !important;
   font-weight: 600;
   color: #000000;
 }
-
-
-.fc-toolbar-chunk:first-child .fc-button-group .fc-button {
-  margin: 0 4px;
-}
-
 
 .fc-toolbar.fc-header-toolbar {
   margin-bottom: 1.5rem;
@@ -101,7 +98,7 @@ h2 {
   background-color: #000000 !important;
 }
 
-
+/* Modal */
 .modal-header {
   background-color: #000000;
   color: white;
@@ -120,6 +117,7 @@ h2 {
   background-color: #000000 !important;
 }
 
+
 #btnAbrirModal {
   display: flex;
   align-items: center;
@@ -128,13 +126,12 @@ h2 {
   border: none;
   border-radius: 8px;
   font-weight: 600;
-  padding: 10px 20px;
+  padding: 10px 22px;
   font-size: 1rem;
   color: #fff;
   transition: all 0.25s ease;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
-
 
 #btnAbrirModal i {
   font-size: 1.2rem;
@@ -148,38 +145,44 @@ h2 {
 .btn-outline-secondary:hover {
   background-color: #f1f1f1;
 }
-
 </style>
 
-<div class="container my-4">
+<div class="container-fluid py-4">
 
-  {% if profesional %}
-    <h2 class="text-center mb-4">
-      Agenda - {{ profesional.nombre }} {{ profesional.apellido }}
-    </h2>
-  {% else %}
-    <h2 class="text-center mb-4">Agenda Completa (Administrador)</h2>
-  {% endif %}
+{% if profesional %}
+  <h2 class="text-center mb-4">Agenda de {{ profesional.nombre }} {{ profesional.apellido }}</h2>
+{% elif usuario_profesion == 'Administrador' %}
+  <h2 class="text-center mb-4">Agenda de Administración</h2>
+{% else %}
+  <h2 class="text-center mb-4 text-danger fw-bold">No se encontró profesional vinculado</h2>
+{% endif %}
 
-
-  <div class="legend">
+<!-- Leyenda -->
+<div class="legend">
+  {% if usuario_profesion == 'Nutricionista' %}
+    <div class="legend-item"><div class="legend-color" style="background:#1E90FF"></div> Box 1</div>
+    <div class="legend-item"><div class="legend-color" style="background:#dc3545"></div> Reservado</div>
+  {% elif usuario_profesion == 'Kinesiologo' %}
+    <div class="legend-item"><div class="legend-color" style="background:#28a745"></div> Box 2</div>
+    <div class="legend-item"><div class="legend-color" style="background:#dc3545"></div> Reservado</div>
+  {% elif usuario_profesion == 'Administrador' %}
     <div class="legend-item"><div class="legend-color" style="background:#1E90FF"></div> Box 1</div>
     <div class="legend-item"><div class="legend-color" style="background:#28a745"></div> Box 2</div>
     <div class="legend-item"><div class="legend-color" style="background:#dc3545"></div> Reservado</div>
-  </div>
-
-
-  <div class="d-flex justify-content-end mb-3">
-    <button id="btnAbrirModal" class="btn btn-primary shadow-sm">
-      <i class="bi bi-plus-circle"></i> Agregar bloque
-    </button>
-  </div>
-
-  <!-- Calendario -->
-  <div id="calendar"></div>
+  {% endif %}
 </div>
 
-<!-- MODAL CREAR BLOQUE -->
+<div class="d-flex justify-content-end mb-3 px-5">
+  <button id="btnAbrirModal" class="btn btn-primary shadow-sm">
+    <i class="bi bi-plus-circle"></i> Agregar bloque
+  </button>
+</div>
+
+<!-- Calendario -->
+<div id="calendar"></div>
+</div>
+
+<!-- MODAL -->
 <div class="modal fade" id="modalBloque" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow-sm">
@@ -216,14 +219,14 @@ h2 {
           <select id="hora_fin" class="form-select"></select>
         </div>
 
-  <div class="mb-3">
+        <div class="mb-3">
           <label class="form-label">Box</label>
           <select id="box" class="form-select">
             {% if profesional %}
               {% if profesional.profesion == 'Kinesiologo' %}
-                <option value="Box 1">Box 1</option>
-              {% elif profesional.profesion == 'Nutricionista' %}
                 <option value="Box 2">Box 2</option>
+              {% elif profesional.profesion == 'Nutricionista' %}
+                <option value="Box 1">Box 1</option>
               {% endif %}
             {% else %}
               <option value="Box 1">Box 1</option>
@@ -231,7 +234,6 @@ h2 {
             {% endif %}
           </select>
         </div>
-
       </div>
       <div class="modal-footer border-0">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -243,8 +245,6 @@ h2 {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-
- 
   function generarHoras(id) {
     const select = document.getElementById(id);
     select.innerHTML = '';
@@ -273,15 +273,27 @@ document.addEventListener('DOMContentLoaded', function() {
     slotMinTime: '06:30:00',
     slotMaxTime: '23:00:00',
     slotDuration: '00:30:00',
-     dayHeaderFormat: { weekday: 'long' }, 
-      titleFormat: { year: 'numeric', month: 'long', day: 'numeric' },
-  headerToolbar: {
-    left: 'prev,next today',
-    center: 'title',
-    right: 'timeGridDay,timeGridWeek'
-  },
+    dayHeaderFormat: { weekday: 'long' },
+    titleFormat: { year: 'numeric', month: 'long', day: 'numeric' },
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'timeGridDay,timeGridWeek'
+    },
     events: '/agendar_hora_box/listar/',
+
     eventClick: function(info) {
+      const evento = info.event.extendedProps;
+      const puedeEditar = evento.puede_editar;
+      if (!puedeEditar) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Bloque ocupado',
+          text: 'Este bloque pertenece a otro profesional y no puedes modificarlo.',
+          confirmButtonText: 'Entendido'
+        });
+        return;
+      }
       Swal.fire({
         title: '¿Qué deseas hacer?',
         text: `${info.event.title}`,
@@ -318,9 +330,10 @@ document.addEventListener('DOMContentLoaded', function() {
       document.body.style.cursor = isLoading ? 'wait' : 'default';
     }
   });
+
   calendar.render();
 
-  // Abrir modal con hora redondeada
+  // Modal abrir con hora actual redondeada
   function redondearHoraAHalfHora(date) {
     const minutes = date.getMinutes();
     let roundedMinutes;
@@ -406,5 +419,4 @@ document.addEventListener('DOMContentLoaded', function() {
 
 });
 </script>
-
 {% endblock %}

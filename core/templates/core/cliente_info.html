@@ -8,38 +8,39 @@
     <p><strong>Plan Actual:</strong> {{ cliente.mensualidad }} {{ cliente.sub_plan }}</p>
     <p><strong>Días Restantes:</strong> {{ cliente.dias_restantes }}</p>
 
-    <!-- Accesos según Subplan -->
+    <h3>Accesos del Cliente</h3>
+
+    <!-- Subplan -->
     {% if cliente.sub_plan %}
-        {% if cliente.sub_plan == "Titanio" %}
-            <p><strong>Accesos:</strong> Acceso Libre (Titanio)</p>
+        {% if total_subplan == None %}
+            <p><strong>Subplan:</strong> {{ cliente.sub_plan }} — <span style="color:green;">Acceso Libre</span></p>
         {% else %}
-            <p><strong>Accesos Permitidos:</strong>
-                {% if cliente.sub_plan == "Bronce" %}4
-                {% elif cliente.sub_plan == "Hierro" %}8
-                {% elif cliente.sub_plan == "Acero" %}12
-                {% else %}0
-                {% endif %}
-            </p>
-            <p><strong>Accesos Restantes:</strong> {{ cliente.accesos_restantes|floatformat:0 }}</p>
+            <p><strong>Subplan:</strong> {{ cliente.sub_plan }}</p>
+            <p><strong>Accesos Permitidos (Subplan):</strong> {{ total_subplan }}</p>
+            <p><strong>Accesos Restantes (Subplan):</strong> {{ restantes_subplan|floatformat:0 }}</p>
         {% endif %}
-    {% else %}
-        <p><strong>Accesos:</strong> No asignado</p>
     {% endif %}
+
+    <!-- Plan Personalizado -->
+    {% if cliente.plan_personalizado_activo %}
+        <hr>
+        <p><strong>Plan Personalizado Activo:</strong> {{ cliente.plan_personalizado_activo.nombre }}</p>
+        <p><strong>Accesos Permitidos (Personalizado):</strong> {{ total_personalizado }}</p>
+        <p><strong>Accesos Restantes (Personalizado):</strong> {{ restantes_personalizado|floatformat:0 }}</p>
+    {% endif %}
+
 
     <!-- Historial de sesiones -->
     {% if sesiones_dict %}
         <h4>Historial de Sesiones del Mes</h4>
         <ul>
-        {% for dia, sesiones in sesiones_dict.items %}
-            <li>
-                <strong>Día {{ dia }}:</strong>
-                {{ sesiones|join:", " }}
-            </li>
-        {% endfor %}
+            {% for dia, sesiones in sesiones_dict.items %}
+                <li><strong>Día {{ dia }}:</strong> {{ sesiones|join:", " }}</li>
+            {% endfor %}
         </ul>
     {% else %}
+     <h4></h4>
         <p>No hay sesiones registradas para este mes.</p>
     {% endif %}
-
 </div>
 {% endif %}
