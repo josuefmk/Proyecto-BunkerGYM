@@ -19,16 +19,17 @@
             <button class="btn-index">✔️ Asistencia Clientes</button>
         </a>
             <a href="{% url 'asistencia_kine_nutri' %}">
-        <button class="btn-index">🩺 Asistencia Kine & Nutri</button>
-    </a>
-    </div>
-
-    <div class="fila-botones">
-       <a href="{% url 'listaCliente' %}">
+        <button class="btn-index">🩺 Asistencia Kinesiología & Nutriciónista</button>
+               <a href="{% url 'listaCliente' %}">
         <button class="btn-index">
             📆 Ingresos del Día — {% now "l" as dia %}{{ dia|capfirst }}
         </button>
     </a>
+    </a>
+    </div>
+
+    <div class="fila-botones">
+
     </a>
     <a href="{% url 'historial_cliente' %}">
             <button class="btn-index">📜 Historial Cliente</button>
@@ -47,15 +48,15 @@
         </a>
     {% if request.session.admin_profesion == 'Administrador' %}
         <a href="{% url 'agendar_hora_box' %}">
-            <button class="btn-index">🕒 Panel Horas Nutris y Kines</button>
+            <button class="btn-index">🕒 Agenda Kinesiologos & Nutricionistas</button>
         </a>
     {% endif %}
     
         {% if request.session.admin_profesion == 'Administrador' %}
     <a href="{% url 'agenda_pf' %}">
-        <button class="btn-index">🏋️‍♂️ Agenda Personal Trainers (PF)</button>
+        <button class="btn-index">🏋️‍♂️ Agenda Coaches</button>
     </a>
-{% endif %}
+        {% endif %}
 
     </div>
 </div>

@@ -63,7 +63,7 @@ def role_required(allowed_roles):
             user_role = None
             username = None
 
-            # 🔹 Revisamos si es Admin
+         
             admin_id = request.session.get('admin_id')
             if admin_id:
                 try:
@@ -74,7 +74,7 @@ def role_required(allowed_roles):
                     request.session.flush()
                     return redirect('login')
             else:
-                # 🔹 Si no es Admin, revisamos si es User
+                
                 usuario_id = request.session.get('usuario_id')
                 if usuario_id:
                     try:
@@ -87,7 +87,7 @@ def role_required(allowed_roles):
                 else:
                     return redirect('login')
 
-            # 🔹 Verificación de rol permitido
+         
             if user_role not in allowed_roles:
                 if user_role == 'Administrador':
                     return redirect('index')
@@ -99,7 +99,7 @@ def role_required(allowed_roles):
                     request.session.flush()
                     return redirect('login')
 
-            # 🔹 Pasar username al contexto
+            
             response = view_func(request, *args, **kwargs)
             if hasattr(response, 'context_data'):
                 response.context_data['username'] = username
@@ -199,7 +199,7 @@ def registro_cliente(request):
 
             # Registrar historial
             registrar_historial(
-                request.admin,
+                request.user_obj,
                 "crear",
                 "Cliente",
                 cliente_creado.id,
@@ -232,7 +232,7 @@ def registro_pase_diario(request):
             cliente = form.save()
             cliente.activar_plan() 
             registrar_historial(
-                request.admin,
+                request.user_obj,
                 "crear",
                 "Cliente (Pase Diario)",
                 cliente.id,
@@ -464,10 +464,10 @@ def asistencia_cliente(request):
             if tipo_mensualidad in ["AM ESTUDIANTE", "AM NORMAL", "AM ADULTO MAYOR"]:
                 ahora = timezone.localtime().time()
                 inicio = time(6, 30)
-                fin = time(11, 0)
+                fin = time(12, 30)
                 if not (inicio <= ahora <= fin):
                     contexto["mensaje_error"] = (
-                        "El ingreso de asistencia para su plan solo está permitido entre las 6:30 AM y las 11:00 AM."
+                        "El ingreso de asistencia para su plan solo está permitido entre las 6:30 AM y las 12:30 PM."
                     )
                     contexto["cliente"] = cliente
                     return render(request, "core/AsistenciaCliente.html", contexto)
@@ -517,7 +517,7 @@ def asistencia_cliente(request):
 
         # === Registrar historial ===
         registrar_historial(
-            request.admin,
+            request.user_obj,
             "asistencia",
             "Cliente",
             cliente.id,
@@ -636,7 +636,7 @@ def renovarCliente(request):
         cliente.save()
 
         registrar_historial(
-            request.admin,
+            request.user_obj,
             "modificar",
             "Cliente",
             cliente.id,
@@ -688,7 +688,7 @@ def renovarCliente(request):
             cliente_renovado.save()
 
             registrar_historial(
-                request.admin,
+                request.user_obj,
                 "renovar",
                 "Cliente",
                 cliente_renovado.id,
@@ -712,7 +712,7 @@ def renovarCliente(request):
             cliente_renovado.asignar_precio()
 
             registrar_historial(
-            request.admin,
+            request.user_obj,
             "renovar",
             "Cliente",
             cliente_renovado.id,
@@ -825,7 +825,7 @@ def cambiar_sub_plan(request):
 
             cliente.save()
             registrar_historial(
-            request.admin,
+           request.user_obj,
             "cambio_plan",
             "Cliente",
             cliente.id,
@@ -988,7 +988,7 @@ def modificar_cliente(request, cliente_id):
             cliente.save(update_fields=['nombre','apellido','rut','correo','telefono'])
 
             registrar_historial(
-                request.admin,
+                request.user_obj,
                 "editar",
                 "Cliente",
                 cliente.id,
@@ -1013,7 +1013,7 @@ def eliminar_cliente(request, cliente_id):
     if request.method == 'POST':
         cliente.delete()
         registrar_historial(
-    request.admin,
+    request.user_obj,
     "eliminar",
     "Cliente",
     cliente.id,
@@ -1166,7 +1166,7 @@ def renovar_plan_personalizado(request):
         ])
 
         registrar_historial(
-            request.admin,
+            request.user_obj,
             "renovar",
             "Cliente",
             cliente.id,
@@ -1233,7 +1233,7 @@ def registrar_venta(request):
         )
 
         registrar_historial(
-            request.admin,
+            request.user_obj,
             "venta",
             "Producto",
             producto.id,
@@ -1289,7 +1289,7 @@ def agregar_stock(request):
         producto.save()
 
         registrar_historial(
-            request.admin,
+            request.user_obj,
             "modificar",
             "Producto",
             producto.id,
@@ -1319,7 +1319,7 @@ def agregar_producto(request):
         if form.is_valid():
             producto = form.save()
             registrar_historial(
-                request.admin,
+                request.user_obj,
                 "crear",
                 "Producto",
                 producto.id,
@@ -1360,7 +1360,7 @@ def editar_producto(request, producto_id):
                 producto.stock = stock
                 producto.save()
                 registrar_historial(
-                    request.admin,
+                   request.user_obj,
                     "editar",
                     "Producto",
                     producto.id,
@@ -1381,7 +1381,7 @@ def eliminar_producto(request, producto_id):
     if request.method == 'POST':
         producto.delete()
         registrar_historial(
-        request.admin,
+        request.user_obj,
         "eliminar",
         "Producto",
         producto.id,
