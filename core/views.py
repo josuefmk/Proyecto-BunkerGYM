@@ -305,7 +305,6 @@ def activar_plan_cliente(request, cliente_id):
         'fecha_hoy': timezone.localdate()
     })
 
-
 @role_required(['Administrador'])
 @never_cache
 def asistencia_cliente(request):
@@ -332,7 +331,7 @@ def asistencia_cliente(request):
 
         hoy = timezone.localdate()
 
-        # Validar pase diario inactivo
+        # === Validar pase diario inactivo ===
         if (
             cliente.mensualidad
             and cliente.mensualidad.tipo.lower() == "pase diario"
@@ -342,15 +341,34 @@ def asistencia_cliente(request):
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-        # Plan vencido
+        # === Plan vencido ===
         if cliente.estado_plan == "vencido":
             contexto["plan_vencido"] = True
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-        # Activar plan pendiente
+        # === Activar plan pendiente si corresponde ===
         if cliente.estado_plan == "pendiente":
             if not cliente.fecha_inicio_plan or cliente.fecha_inicio_plan > hoy:
                 cliente.activar_plan(fecha_activacion=hoy, forzar=True)
+
+        # === NUEVO ===
+        # Reinicio mensual automático con acumulación de accesos
+        if (
+            cliente.sub_plan in ["Bronce", "Hierro", "Acero"]
+            and cliente.mensualidad
+            and cliente.mensualidad.duracion.lower() in ["trimestral", "semestral", "anual"]
+        ):
+            if not cliente.ultimo_reset_mes or cliente.ultimo_reset_mes.month != hoy.month:
+                accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
+                accesos_mensuales = accesos_dict.get(cliente.sub_plan, 0)
+
+                # Solo acumular si el plan sigue activo
+                if cliente.estado_plan == "activo":
+                    cliente.accesos_subplan_restantes += accesos_mensuales
+
+                cliente.ultimo_reset_mes = hoy
+                cliente.save(update_fields=["accesos_subplan_restantes", "ultimo_reset_mes"])
+        # === FIN NUEVO ===
 
         # === Manejo de planes personalizados ===
         if cliente.planes_personalizados.exists():
@@ -482,18 +500,14 @@ def asistencia_cliente(request):
             tipo_asistencia=tipo_asistencia
         )
 
-        # === Descontar accesos según tipo ===
+        # === Descontar accesos ===
         if tipo_asistencia == "subplan":
-            # Si entra por subplan, solo se descuenta del subplan
             if cliente.sub_plan not in ["Titanio"] and cliente.accesos_subplan_restantes > 0:
                 cliente.accesos_subplan_restantes -= 1
 
         elif tipo_asistencia == "plan_personalizado":
-            # Si entra por plan personalizado, se descuentan ambos (personalizado + subplan si aplica)
             if not plan_libre and not plan_full and cliente.accesos_personalizados_restantes > 0:
                 cliente.accesos_personalizados_restantes -= 1
-
-            # También descuenta del subplan si no es Titanio
             if cliente.sub_plan not in ["Titanio"] and cliente.accesos_subplan_restantes > 0:
                 cliente.accesos_subplan_restantes -= 1
 
@@ -542,7 +556,7 @@ def asistencia_cliente(request):
 
         return render(request, "core/AsistenciaCliente.html", contexto)
 
-    # Si es GET
+    # === Si es GET ===
     return render(request, "core/AsistenciaCliente.html", contexto)
 
 
