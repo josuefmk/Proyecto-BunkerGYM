@@ -305,6 +305,7 @@ def activar_plan_cliente(request, cliente_id):
         'fecha_hoy': timezone.localdate()
     })
 
+
 @role_required(['Administrador'])
 @never_cache
 def asistencia_cliente(request):
@@ -400,21 +401,22 @@ def asistencia_cliente(request):
         accesos_restantes_subplan = None
         tipo_asistencia = None
 
-        # === Calcular accesos de plan personalizado ===
-        if plan_activo and (plan_activo.accesos_por_mes > 0 or plan_libre or plan_full):
-            fecha_inicio_conteo = cliente.ultimo_reset_mes or cliente.fecha_inicio_plan
-            usados_mes_personalizado = Asistencia.objects.filter(
-                cliente=cliente,
-                fecha__gte=fecha_inicio_conteo,
-                tipo_asistencia="plan_personalizado"
-            ).count()
-
+        # === Calcular tipo de asistencia y accesos ===
+        if plan_activo:
             if plan_libre or plan_full:
-                accesos_restantes_personalizado = float("inf")
+                # Plan Libre o Libre Semi → siempre usar subplan
+                tipo_asistencia = "subplan"
+                accesos_restantes_personalizado = float("inf") 
             else:
+                # Plan personalizado normal
+                fecha_inicio_conteo = cliente.ultimo_reset_mes or cliente.fecha_inicio_plan
+                usados_mes_personalizado = Asistencia.objects.filter(
+                    cliente=cliente,
+                    fecha__gte=fecha_inicio_conteo,
+                    tipo_asistencia="plan_personalizado"
+                ).count()
                 accesos_restantes_personalizado = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
-
-            tipo_asistencia = "plan_personalizado"
+                tipo_asistencia = "plan_personalizado"
 
         # === Calcular accesos de subplan ===
         if cliente.sub_plan and not tipo_asistencia:
@@ -557,7 +559,6 @@ def asistencia_cliente(request):
 
     # === Si es GET ===
     return render(request, "core/AsistenciaCliente.html", contexto)
-
 
 
 

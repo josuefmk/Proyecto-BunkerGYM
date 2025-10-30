@@ -36,7 +36,7 @@
                 {% if cliente.plan_personalizado_activo and cliente.plan_personalizado_activo.nombre_plan != "Ninguno" %}
                     <p>Plan personalizado: <strong>{{ cliente.plan_personalizado_activo.nombre_plan }}</strong></p>
                     {% if plan_libre or plan_full %}
-                        <p>Acceso ilimitado</p>
+                        <p></p>
                     {% else %}
                         <p>Accesos restantes este mes (Plan Personalizado): <strong>{{ accesos_restantes_personalizado }}</strong></p>
                     {% endif %}
@@ -48,7 +48,7 @@
     {% if planes_personalizados and planes_personalizados|length > 1 and not mostrar_modal %}
         <div class="modal-custom">
             <div class="modal-content-custom">
-                <h2>Selecciona el plan personalizado</h2>
+                <h2>Selecciona El personalizado o SubPlan</h2>
                 <form method="POST">
                     {% csrf_token %}
                     <input type="hidden" name="rut" value="{{ cliente.rut }}">
