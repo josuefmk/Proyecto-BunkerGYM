@@ -5,7 +5,7 @@ from dateutil.relativedelta import relativedelta
 from datetime import timedelta,datetime, time
 from django.utils import timezone
 from django.db.models import Sum
-
+from django.db.models import Q, UniqueConstraint
 SUB_PLANES = [
         ('Bronce', 'Bronce (4 Accesos)'),
         ('Hierro', 'Hierro (8 Accesos)'),
@@ -509,6 +509,7 @@ class ClienteExterno(models.Model):
 
 
 
+
 class AgendaProfesional(models.Model):
     BOX_CHOICES = [
         ('Box 1', 'Box 1 - Kinesiología'),
@@ -530,14 +531,33 @@ class AgendaProfesional(models.Model):
 
     class Meta:
         ordering = ['fecha', 'hora_inicio']
-        unique_together = ('box', 'fecha', 'hora_inicio')
+  
 
     def __str__(self):
         return f"{self.box} - {self.profesional.nombre} {self.profesional.apellido} ({self.fecha} {self.hora_inicio})"
 
+    def save(self, *args, **kwargs):
+        profesion = getattr(self.profesional, 'profesion', '').strip().lower()
+
+
+        if profesion in ['kinesiólogo', 'kinesiologo', 'nutricionista']:
+            existe = AgendaProfesional.objects.filter(
+                box=self.box,
+                fecha=self.fecha,
+                hora_inicio=self.hora_inicio
+            ).exclude(id=self.id).exists()
+
+            if existe:
+                raise ValueError(
+                    f"El {self.box} ya está ocupado en esa fecha y hora ({self.fecha} {self.hora_inicio})."
+                )
+
+        super().save(*args, **kwargs)
+
     def crear_sesion_si_corresponde(self):
         if not self.disponible and (self.cliente or self.cliente_externo):
             tipo = 'nutricional' if self.box == 'Box 1' else 'kinesiologia'
+
             Sesion.objects.create(
                 cliente=self.cliente,
                 cliente_externo=self.cliente_externo,
@@ -546,9 +566,7 @@ class AgendaProfesional(models.Model):
                 profesional=self.profesional
             )
 
-
     def registrar_accion(self, accion, admin=None):
-    
         descripcion = f"{accion.capitalize()} agenda: {self.box} {self.fecha} {self.hora_inicio}-{self.hora_fin}"
         HistorialAccion.objects.create(
             admin=admin,
