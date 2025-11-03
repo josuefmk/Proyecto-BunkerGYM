@@ -483,10 +483,10 @@ def asistencia_cliente(request):
             if tipo_mensualidad in ["AM ESTUDIANTE", "AM NORMAL", "AM ADULTO MAYOR"]:
                 ahora = timezone.localtime().time()
                 inicio = time(6, 30)
-                fin = time(12, 30)
+                fin = time(13, 00)
                 if not (inicio <= ahora <= fin):
                     contexto["mensaje_error"] = (
-                        "El ingreso de asistencia para su plan solo está permitido entre las 6:30 AM y las 12:30 PM."
+                        "El ingreso de asistencia para su plan solo está permitido entre las 6:30 AM y las 13:30 PM."
                     )
                     contexto["cliente"] = cliente
                     return render(request, "core/AsistenciaCliente.html", contexto)
