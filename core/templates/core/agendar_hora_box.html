@@ -76,7 +76,7 @@ h2 {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
 }
 
-/* Barra superior */
+''
 .fc-toolbar-title {
   font-size: 1.5rem !important;
   font-weight: 600;
@@ -98,7 +98,6 @@ h2 {
   background-color: #000000 !important;
 }
 
-/* Modal */
 .modal-header {
   background-color: #000000;
   color: white;
@@ -145,6 +144,30 @@ h2 {
 .btn-outline-secondary:hover {
   background-color: #f1f1f1;
 }
+
+.fc-event-title,
+.fc-event-time {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  word-break: break-word !important;
+  line-height: 1.2 !important;
+}
+
+.fc-event-main {
+  white-space: normal !important;
+  overflow: visible !important;
+}
+
+.fc-timegrid-event-harness {
+  overflow: visible !important;
+}
+
+.fc-timegrid-event {
+  min-height: 60px !important;
+  padding: 4px 6px !important;
+}
+
 </style>
 
 <div class="container-fluid py-4">
@@ -169,7 +192,11 @@ h2 {
     <div class="legend-item"><div class="legend-color" style="background:#1E90FF"></div> Box 1</div>
     <div class="legend-item"><div class="legend-color" style="background:#28a745"></div> Box 2</div>
     <div class="legend-item"><div class="legend-color" style="background:#dc3545"></div> Reservado</div>
+    {% elif usuario_profesion == 'Masajista' %}
+  <div class="legend-item"><div class="legend-color" style="background:#1E90FF"></div> Box 1</div>
+  <div class="legend-item"><div class="legend-color" style="background:#dc3545"></div> Reservado</div>
   {% endif %}
+
 </div>
 
 <div class="d-flex justify-content-end mb-3 px-5">
@@ -223,11 +250,12 @@ h2 {
           <label class="form-label">Box</label>
           <select id="box" class="form-select">
             {% if profesional %}
-              {% if profesional.profesion == 'Kinesiologo' %}
-                <option value="Box 2">Box 2</option>
-              {% elif profesional.profesion == 'Nutricionista' %}
-                <option value="Box 1">Box 1</option>
-              {% endif %}
+             {% if profesional.profesion == 'Kinesiologo' %}
+            <option value="Box 2">Box 2</option>
+          {% elif profesional.profesion in 'Nutricionista' or profesional.profesion == 'Masajista' %}
+            <option value="Box 1">Box 1</option>
+          {% endif %}
+
             {% else %}
               <option value="Box 1">Box 1</option>
               <option value="Box 2">Box 2</option>

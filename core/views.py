@@ -91,7 +91,7 @@ def role_required(allowed_roles):
             if user_role not in allowed_roles:
                 if user_role == 'Administrador':
                     return redirect('index')
-                elif user_role in ['Kinesiologo', 'Nutricionista']:
+                elif user_role in ['Kinesiologo', 'Nutricionista', 'Masajista']:
                     return redirect('agendar_hora_box')
                 elif user_role == 'Coach':
                     return redirect('agenda_pf')
@@ -127,7 +127,7 @@ def login_admin(request):
         # Redirigir según rol
         if admin.profesion == 'Administrador':
             return redirect('index')
-        elif admin.profesion in ['Kinesiologo', 'Nutricionista']:
+        elif admin.profesion in ['Kinesiologo', 'Nutricionista', 'Masajista']:
             return redirect('agendar_hora_box')
         elif admin.profesion == 'Coach':
             return redirect('agenda_pf')
@@ -1607,7 +1607,7 @@ def dashboard(request):
 @role_required(['Administrador'])
 @never_cache
 def asistencia_kine_nutri(request):
-    # --- Registrar asistencia (AJAX) ---
+  
     if request.method == "POST" and request.headers.get("x-requested-with", "").lower() == "xmlhttprequest":
         cliente_id = request.POST.get("cliente_id")
         tipo_sesion = request.POST.get("tipo_sesion")
@@ -1704,7 +1704,8 @@ def registrar_cliente_externo(request):
 
 
 
-@role_required(['Kinesiologo', 'Nutricionista', 'Administrador'])
+@role_required(['Kinesiologo', 'Nutricionista', 'Masajista', 'Administrador'])
+@never_cache
 def agendar_hora_box(request):
     usuario = getattr(request, 'user_obj', None)
     if not usuario:
@@ -1720,13 +1721,13 @@ def agendar_hora_box(request):
         profesion=profesion
     ).first()
 
-    # === LISTAR EVENTOS ===
+
     if request.path.endswith('/listar/'):
         eventos = []
 
         if profesion == 'Administrador':
             sesiones = AgendaProfesional.objects.all()
-        elif profesion == 'Nutricionista':
+        elif profesion in ['Nutricionista', 'Masajista']:
             sesiones = AgendaProfesional.objects.filter(box='Box 1')
         elif profesion == 'Kinesiologo':
             sesiones = AgendaProfesional.objects.filter(box='Box 2')
@@ -1741,6 +1742,8 @@ def agendar_hora_box(request):
                 title = f"{s.box} - {'Disponible' if s.disponible else f'Ocupado por {s.profesional.nombre}'}"
                 color = '#1E90FF' if s.box == 'Box 1' else '#28a745'
 
+            puede_editar = profesion == 'Administrador' or s.profesional == profesional
+
             eventos.append({
                 'id': s.id,
                 'title': title,
@@ -1749,11 +1752,11 @@ def agendar_hora_box(request):
                 'disponible': s.disponible,
                 'profesional_id': s.profesional.id,
                 'box': s.box,
-                'backgroundColor': color
+                'backgroundColor': color,
+                'extendedProps': {'puede_editar': puede_editar}
             })
         return JsonResponse(eventos, safe=False)
-
-    # === CREAR BLOQUE ===
+    #  CREAR BLOQUE 
     if request.method == 'POST':
         try:
             fecha = request.POST.get('fecha')
@@ -1762,13 +1765,14 @@ def agendar_hora_box(request):
             box = request.POST.get('box')
             profesional_id = request.POST.get('profesional_id')
 
-            # Validaciones de profesión y box
             if profesion == 'Nutricionista' and box != 'Box 1':
                 return JsonResponse({'error': 'Los nutricionistas solo pueden crear en Box 1.'}, status=403)
+            if profesion == 'Masajista' and box != 'Box 1':
+                return JsonResponse({'error': 'Los masajistas solo pueden crear en Box 1.'}, status=403)
             if profesion == 'Kinesiologo' and box != 'Box 2':
                 return JsonResponse({'error': 'Los kinesiólogos solo pueden crear en Box 2.'}, status=403)
 
-            # Solo admin puede elegir profesional
+            
             if profesion == 'Administrador' and profesional_id:
                 profesional = NombresProfesionales.objects.filter(id=profesional_id).first()
             elif not profesional:
@@ -1778,7 +1782,6 @@ def agendar_hora_box(request):
             hora_inicio_obj = datetime.strptime(hora_inicio, '%H:%M').time()
             hora_fin_obj = datetime.strptime(hora_fin, '%H:%M').time()
 
-            # Verificar si ya existe un bloque en ese box/fecha/hora
             existe_bloque = AgendaProfesional.objects.filter(
                 box=box,
                 fecha=fecha_dt,
@@ -1786,11 +1789,8 @@ def agendar_hora_box(request):
             ).exists()
 
             if existe_bloque:
-                return JsonResponse({
-                    'error': f'Ya existe un bloque en {box} a las {hora_inicio}. Por favor, elige otro horario.'
-                }, status=400)
+                return JsonResponse({'error': f'Ya existe un bloque en {box} a las {hora_inicio}.'}, status=400)
 
-            # Crear el bloque si no hay conflicto
             AgendaProfesional.objects.create(
                 profesional=profesional,
                 fecha=fecha_dt,
@@ -1803,20 +1803,17 @@ def agendar_hora_box(request):
             return JsonResponse({'mensaje': f'Bloque creado correctamente en {box}.'})
 
         except IntegrityError:
-            return JsonResponse({
-                'error': 'Ya existe un bloque en ese horario y box. Intenta con otro horario.'
-            }, status=400)
+            return JsonResponse({'error': 'Bloque duplicado. Intenta con otro horario.'}, status=400)
         except Exception as e:
             return JsonResponse({'error': f'Error inesperado: {str(e)}'}, status=500)
 
-    # === ELIMINAR BLOQUE ===
+    #  ELIMINAR BLOQUE 
     if '/eliminar/' in request.path:
         bloque_id = request.path.split('/')[-2]
         bloque = AgendaProfesional.objects.filter(id=bloque_id).first()
         if not bloque:
             return JsonResponse({'error': 'Bloque no encontrado.'}, status=404)
 
-        # Solo admin o el dueño puede eliminar
         if profesion != 'Administrador' and bloque.profesional != profesional:
             return JsonResponse({'error': 'No puedes eliminar bloques de otro profesional.'}, status=403)
 
@@ -1832,7 +1829,7 @@ def agendar_hora_box(request):
 
 
 @safe_view
-@role_required(['Kinesiologo', 'Nutricionista', 'Administrador'])
+@role_required(['Kinesiologo', 'Nutricionista', 'Masajista', 'Administrador'])
 @csrf_exempt
 def listar_agendas(request):
     admin_id = request.session.get('admin_id')
@@ -1841,26 +1838,23 @@ def listar_agendas(request):
     profesional = NombresProfesionales.objects.filter(
         Q(nombre__icontains=admin.nombre.strip()) &
         Q(apellido__icontains=admin.apellido.strip()) &
-        Q(profesion__in=['Kinesiologo', 'Nutricionista'])
+        Q(profesion__in=['Kinesiologo', 'Nutricionista', 'Masajista'])
     ).first()
 
-    # Mostrar todo a administradores y profesionales, pero solo Kine/Nutri
     if admin.profesion == 'Administrador':
-        agendas = AgendaProfesional.objects.filter(profesional__profesion__in=['Kinesiologo', 'Nutricionista'])
-    elif admin.profesion in ['Kinesiologo', 'Nutricionista']:
-        agendas = AgendaProfesional.objects.filter(profesional__profesion__in=['Kinesiologo', 'Nutricionista'])
+        agendas = AgendaProfesional.objects.filter(profesional__profesion__in=['Kinesiologo', 'Nutricionista', 'Masajista'])
+    elif admin.profesion in ['Kinesiologo', 'Nutricionista', 'Masajista']:
+        agendas = AgendaProfesional.objects.filter(profesional__profesion__in=['Kinesiologo', 'Nutricionista', 'Masajista'])
     else:
         return JsonResponse({'error': 'No autorizado'}, status=403)
 
-    # Filtro por box según profesión
-    if admin.profesion == 'Nutricionista':
+    if admin.profesion in ['Nutricionista', 'Masajista']:
         agendas = agendas.filter(box='Box 1')
     elif admin.profesion == 'Kinesiologo':
         agendas = agendas.filter(box='Box 2')
 
     eventos = []
     for a in agendas:
-     
         if a.profesional == profesional:
             titulo = f"{a.box} - {'Disponible' if a.disponible else 'Tu bloque'}"
             color = '#87CEFA'
@@ -1876,7 +1870,7 @@ def listar_agendas(request):
             'start': f"{a.fecha}T{a.hora_inicio.strftime('%H:%M:%S')}",
             'end': f"{a.fecha}T{a.hora_fin.strftime('%H:%M:%S')}",
             'color': color,
-            'editable': puede_editar,  
+            'editable': puede_editar,
             'extendedProps': {
                 'disponible': a.disponible,
                 'fecha': str(a.fecha),
@@ -1890,20 +1884,19 @@ def listar_agendas(request):
 
 
 @safe_view
-@role_required(['Kinesiologo', 'Nutricionista', 'Administrador'])
+@role_required(['Kinesiologo', 'Nutricionista', 'Masajista', 'Administrador'])
 @csrf_exempt
 def cambiar_estado_agenda(request, agenda_id):
     agenda = get_object_or_404(AgendaProfesional, id=agenda_id)
 
     admin_id = request.session.get('admin_id')
     admin = Admin.objects.filter(id=admin_id).first()
-    profesional = None
 
-    if admin:
-        profesional = NombresProfesionales.objects.filter(
-            nombre__iexact=admin.nombre.strip(),
-            apellido__iexact=admin.apellido.strip()
-        ).first()
+    profesional = NombresProfesionales.objects.filter(
+        nombre__iexact=admin.nombre.strip(),
+        apellido__iexact=admin.apellido.strip(),
+        profesion=admin.profesion
+    ).first()
 
     if profesional and agenda.profesional != profesional and admin.profesion != 'Administrador':
         return JsonResponse({'error': 'No autorizado para modificar esta agenda.'}, status=403)
@@ -1933,24 +1926,26 @@ def cambiar_estado_agenda(request, agenda_id):
 
 
 @safe_view
-@role_required(['Kinesiologo', 'Nutricionista', 'Administrador'])
+@role_required(['Kinesiologo', 'Nutricionista', 'Masajista', 'Administrador'])
 @csrf_exempt
 def eliminar_agenda(request, agenda_id):
     agenda = get_object_or_404(AgendaProfesional, id=agenda_id)
+
     admin_id = request.session.get('admin_id')
     admin = Admin.objects.filter(id=admin_id).first()
 
-    if agenda.profesional != NombresProfesionales.objects.filter(
+    profesional = NombresProfesionales.objects.filter(
         nombre__iexact=admin.nombre.strip(),
-        apellido__iexact=admin.apellido.strip()
-    ).first() and admin.profesion != 'Administrador':
+        apellido__iexact=admin.apellido.strip(),
+        profesion=admin.profesion
+    ).first()
+
+    if agenda.profesional != profesional and admin.profesion != 'Administrador':
         return JsonResponse({'error': 'No autorizado para eliminar esta agenda.'}, status=403)
 
     agenda.registrar_accion('eliminar', admin=admin)
     agenda.delete()
     return JsonResponse({'status': 'ok', 'mensaje': 'Bloque eliminado correctamente.'})
-
-
 
 
 
