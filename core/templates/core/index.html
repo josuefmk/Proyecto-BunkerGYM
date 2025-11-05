@@ -19,8 +19,9 @@
             <button class="btn-index">✔️ Asistencia Clientes</button>
         </a>
             <a href="{% url 'asistencia_kine_nutri' %}">
-        <button class="btn-index">🩺 Asistencia Kinesiología & Nutriciónista</button>
-               <a href="{% url 'listaCliente' %}">
+        <button class="btn-index">🩺 Asistencia Con Profesionales</button>
+             
+        <a href="{% url 'listaCliente' %}">
         <button class="btn-index">
             📆 Ingresos del Día — {% now "l" as dia %}{{ dia|capfirst }}
         </button>

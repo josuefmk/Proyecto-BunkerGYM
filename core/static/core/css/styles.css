@@ -1411,6 +1411,13 @@ main.contenido.historia-cliente {
     background-color: #3498db;
 }
 
+.asistencia-btn-masaje {
+    background-color: #ff0000;
+}
+
+.asistencia-btn-masaje:hover {
+    background-color: #e01010e7;
+}
 
 .asistencia-registrado {
     background-color: #dff0d8 !important;

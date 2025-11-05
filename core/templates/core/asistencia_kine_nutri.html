@@ -21,6 +21,7 @@
                         <th>Cliente</th>
                         <th>Nutrición</th>
                         <th>Kinesiología</th>
+                        <th>Masajista</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -44,6 +45,13 @@
                                 data-nombre="{{ cliente.nombre }} {{ cliente.apellido }}"
                                 data-tipo="kinesiologia"
                                 data-tipo-objeto="{{ cliente.tipo_objeto }}">🏃‍♂️ Kinesiología</button>
+                        </td>                 
+                        <td>
+                            <button class="asistencia-btn asistencia-btn-masaje registrar"
+                                data-id="{{ cliente.id }}"
+                                data-nombre="{{ cliente.nombre }} {{ cliente.apellido }}"
+                                data-tipo="masajista" 
+                                data-tipo-objeto="{{ cliente.tipo_objeto }}">💆 Masajista</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -110,11 +118,13 @@
 
 {{ nutricionistas|json_script:"nutricionistas-data" }}
 {{ kinesiologos|json_script:"kinesiologos-data" }}
+{{ masajistas|json_script:"masajistas-data" }}
 
 <script>
 const csrfToken = "{{ csrf_token }}";
 const nutricionistas = JSON.parse(document.getElementById('nutricionistas-data').textContent);
 const kinesiologos = JSON.parse(document.getElementById('kinesiologos-data').textContent);
+const masajistas = JSON.parse(document.getElementById('masajistas-data').textContent);
 
 const modal = document.getElementById('asistencia-modal');
 const modalText = document.getElementById('asistencia-modal-text');
@@ -142,10 +152,20 @@ document.querySelectorAll('.registrar').forEach(btn => {
         tipoObjetoGlobal = this.dataset.tipoObjeto;
         const nombreCliente = this.dataset.nombre;
 
-        modalText.textContent = `¿Confirmar asistencia de ${nombreCliente} a ${tipoSesionGlobal === 'nutricional' ? 'Nutrición' : 'Kinesiología'}?`;
+  
+        let tipoTexto = "";
+        if (tipoSesionGlobal === "nutricional") tipoTexto = "Nutrición";
+        else if (tipoSesionGlobal === "kinesiologia") tipoTexto = "Kinesiología";
+        else if (tipoSesionGlobal === "masajista") tipoTexto = "Masajista";
 
+        modalText.textContent = `¿Confirmar asistencia de ${nombreCliente} a ${tipoTexto}?`;
+
+      
         profesionalSelect.innerHTML = '<option value="">Seleccione un profesional...</option>';
-        const lista = tipoSesionGlobal === "nutricional" ? nutricionistas : kinesiologos;
+        let lista = [];
+        if (tipoSesionGlobal === "nutricional") lista = nutricionistas;
+        else if (tipoSesionGlobal === "kinesiologia") lista = kinesiologos;
+        else if (tipoSesionGlobal === "masajista") lista = masajistas;
         lista.forEach(p => profesionalSelect.innerHTML += `<option value="${p.id}">${p.nombre} ${p.apellido}</option>`);
 
         profesionalSelectContainer.style.display = 'block';
@@ -153,7 +173,6 @@ document.querySelectorAll('.registrar').forEach(btn => {
         modal.style.display = 'block';
     });
 });
-
 profesionalSelect.addEventListener('change', () => {
     profesionalIdGlobal = profesionalSelect.value;
     btnConfirm.disabled = !profesionalIdGlobal;

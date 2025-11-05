@@ -1151,6 +1151,7 @@ def renovar_plan_personalizado(request):
             messages.error(request, "Cliente no encontrado.")
             return redirect('renovarCliente')
 
+        # Verificar que tenga al menos un plan personalizado
         if not cliente.planes_personalizados.exists():
             messages.error(request, "El cliente no tiene un plan personalizado asignado.")
             return redirect('renovarCliente')
@@ -1158,7 +1159,7 @@ def renovar_plan_personalizado(request):
         hoy = timezone.localdate()
         plan = cliente.planes_personalizados.first()
 
-        #  Reiniciar accesos personalizados
+        # Renovar solo accesos personalizados, sin tocar fechas
         if plan.accesos_por_mes > 0:
             cliente.accesos_personalizados_restantes = plan.accesos_por_mes
             cliente.accesos_restantes = plan.accesos_por_mes
@@ -1167,18 +1168,15 @@ def renovar_plan_personalizado(request):
             cliente.accesos_personalizados_restantes = float('inf')
             cliente.accesos_restantes = float('inf')
 
-   
-        cliente.fecha_inicio_plan = hoy
-        cliente.fecha_fin_plan = hoy + timedelta(days=30)
+        # Guardar solo los campos relevantes
         cliente.ultimo_reset_mes = hoy
         cliente.save(update_fields=[
             'accesos_personalizados_restantes',
             'accesos_restantes',
-            'fecha_inicio_plan',
-            'fecha_fin_plan',
             'ultimo_reset_mes'
         ])
 
+        # Registrar acción en historial
         registrar_historial(
             request.user_obj,
             "renovar",
@@ -1187,9 +1185,14 @@ def renovar_plan_personalizado(request):
             f"Renovó plan personalizado '{plan.nombre_plan}' para {cliente.nombre} {cliente.apellido}"
         )
 
-        messages.success(request, f"✅ Plan personalizado '{plan.nombre_plan}' renovado para {cliente.nombre} {cliente.apellido}")
+        messages.success(
+            request,
+            f"✅ Plan personalizado '{plan.nombre_plan}' renovado para {cliente.nombre} {cliente.apellido}."
+        )
+
         return redirect('renovarCliente')
 
+    # Si no es POST, redirigir
     return redirect('renovarCliente')
 
 
@@ -1600,10 +1603,11 @@ def dashboard(request):
 
     return render(request, "core/dashboard.html", context)
 
+
 @role_required(['Administrador'])
 @never_cache
 def asistencia_kine_nutri(request):
-
+    # --- Registrar asistencia (AJAX) ---
     if request.method == "POST" and request.headers.get("x-requested-with", "").lower() == "xmlhttprequest":
         cliente_id = request.POST.get("cliente_id")
         tipo_sesion = request.POST.get("tipo_sesion")
@@ -1646,7 +1650,7 @@ def asistencia_kine_nutri(request):
         except Exception as e:
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-
+    # --- Renderizar página ---
     clientes_internos = list(
         Cliente.objects.filter(tipo_publico__isnull=False)
         .exclude(tipo_publico__icontains="Pase Diario")
@@ -1660,21 +1664,24 @@ def asistencia_kine_nutri(request):
 
     clientes = sorted(clientes_internos + clientes_externos, key=lambda c: c.nombre.lower())
 
-    nutricionistas_qs = NombresProfesionales.objects.filter(profesion__icontains="Nutricionista")
-    kinesiologos_qs = NombresProfesionales.objects.filter(profesion__icontains="Kinesiologo")
 
-    nutricionistas = list(nutricionistas_qs.values('id', 'nombre', 'apellido'))
-    kinesiologos = list(kinesiologos_qs.values('id', 'nombre', 'apellido'))
+    nutricionistas_qs = NombresProfesionales.objects.filter(profesion__icontains="nutricion")
+    kinesiologos_qs = NombresProfesionales.objects.filter(profesion__icontains="kine")
+    masajistas_qs = NombresProfesionales.objects.filter(profesion__icontains="masaj")
 
-    sesiones = Sesion.objects.order_by("-fecha")[:10]
+    nutricionistas = list(nutricionistas_qs.values("id", "nombre", "apellido"))
+    kinesiologos = list(kinesiologos_qs.values("id", "nombre", "apellido"))
+    masajistas = list(masajistas_qs.values("id", "nombre", "apellido"))
+
+    sesiones = Sesion.objects.select_related("profesional").order_by("-fecha")[:20]
 
     return render(request, "core/asistencia_kine_nutri.html", {
         "clientes": clientes,
         "sesiones": sesiones,
         "nutricionistas": nutricionistas,
         "kinesiologos": kinesiologos,
+        "masajistas": masajistas,
     })
-
 
 
 
@@ -1771,7 +1778,7 @@ def agendar_hora_box(request):
             hora_inicio_obj = datetime.strptime(hora_inicio, '%H:%M').time()
             hora_fin_obj = datetime.strptime(hora_fin, '%H:%M').time()
 
-            # ✅ Verificar si ya existe un bloque en ese box/fecha/hora
+            # Verificar si ya existe un bloque en ese box/fecha/hora
             existe_bloque = AgendaProfesional.objects.filter(
                 box=box,
                 fecha=fecha_dt,

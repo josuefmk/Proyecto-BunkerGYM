@@ -96,6 +96,7 @@ class Sesion(models.Model):
     TIPO_SESION = [
         ('nutricional', 'Asistió Sesión Nutricional'),
         ('kinesiologia', 'Asistió Sesión Kinesiología'),
+        ('masajista', 'Asistió Sesión Masajista'),
     ]
 
     # Cliente interno
@@ -482,7 +483,8 @@ class NombresProfesionales(models.Model):
             NombreProfesion = [
             ('Kinesiologo', 'Kinesiologo'),
             ('Nutricionista', 'Nutricionista'),
-            ('Coach', 'Coach')
+            ('Coach', 'Coach'),
+            ('Masajista', 'Masajista')
         ]
             nombre = models.CharField(max_length=50)
             apellido = models.CharField(max_length=50)
@@ -499,6 +501,7 @@ class ClienteExterno(models.Model):
                 choices=[
                     ('Kinesiología', 'Kinesiología'),
                     ('Nutrición', 'Nutrición'),
+                    ('Masajista', 'Masajista'),
                     ('Ambos', 'Ambos'),
                 ]
             )
