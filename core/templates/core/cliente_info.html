@@ -7,7 +7,9 @@
     <p><strong>Teléfono:</strong> {{ cliente.telefono }}</p>
     <p><strong>Plan Actual:</strong> {{ cliente.mensualidad }} {{ cliente.sub_plan }}</p>
     <p><strong>Días Restantes:</strong> {{ cliente.dias_restantes }}</p>
-
+{% if fecha_fin_plan %}
+    <p><strong>Fecha de Fin del Plan:</strong> {{ fecha_fin_plan|date:"d/m/Y" }}</p>
+{% endif %}
     <h3>Accesos del Cliente</h3>
 
     <!-- Subplan -->

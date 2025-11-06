@@ -870,6 +870,7 @@ def historial_cliente(request):
     except (TypeError, ValueError):
         month = now.month
 
+    # Localización de nombres de meses
     try:
         locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
     except locale.Error:
@@ -886,7 +887,7 @@ def historial_cliente(request):
         'Bronce': 4,
         'Hierro': 8,
         'Acero': 12,
-        'Titanio': None,  # None representa acceso libre
+        'Titanio': None,  
     }
 
     first_weekday, num_days = calendar.monthrange(year, month)
@@ -898,6 +899,7 @@ def historial_cliente(request):
     restantes_personalizado = 0
     total_accesos_permitidos = 0
     accesos_restantes = 0
+    fecha_fin_plan = None 
 
     if rut:
         try:
@@ -905,6 +907,7 @@ def historial_cliente(request):
             inicio_mes = datetime(year, month, 1).date()
             fin_mes = datetime(year, month, num_days).date()
 
+            #  Asistencias 
             asistencias = Asistencia.objects.filter(
                 cliente=cliente,
                 fecha__gte=inicio_mes,
@@ -918,6 +921,7 @@ def historial_cliente(request):
                 asistencias_temp[dia].append(hora)
             asistencias_dict = dict(asistencias_temp)
 
+            #  Sesiones 
             sesiones = Sesion.objects.filter(
                 cliente=cliente,
                 fecha__gte=inicio_mes,
@@ -931,16 +935,18 @@ def historial_cliente(request):
                 sesiones_temp[dia].append(tipo)
             sesiones_dict = dict(sesiones_temp)
 
-            # --- Subplan ---
+            # subplan 
             total_subplan = ACCESOS_POR_SUBPLAN.get(cliente.sub_plan, 0)
             restantes_subplan = cliente.accesos_subplan_restantes or 0
 
-            # --- Plan personalizado ---
+            fecha_fin_plan = getattr(cliente, 'fecha_fin_plan', None)
+
+            #  Plan personalizado 
             if cliente.plan_personalizado_activo:
                 total_personalizado = cliente.plan_personalizado_activo.accesos_por_mes or 0
                 restantes_personalizado = cliente.accesos_personalizados_restantes or 0
 
-            # --- Totales combinados ---
+            # Totales combinados
             if cliente.sub_plan == "Titanio":
                 total_accesos_permitidos = None  # acceso libre
                 accesos_restantes = None
@@ -967,6 +973,7 @@ def historial_cliente(request):
         'restantes_personalizado': restantes_personalizado,
         'total_accesos_permitidos': total_accesos_permitidos,
         'accesos_restantes': accesos_restantes,
+        'fecha_fin_plan': fecha_fin_plan,  
     }
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
@@ -983,6 +990,7 @@ def historial_cliente(request):
         })
 
     return render(request, 'core/historial_cliente.html', context)
+
 
 
 @role_required(['Administrador'])
