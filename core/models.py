@@ -288,6 +288,7 @@ class Cliente(models.Model):
         hoy = timezone.localdate()
         tolerancia_vencido = 1
 
+        # Duración base del plan
         dias_total = 30
         if self.mensualidad:
             key = self.mensualidad.duracion.strip().lower()
@@ -296,47 +297,54 @@ class Cliente(models.Model):
             else:
                 dias_total = self.duraciones_a_dias.get(key, 30)
 
+        # === Determinar si se extiende o reinicia ===
         if (
             self.fecha_fin_plan
             and (self.fecha_fin_plan + timedelta(days=tolerancia_vencido)) >= hoy
             and not forzar
         ):
-            # Extiende plan
+            #  Extiende plan activo (no vencido)
             self.fecha_inicio_plan = self.fecha_inicio_plan or hoy
             self.fecha_fin_plan = self.fecha_fin_plan + timedelta(days=dias_total + dias_extra)
             tipo_accion = "extensión"
         else:
-            # Reinicia plan completamente
+            #  Reinicia plan vencido o forzado
             fecha_activacion = fecha_activacion or hoy
             self.fecha_inicio_plan = fecha_activacion
             self.fecha_fin_plan = fecha_activacion + timedelta(days=dias_total + dias_extra)
             tipo_accion = "reinicio"
 
+        # === Asignar accesos según subplan o plan personalizado ===
         if self.sub_plan:
-            accesos_dict = {'Bronce': 4, 'Hierro': 8, 'Acero': 12, 'Titanio': 0}
+            accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12, "Titanio": 0}
             nuevos_accesos = accesos_dict.get(self.sub_plan, 0)
 
             if self.sub_plan == "Titanio":
+                # Titanio tiene acceso ilimitado
                 self.accesos_subplan_restantes = float("inf")
             else:
                 if tipo_accion == "extensión" and not forzar:
+                    # 🔁 Sumar accesos (acumulación)
                     self.accesos_subplan_restantes = (self.accesos_subplan_restantes or 0) + nuevos_accesos
                 else:
+                    # ♻️ Reinicio: nuevo ciclo con accesos frescos
                     self.accesos_subplan_restantes = nuevos_accesos
 
-            # Reseteamos accesos personalizados si corresponde
+            # Reiniciar personalizados
             self.accesos_personalizados_restantes = 0
 
         elif self.plan_personalizado_activo:
+            # Plan personalizado
             self.accesos_personalizados_restantes = self.plan_personalizado_activo.accesos_por_mes
-            # Reseteamos accesos subplan
             self.accesos_subplan_restantes = 0
 
-        # Actualizar campo legacy para compatibilidad, si quieres
-        self.accesos_restantes = max(self.accesos_subplan_restantes, self.accesos_personalizados_restantes)
+        # === Actualizar campo general de accesos ===
+        self.accesos_restantes = max(self.accesos_subplan_restantes or 0, self.accesos_personalizados_restantes or 0)
 
-        # Asigna precio actualizado
+        # === Asignar precio actualizado ===
         self.asignar_precio()
+
+        # === Guardar cambios ===
         super().save()
 
         return tipo_accion

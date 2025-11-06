@@ -352,8 +352,7 @@ def asistencia_cliente(request):
             if not cliente.fecha_inicio_plan or cliente.fecha_inicio_plan > hoy:
                 cliente.activar_plan(fecha_activacion=hoy, forzar=True)
 
-        
-        # Reinicio mensual automático con acumulación de accesos
+        # === Reinicio mensual automático con acumulación de accesos ===
         if (
             cliente.sub_plan in ["Bronce", "Hierro", "Acero"]
             and cliente.mensualidad
@@ -369,7 +368,7 @@ def asistencia_cliente(request):
 
                 cliente.ultimo_reset_mes = hoy
                 cliente.save(update_fields=["accesos_subplan_restantes", "ultimo_reset_mes"])
-    
+
         # === Manejo de planes personalizados ===
         if cliente.planes_personalizados.exists():
             if cliente.planes_personalizados.count() > 1 and not confirmar:
@@ -401,14 +400,12 @@ def asistencia_cliente(request):
         accesos_restantes_subplan = None
         tipo_asistencia = None
 
-        # === Calcular tipo de asistencia y accesos ===
+        # === Calcular tipo de asistencia y accesos personalizados ===
         if plan_activo:
             if plan_libre or plan_full:
-                # Plan Libre o Libre Semi → siempre usar subplan
                 tipo_asistencia = "subplan"
-                accesos_restantes_personalizado = float("inf") 
+                accesos_restantes_personalizado = float("inf")
             else:
-                # Plan personalizado normal
                 fecha_inicio_conteo = cliente.ultimo_reset_mes or cliente.fecha_inicio_plan
                 usados_mes_personalizado = Asistencia.objects.filter(
                     cliente=cliente,
@@ -418,7 +415,7 @@ def asistencia_cliente(request):
                 accesos_restantes_personalizado = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
                 tipo_asistencia = "plan_personalizado"
 
-        # === Calcular accesos de subplan ===
+        # === Calcular accesos de subplan (FIX DEFINITIVO) ===
         if cliente.sub_plan and not tipo_asistencia:
             if cliente.sub_plan == "Titanio" or (
                 cliente.mensualidad and cliente.mensualidad.tipo == "Gratis + Plan Mensual"
@@ -427,31 +424,39 @@ def asistencia_cliente(request):
             else:
                 accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
                 accesos_totales = accesos_dict.get(cliente.sub_plan, 0)
+                hoy = timezone.localdate()
 
-                usados_subplan = Asistencia.objects.filter(
-                    cliente=cliente,
-                    fecha__gte=cliente.fecha_inicio_plan,
-                    fecha__lte=cliente.fecha_fin_plan,
-                    tipo_asistencia="subplan"
-                ).count()
+                if (
+                    cliente.fecha_inicio_plan == hoy
+                    or (cliente.accesos_subplan_restantes and cliente.accesos_subplan_restantes > 0)
+                ):
+                    accesos_restantes_subplan = cliente.accesos_subplan_restantes
+                else:
+                    usados_subplan = Asistencia.objects.filter(
+                        cliente=cliente,
+                        fecha__gte=cliente.fecha_inicio_plan,
+                        fecha__lte=cliente.fecha_fin_plan,
+                        tipo_asistencia="subplan"
+                    ).count()
+                    accesos_restantes_subplan = max(accesos_totales - usados_subplan, 0)
 
-                accesos_restantes_subplan = max(accesos_totales - usados_subplan, 0)
+                tipo_asistencia = "subplan"
 
-            tipo_asistencia = "subplan"
+            # === Guardar accesos restantes ===
+            if tipo_asistencia == "plan_personalizado" and accesos_restantes_personalizado is not None:
+                cliente.accesos_personalizados_restantes = accesos_restantes_personalizado
+            elif tipo_asistencia == "subplan" and accesos_restantes_subplan is not None:
+                cliente.accesos_subplan_restantes = accesos_restantes_subplan
 
-        # === Guardar accesos restantes en el cliente ===
-        if tipo_asistencia == "plan_personalizado" and accesos_restantes_personalizado is not None:
-            cliente.accesos_personalizados_restantes = accesos_restantes_personalizado
-        elif tipo_asistencia == "subplan" and accesos_restantes_subplan is not None:
-            cliente.accesos_subplan_restantes = accesos_restantes_subplan
-
-        cliente.accesos_restantes = max(
-            cliente.accesos_subplan_restantes or 0,
-            cliente.accesos_personalizados_restantes or 0
-        )
-        cliente.save(update_fields=[
-            'accesos_personalizados_restantes', 'accesos_subplan_restantes', 'accesos_restantes'
-        ])
+            cliente.accesos_restantes = max(
+                cliente.accesos_subplan_restantes or 0,
+                cliente.accesos_personalizados_restantes or 0
+            )
+            cliente.save(update_fields=[
+                "accesos_personalizados_restantes",
+                "accesos_subplan_restantes",
+                "accesos_restantes"
+            ])
 
         # === Verificar accesos disponibles ===
         accesos_disponibles = (
@@ -477,16 +482,16 @@ def asistencia_cliente(request):
             contexto["cliente"] = cliente
             return render(request, "core/AsistenciaCliente.html", contexto)
 
-        # === Validación de horario AM ===
+        # === Validar horario AM ===
         if cliente.mensualidad and cliente.mensualidad.tipo:
             tipo_mensualidad = cliente.mensualidad.tipo.strip().upper()
             if tipo_mensualidad in ["AM ESTUDIANTE", "AM NORMAL", "AM ADULTO MAYOR"]:
                 ahora = timezone.localtime().time()
                 inicio = time(6, 30)
-                fin = time(13, 00)
+                fin = time(13, 0)
                 if not (inicio <= ahora <= fin):
                     contexto["mensaje_error"] = (
-                        "El ingreso de asistencia para su plan solo está permitido entre las 6:30 AM y las 13:30 PM."
+                        "El ingreso de asistencia para su plan solo está permitido entre las 6:30 AM y las 13:00 PM."
                     )
                     contexto["cliente"] = cliente
                     return render(request, "core/AsistenciaCliente.html", contexto)
@@ -505,20 +510,18 @@ def asistencia_cliente(request):
         if tipo_asistencia == "subplan":
             if cliente.sub_plan not in ["Titanio"] and cliente.accesos_subplan_restantes > 0:
                 cliente.accesos_subplan_restantes -= 1
-
         elif tipo_asistencia == "plan_personalizado":
             if not plan_libre and not plan_full and cliente.accesos_personalizados_restantes > 0:
                 cliente.accesos_personalizados_restantes -= 1
             if cliente.sub_plan not in ["Titanio"] and cliente.accesos_subplan_restantes > 0:
                 cliente.accesos_subplan_restantes -= 1
-
         elif cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario":
             cliente.accesos_subplan_restantes = 0
             cliente.accesos_personalizados_restantes = 0
             cliente.accesos_restantes = 0
             cliente.fecha_fin_plan = hoy
 
-        # === Actualizar accesos restantes ===
+        # === Actualizar accesos finales ===
         cliente.accesos_restantes = max(
             cliente.accesos_subplan_restantes or 0,
             cliente.accesos_personalizados_restantes or 0
@@ -539,7 +542,7 @@ def asistencia_cliente(request):
             f"Registró asistencia de {cliente.nombre} {cliente.apellido}"
         )
 
-        # === Mostrar confirmación ===
+        # === Mostrar modal de confirmación ===
         sub_plan_para_modal = cliente.sub_plan
         if cliente.mensualidad and cliente.mensualidad.tipo == "Gratis + Plan Mensual":
             sub_plan_para_modal = "Titanio (por plan Gratis + Plan Mensual)"
@@ -558,7 +561,9 @@ def asistencia_cliente(request):
         return render(request, "core/AsistenciaCliente.html", contexto)
 
     # === Si es GET ===
+    contexto["cliente"] = None
     return render(request, "core/AsistenciaCliente.html", contexto)
+
 
 
 
