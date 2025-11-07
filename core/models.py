@@ -324,10 +324,10 @@ class Cliente(models.Model):
                 self.accesos_subplan_restantes = float("inf")
             else:
                 if tipo_accion == "extensión" and not forzar:
-                    # 🔁 Sumar accesos (acumulación)
+                    #  Sumar accesos (acumulación)
                     self.accesos_subplan_restantes = (self.accesos_subplan_restantes or 0) + nuevos_accesos
                 else:
-                    # ♻️ Reinicio: nuevo ciclo con accesos frescos
+                    #  Reinicio: nuevo ciclo con accesos frescos
                     self.accesos_subplan_restantes = nuevos_accesos
 
             # Reiniciar personalizados

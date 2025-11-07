@@ -352,22 +352,31 @@ def asistencia_cliente(request):
             if not cliente.fecha_inicio_plan or cliente.fecha_inicio_plan > hoy:
                 cliente.activar_plan(fecha_activacion=hoy, forzar=True)
 
-        # === Reinicio mensual automático con acumulación de accesos ===
-        if (
-            cliente.sub_plan in ["Bronce", "Hierro", "Acero"]
-            and cliente.mensualidad
-            and cliente.mensualidad.duracion.lower() in ["trimestral", "semestral", "anual"]
-        ):
-            if not cliente.ultimo_reset_mes or cliente.ultimo_reset_mes.month != hoy.month:
-                accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
-                accesos_mensuales = accesos_dict.get(cliente.sub_plan, 0)
+      
+       # === Renovación mensual en función de la fecha de inicio del plan ===
+    if (
+        cliente.sub_plan in ["Bronce", "Hierro", "Acero"]
+        and cliente.mensualidad
+        and cliente.mensualidad.duracion.lower() in ["trimestral", "semestral", "anual"]
+        and cliente.fecha_inicio_plan
+    ):
+        accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
+        accesos_mensuales = accesos_dict.get(cliente.sub_plan, 0)
 
-                # Solo acumular si el plan sigue activo
-                if cliente.estado_plan == "activo":
-                    cliente.accesos_subplan_restantes += accesos_mensuales
+        # Fecha esperada del próximo reset:
+        if cliente.ultimo_reset_mes:
+            proximo_reset = cliente.ultimo_reset_mes + relativedelta(months=1)
+        else:
+            # Si nunca se ha hecho reset, la primera fecha base es la fecha de inicio del plan
+            proximo_reset = cliente.fecha_inicio_plan + relativedelta(months=1)
 
-                cliente.ultimo_reset_mes = hoy
-                cliente.save(update_fields=["accesos_subplan_restantes", "ultimo_reset_mes"])
+        # Si hoy es el dia en que corresponde renovar
+        if hoy >= proximo_reset:
+            if cliente.estado_plan == "activo":
+                cliente.accesos_subplan_restantes += accesos_mensuales
+
+            cliente.ultimo_reset_mes = hoy
+            cliente.save(update_fields=["accesos_subplan_restantes", "ultimo_reset_mes"])
 
         # === Manejo de planes personalizados ===
         if cliente.planes_personalizados.exists():
@@ -500,7 +509,7 @@ def asistencia_cliente(request):
         if not tipo_asistencia and cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario":
             tipo_asistencia = "pase_diario"
 
-        # ⚠️ Fallback para evitar IntegrityError
+     
         if not tipo_asistencia:
             tipo_asistencia = "subplan"  # valor por defecto si nada aplica
 
