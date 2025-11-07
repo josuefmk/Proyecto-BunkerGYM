@@ -415,7 +415,7 @@ def asistencia_cliente(request):
                 accesos_restantes_personalizado = max(plan_activo.accesos_por_mes - usados_mes_personalizado, 0)
                 tipo_asistencia = "plan_personalizado"
 
-        # === Calcular accesos de subplan (FIX DEFINITIVO) ===
+        # === Calcular accesos de subplan ===
         if cliente.sub_plan and not tipo_asistencia:
             if cliente.sub_plan == "Titanio" or (
                 cliente.mensualidad and cliente.mensualidad.tipo == "Gratis + Plan Mensual"
@@ -500,6 +500,11 @@ def asistencia_cliente(request):
         if not tipo_asistencia and cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario":
             tipo_asistencia = "pase_diario"
 
+        # ⚠️ Fallback para evitar IntegrityError
+        if not tipo_asistencia:
+            tipo_asistencia = "subplan"  # valor por defecto si nada aplica
+
+        # Registro final
         Asistencia.objects.create(
             cliente=cliente,
             fecha=timezone.now(),
@@ -563,7 +568,6 @@ def asistencia_cliente(request):
     # === Si es GET ===
     contexto["cliente"] = None
     return render(request, "core/AsistenciaCliente.html", contexto)
-
 
 
 
