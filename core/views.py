@@ -1242,6 +1242,10 @@ def registrar_venta(request):
         cantidad = request.POST.get('cantidad')
         metodo_pago = request.POST.get('metodo_pago')
 
+        # Obtener admin desde sesión
+        admin_id = request.session.get('admin_id')
+        admin = Admin.objects.get(id=admin_id)
+
         try:
             cantidad = int(cantidad)
         except (ValueError, TypeError):
@@ -1268,11 +1272,12 @@ def registrar_venta(request):
             messages.error(request, "⚠️ Seleccione un método de pago válido.")
             return redirect('productos')
 
-        # Crear la venta y descontar stock (en el método save del modelo Venta)
+ 
         Venta.objects.create(
             producto=producto,
             cantidad=cantidad,
-            metodo_pago=metodo_pago
+            metodo_pago=metodo_pago,  
+            admin=admin  
         )
 
         registrar_historial(
@@ -1292,6 +1297,7 @@ def registrar_venta(request):
         request.session['producto_seleccionado'] = producto.id
 
     return redirect('productos')
+
 
 
 

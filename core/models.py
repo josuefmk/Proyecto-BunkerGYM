@@ -420,7 +420,8 @@ class Venta(models.Model):
     cantidad = models.PositiveIntegerField()
     metodo_pago = models.CharField(max_length=20, choices=METODOS_PAGO) 
     fecha = models.DateTimeField(auto_now_add=True) 
-
+    admin = models.ForeignKey(Admin, on_delete=models.SET_NULL, null=True, blank=True) 
+    
     def total_venta(self):
         return self.cantidad * self.producto.precio_venta
 

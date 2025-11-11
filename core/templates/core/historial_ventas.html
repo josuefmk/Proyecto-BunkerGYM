@@ -11,30 +11,30 @@
 
     <div class="tabla-wrapper" style="margin-top: 15px;">
       <table class="tabla-clientes">
-        <thead>
-          <tr>
-            <th>Producto</th>
-            <th>Cantidad</th>
-            <th>Método de Pago</th>
-            <th>Fecha</th>
-            <th>Hora</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for venta in ventas %}
-          <tr>
-            <td>{{ venta.producto.nombre }}</td>
-            <td>{{ venta.cantidad }}</td>
-            <td>{{ venta.metodo_pago }}</td>
-            <td>{{ venta.fecha|date:"d/m/Y" }}</td>
-            <td>{{ venta.fecha|time:"H:i" }}</td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="5" class="mensaje-centrado">No hay ventas registradas.</td>
-          </tr>
-          {% endfor %}
-        </tbody>
+                <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Cantidad</th>
+              <th>Método de Pago</th>
+              <th>Vendido por</th> 
+              <th>Fecha</th>
+              <th>Hora</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for venta in ventas %}
+            <tr>
+              <td>{{ venta.producto.nombre }}</td>
+              <td>{{ venta.cantidad }}</td>
+              <td>{{ venta.metodo_pago }}</td>
+              <td>{{ venta.admin.nombre }} {{ venta.admin.apellido }}</td> 
+              <td>{{ venta.fecha|date:"d/m/Y" }}</td>
+              <td>{{ venta.fecha|time:"H:i" }}</td>
+            </tr>
+            {% endfor %}
+</tbody>
+
       </table>
     </div>
   </div>
