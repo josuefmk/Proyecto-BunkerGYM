@@ -305,7 +305,6 @@ def activar_plan_cliente(request, cliente_id):
         'fecha_hoy': timezone.localdate()
     })
 
-
 @role_required(['Administrador'])
 @never_cache
 def asistencia_cliente(request):
@@ -352,31 +351,27 @@ def asistencia_cliente(request):
             if not cliente.fecha_inicio_plan or cliente.fecha_inicio_plan > hoy:
                 cliente.activar_plan(fecha_activacion=hoy, forzar=True)
 
-      
-       # === Renovación mensual en función de la fecha de inicio del plan ===
-    if (
-        cliente.sub_plan in ["Bronce", "Hierro", "Acero"]
-        and cliente.mensualidad
-        and cliente.mensualidad.duracion.lower() in ["trimestral", "semestral", "anual"]
-        and cliente.fecha_inicio_plan
-    ):
-        accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
-        accesos_mensuales = accesos_dict.get(cliente.sub_plan, 0)
+        # === Renovación mensual en función de la fecha de inicio del plan ===
+        if (
+            cliente.sub_plan in ["Bronce", "Hierro", "Acero"]
+            and cliente.mensualidad
+            and cliente.mensualidad.duracion.lower() in ["trimestral", "semestral", "anual"]
+            and cliente.fecha_inicio_plan
+        ):
+            accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
+            accesos_mensuales = accesos_dict.get(cliente.sub_plan, 0)
 
-        # Fecha esperada del próximo reset:
-        if cliente.ultimo_reset_mes:
-            proximo_reset = cliente.ultimo_reset_mes + relativedelta(months=1)
-        else:
-            # Si nunca se ha hecho reset, la primera fecha base es la fecha de inicio del plan
-            proximo_reset = cliente.fecha_inicio_plan + relativedelta(months=1)
+            if cliente.ultimo_reset_mes:
+                proximo_reset = cliente.ultimo_reset_mes + relativedelta(months=1)
+            else:
+                proximo_reset = cliente.fecha_inicio_plan + relativedelta(months=1)
 
-        # Si hoy es el dia en que corresponde renovar
-        if hoy >= proximo_reset:
-            if cliente.estado_plan == "activo":
-                cliente.accesos_subplan_restantes += accesos_mensuales
+            if hoy >= proximo_reset:
+                if cliente.estado_plan == "activo":
+                    cliente.accesos_subplan_restantes += accesos_mensuales
 
-            cliente.ultimo_reset_mes = hoy
-            cliente.save(update_fields=["accesos_subplan_restantes", "ultimo_reset_mes"])
+                cliente.ultimo_reset_mes = hoy
+                cliente.save(update_fields=["accesos_subplan_restantes", "ultimo_reset_mes"])
 
         # === Manejo de planes personalizados ===
         if cliente.planes_personalizados.exists():
@@ -433,7 +428,6 @@ def asistencia_cliente(request):
             else:
                 accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12}
                 accesos_totales = accesos_dict.get(cliente.sub_plan, 0)
-                hoy = timezone.localdate()
 
                 if (
                     cliente.fecha_inicio_plan == hoy
@@ -451,7 +445,6 @@ def asistencia_cliente(request):
 
                 tipo_asistencia = "subplan"
 
-            # === Guardar accesos restantes ===
             if tipo_asistencia == "plan_personalizado" and accesos_restantes_personalizado is not None:
                 cliente.accesos_personalizados_restantes = accesos_restantes_personalizado
             elif tipo_asistencia == "subplan" and accesos_restantes_subplan is not None:
@@ -509,11 +502,9 @@ def asistencia_cliente(request):
         if not tipo_asistencia and cliente.mensualidad and cliente.mensualidad.tipo.lower() == "pase diario":
             tipo_asistencia = "pase_diario"
 
-     
         if not tipo_asistencia:
-            tipo_asistencia = "subplan"  # valor por defecto si nada aplica
+            tipo_asistencia = "subplan"  # valor por defecto
 
-        # Registro final
         Asistencia.objects.create(
             cliente=cliente,
             fecha=timezone.now(),
@@ -535,7 +526,6 @@ def asistencia_cliente(request):
             cliente.accesos_restantes = 0
             cliente.fecha_fin_plan = hoy
 
-        # === Actualizar accesos finales ===
         cliente.accesos_restantes = max(
             cliente.accesos_subplan_restantes or 0,
             cliente.accesos_personalizados_restantes or 0
@@ -547,7 +537,6 @@ def asistencia_cliente(request):
             "fecha_fin_plan"
         ])
 
-        # === Registrar historial ===
         registrar_historial(
             request.user_obj,
             "asistencia",
@@ -556,7 +545,6 @@ def asistencia_cliente(request):
             f"Registró asistencia de {cliente.nombre} {cliente.apellido}"
         )
 
-        # === Mostrar modal de confirmación ===
         sub_plan_para_modal = cliente.sub_plan
         if cliente.mensualidad and cliente.mensualidad.tipo == "Gratis + Plan Mensual":
             sub_plan_para_modal = "Titanio (por plan Gratis + Plan Mensual)"
@@ -577,6 +565,7 @@ def asistencia_cliente(request):
     # === Si es GET ===
     contexto["cliente"] = None
     return render(request, "core/AsistenciaCliente.html", contexto)
+
 
 
 
