@@ -27,8 +27,14 @@
         <label>Precio Venta:</label>
         <input type="number" name="precio_venta" step="0.01" value="{{ producto.precio_venta }}" >
 
-        <label>Stock Inicial:</label>
-        <input type="number" name="stock_inicial" value="{{ producto.stock_inicial }}" >
+        <label for="stock_inicial">Stock Inicial:</label>
+        <input type="number"
+              id="stock_inicial"
+              name="stock_inicial"
+              value="{{ producto.stock_inicial }}"
+              class="input-bonito"
+              readonly
+              style="background:#e9ecef; cursor:not-allowed;">
 
         <label>Stock Actual:</label>
         <input type="number" name="stock" value="{{ producto.stock }}" >

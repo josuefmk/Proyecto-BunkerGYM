@@ -1231,13 +1231,14 @@ def registrar_venta(request):
         cantidad = request.POST.get('cantidad')
         metodo_pago = request.POST.get('metodo_pago')
 
-        # Obtener admin desde sesión
+ 
         admin_id = request.session.get('admin_id')
         admin = Admin.objects.get(id=admin_id)
 
+        # Validación cantidad
         try:
             cantidad = int(cantidad)
-        except (ValueError, TypeError):
+        except:
             messages.error(request, "⚠️ La cantidad debe ser un número entero.")
             return redirect('productos')
 
@@ -1250,10 +1251,11 @@ def registrar_venta(request):
             messages.error(request, "⚠️ La cantidad debe ser mayor a 0.")
             return redirect('productos')
 
+        # Esta validación sí la dejamos
         if cantidad > producto.stock:
             messages.error(
                 request,
-                f"❌ No quedan unidades suficientes de '{producto.nombre}'."
+                f"❌ No quedan suficientes unidades de '{producto.nombre}'."
             )
             return redirect('productos')
 
@@ -1261,12 +1263,12 @@ def registrar_venta(request):
             messages.error(request, "⚠️ Seleccione un método de pago válido.")
             return redirect('productos')
 
- 
-        Venta.objects.create(
+        # Crear la venta — el modelo restará el stock
+        venta = Venta.objects.create(
             producto=producto,
             cantidad=cantidad,
-            metodo_pago=metodo_pago,  
-            admin=admin  
+            metodo_pago=metodo_pago,
+            admin=admin
         )
 
         registrar_historial(
@@ -1280,10 +1282,10 @@ def registrar_venta(request):
         messages.success(
             request,
             f"✅ Venta registrada: {cantidad} unidad(es) de '{producto.nombre}' "
-            f"con {metodo_pago}. Stock restante: {producto.stock - cantidad}"
+            f"con {metodo_pago}. Stock restante: {producto.stock}"
         )
 
-        request.session['producto_seleccionado'] = producto.id
+        return redirect('productos')
 
     return redirect('productos')
 

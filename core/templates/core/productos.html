@@ -82,9 +82,11 @@
       <th>Descripción</th>
       <th>Compra</th>
       <th>Venta</th>
+       {% if request.user_obj.rut == "18449809K" or request.user_obj.rut == "178569554" %}
       <th>Stock Inicial</th>
-      <th>Stock Actual</th>
       <th>Vendidos</th>
+      {% endif %}
+      <th>Stock Actual</th>
       <th>Valor Base</th>
       <th>Ganancia Estimada</th>
       <th>Ganancia Real</th>
@@ -98,9 +100,11 @@
       <td>{{ producto.descripcion }}</td>
       <td>CLP ${{ producto.precio_compra|floatformat:0|intcomma }}</td>
       <td>CLP ${{ producto.precio_venta|floatformat:0|intcomma }}</td>
-      <td>{{ producto.stock_inicial }}</td>
+     {% if request.user_obj.rut == "18449809K" or request.user_obj.rut == "178569554" %}
+    <td>{{ producto.stock_inicial }}</td>
+    <td>{{ producto.cantidad_vendida }}</td>
+{% endif %}
       <td>{{ producto.stock }}</td>
-      <td>{{ producto.cantidad_vendida }}</td>
       <td>CLP ${{ producto.valor_total_stock|floatformat:0|intcomma }}</td>
       <td>CLP ${{ producto.estimado_ganancia|floatformat:0|intcomma }}</td>
       <td>CLP ${{ producto.ganancia_real|floatformat:0|intcomma }}</td>

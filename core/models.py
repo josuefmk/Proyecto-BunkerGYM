@@ -377,18 +377,28 @@ class Asistencia(models.Model):
 
 
 
+
 class Producto(models.Model):
     nombre = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True)
     precio_compra = models.DecimalField(max_digits=10, decimal_places=2)
     precio_venta = models.DecimalField(max_digits=10, decimal_places=2)
     stock = models.PositiveIntegerField(default=0)
-    stock_inicial = models.PositiveIntegerField(null=True, blank=True) 
+    stock_inicial = models.PositiveIntegerField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
-        if self.stock_inicial is None:
-            self.stock_inicial = self.stock  
         super().save(*args, **kwargs)
+
+        ventas_total = self.venta_set.aggregate(total=Sum('cantidad'))['total'] or 0
+
+
+        stock_inicial_actualizado = self.stock + ventas_total
+
+  
+        if self.stock_inicial != stock_inicial_actualizado:
+            self.stock_inicial = stock_inicial_actualizado
+            super().save(update_fields=['stock_inicial'])
+
 
     def valor_total_stock(self):
         return self.stock * self.precio_compra
@@ -397,7 +407,6 @@ class Producto(models.Model):
         return self.stock * (self.precio_venta - self.precio_compra)
 
     def cantidad_vendida(self):
-        # Suma todas las cantidades vendidas en el modelo Venta para este producto
         ventas_total = self.venta_set.aggregate(total=Sum('cantidad'))['total']
         return ventas_total or 0
 
@@ -406,7 +415,6 @@ class Producto(models.Model):
 
     def __str__(self):
         return f"{self.nombre} (Stock: {self.stock})"
-
 
 class Venta(models.Model):
     METODOS_PAGO = [
@@ -418,10 +426,10 @@ class Venta(models.Model):
 
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
     cantidad = models.PositiveIntegerField()
-    metodo_pago = models.CharField(max_length=20, choices=METODOS_PAGO) 
-    fecha = models.DateTimeField(auto_now_add=True) 
-    admin = models.ForeignKey(Admin, on_delete=models.SET_NULL, null=True, blank=True) 
-    
+    metodo_pago = models.CharField(max_length=20, choices=METODOS_PAGO)
+    fecha = models.DateTimeField(auto_now_add=True)
+    admin = models.ForeignKey(Admin, on_delete=models.SET_NULL, null=True, blank=True)
+
     def total_venta(self):
         return self.cantidad * self.producto.precio_venta
 
@@ -429,7 +437,8 @@ class Venta(models.Model):
         return self.cantidad * (self.producto.precio_venta - self.producto.precio_compra)
 
     def save(self, *args, **kwargs):
-        if self.pk is None:  
+        # Si es una venta nueva
+        if self.pk is None:
             if self.cantidad > self.producto.stock:
                 raise ValueError("No hay suficiente stock para realizar la venta.")
             self.producto.stock -= self.cantidad
