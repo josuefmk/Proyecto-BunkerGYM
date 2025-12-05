@@ -1,145 +1,161 @@
 {% extends 'core/home.html' %}
 {% block content %}
-<main class="contenido asistencia">
-    <div class="form-container-historial"> 
-        <form method="POST" class="formulario">
+<main class="asistencia-wrapper">
+
+    <!-- FORMULARIO PRINCIPAL -->
+    <div class="asistencia-card">
+        <h2>Registro de Asistencia</h2>
+        <p class="sub">Ingrese el RUT del cliente para validar su acceso</p>
+
+        <form method="POST" class="asistencia-form">
             {% csrf_token %}
-            <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
-            <h2>Registro de Asistencia</h2>
-            <label for="rut">Ingrese RUT</label>
-            <input type="text" name="rut" id="rut" required>
-            <button type="submit" class="btn-global" style="margin-top: 15px;">Ingresar Asistencia</button>
+
+            <div class="input-group-asistencia">
+                <span class="input-icon">🆔</span>
+                <input type="text" id="rut" name="rut" placeholder="Ej: 12345678-9" required>
+            </div>
+
+            <button type="submit" class="btn-asistencia">Ingresar</button>
         </form>
     </div>
 
-    {# Modal de confirmación de asistencia final #}
+    <!-- MODAL DE ÉXITO -->
     {% if mostrar_modal %}
-        <div class="modal-custom">
-            <div class="modal-content-custom">
-                <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
-                <h2>✅ Registro de Asistencia</h2>
-                <p>Bienvenido <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong></p>
-                <p>El plan le vence el <strong>{{ vencimiento_plan|date:"d" }} de {{ vencimiento_plan|date:"F" }}</strong></p>
+    <div class="modal-premium">
+        <div class="modal-content-premium">
+            <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
+            
+            <h2>✔ Asistencia Registrada</h2>
 
-                {# SubPlan normal (si no es Titanio) #}
-                {% if cliente.sub_plan %}
-                    <p>SubPlan: <strong>{{ cliente.sub_plan }}</strong></p>
-                    {% if cliente.sub_plan == "Titanio" %}
-                        <p>Acceso ilimitado</p>
-                    {% else %}
-                        {# Mostrar accesos del mes actual, no el acumulado histórico #}
-                        <p>Accesos restantes este mes: <strong>{{ accesos_restantes_subplan }}</strong></p>
-                    {% endif %}
-                {% endif %}
+            <p class="cliente-nombre">{{ cliente.nombre }} {{ cliente.apellido }}</p>
+            <p>Plan vence el <strong>{{ vencimiento_plan|date:"d" }} de {{ vencimiento_plan|date:"F" }}</strong></p>
 
-                {# Plan personalizado activo #}
-                {% if cliente.plan_personalizado_activo and cliente.plan_personalizado_activo.nombre_plan != "Ninguno" %}
-                    <p>Plan personalizado: <strong>{{ cliente.plan_personalizado_activo.nombre_plan }}</strong></p>
-                    {% if plan_libre or plan_full %}
-                        <p></p>
-                    {% else %}
-                        <p>Accesos restantes este mes (Plan Personalizado): <strong>{{ accesos_restantes_personalizado }}</strong></p>
-                    {% endif %}
+            {% if cliente.sub_plan %}
+                <p>SubPlan: <strong>{{ cliente.sub_plan }}</strong></p>
+
+                {% if cliente.sub_plan == "Titanio" %}
+                    <p>Acceso: <strong>Ilimitado</strong></p>
+                {% else %}
+                    <p>Accesos restantes: <strong>{{ accesos_restantes_subplan }}</strong></p>
                 {% endif %}
-            </div>
+            {% endif %}
+
+            {% if cliente.plan_personalizado_activo and cliente.plan_personalizado_activo.nombre_plan != "Ninguno" %}
+                <p>Plan Personalizado: <strong>{{ cliente.plan_personalizado_activo.nombre_plan }}</strong></p>
+
+                {% if not plan_libre %}
+                    <p>Accesos restantes: <strong>{{ accesos_restantes_personalizado }}</strong></p>
+                {% endif %}
+            {% endif %}
         </div>
-    {% endif %} {# fin mostrar_modal #}
+    </div>
+    {% endif %}
 
+    <!-- MODAL SELECCIÓN PLAN PERSONALIZADO -->
     {% if planes_personalizados and planes_personalizados|length > 1 and not mostrar_modal %}
-        <div class="modal-custom">
-            <div class="modal-content-custom">
-                <h2>Selecciona El personalizado o SubPlan</h2>
-                <form method="POST">
-                    {% csrf_token %}
-                    <input type="hidden" name="rut" value="{{ cliente.rut }}">
-                    <input type="hidden" name="confirmar" value="1">
-                    <label for="plan_personalizado">Plan a usar:</label>
-                    <select name="plan_personalizado" id="plan_personalizado" required>
-                        {% for plan in planes_personalizados %}
-                            <option value="{{ plan.id }}">{{ plan.nombre_plan }}</option>
-                        {% endfor %}
-                    </select>
-                    <button type="submit" class="btn-confirmar">Confirmar Plan</button>
-                </form>
-            </div>
+    <div class="modal-premium">
+        <div class="modal-content-premium">
+            <h2>Selecciona un plan</h2>
+
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="rut" value="{{ cliente.rut }}">
+                <input type="hidden" name="confirmar" value="1">
+
+                <select name="plan_personalizado" class="select-premium" required>
+                    {% for plan in planes_personalizados %}
+                        <option value="{{ plan.id }}">{{ plan.nombre_plan }}</option>
+                    {% endfor %}
+                </select>
+
+                <button class="btn-asistencia modal-btn">Confirmar</button>
+            </form>
         </div>
+    </div>
     {% endif %}
 
-    {# Modales de error o alerta #}
+    <!-- MODAL ERROR RUT -->
     {% if rut_invalido %}
-        <div class="modal-custom modal-error-custom">
-            <div class="modal-content-custom">
-                <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
-                <h2 style="color:#dc3545;">❌ Error</h2>
-                <p>El RUT ingresado no fue encontrado</p>
-            </div>
+    <div class="modal-premium">
+        <div class="modal-content-premium modal-error-border">
+            <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
+            <h2 class="error-title">❌ Error</h2>
+            <p>El RUT ingresado no fue encontrado.</p>
         </div>
+    </div>
     {% endif %}
 
+    <!-- MODAL YA REGISTRADO -->
     {% if asistencia_ya_registrada %}
-        <div class="modal-custom modal-warning-custom">
-            <div class="modal-content-custom">
-                <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
-                <h2 style="color:#ffc107;">⚠️ Atención</h2>
-                <p>El RUT ya está ingresado hoy.</p>
-            </div>
+    <div class="modal-premium">
+        <div class="modal-content-premium modal-warning-border">
+            <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
+            <h2 class="warning-title">⚠ Ya registrado</h2>
+            <p>Este cliente ya ingresó hoy.</p>
         </div>
+    </div>
     {% endif %}
 
+    <!-- MODAL PLAN VENCIDO -->
     {% if plan_vencido %}
-        <div class="modal-custom modal-error-custom">
-            <div class="modal-content-custom">
-                <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
-                <h2 style="color:#dc3545;">❌ Plan Vencido</h2>
-                <p>Debe renovarlo para poder ingresar.</p>
-            </div>
+    <div class="modal-premium">
+        <div class="modal-content-premium modal-error-border">
+            <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
+            <h2 class="error-title">❌ Plan vencido</h2>
+            <p>Debe renovar para ingresar.</p>
         </div>
+    </div>
     {% endif %}
 
+    <!-- MODAL PASE DIARIO -->
     {% if pase_diario_inactivo %}
-        <div class="modal-custom modal-error-custom">
-            <div class="modal-content-custom">
-                <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
-                <h2 style="color:#dc3545;">⚠️ Pase Diario Inactivo</h2>
-                <p>Tu Pase Diario ha expirado. Debes renovarlo para poder ingresar nuevamente.</p>
-            </div>
+    <div class="modal-premium">
+        <div class="modal-content-premium modal-error-border">
+            <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
+            <h2 class="error-title">❌ Pase diario vencido</h2>
+            <p>Debe renovarlo para poder ingresar.</p>
         </div>
+    </div>
     {% endif %}
 
+    <!-- MODAL SIN ACCESOS -->
     {% if sin_accesos %}
-        <div class="modal-custom modal-error-custom">
-            <div class="modal-content-custom">
-                <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
-                <h2 style="color:#dc3545;">❌ Sin Accesos</h2>
-                <p>No le quedan accesos disponibles para ingresar.</p>
-            </div>
+    <div class="modal-premium">
+        <div class="modal-content-premium modal-error-border">
+            <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
+            <h2 class="error-title">❌ Sin Accesos</h2>
+            <p>No quedan accesos disponibles.</p>
         </div>
+    </div>
     {% endif %}
-    
-       {% if mensaje_error %}
-        <div class="modal-custom modal-error-custom">
-            <div class="modal-content-custom">
-                <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
-                <h2 style="color:#dc3545;">❌ Error de Horario</h2>
-                <p>{{ mensaje_error }}</p>
-            </div>
+
+    <!-- MODAL HORARIO RESTRINGIDO -->
+    {% if mensaje_error %}
+    <div class="modal-premium">
+        <div class="modal-content-premium modal-error-border">
+            <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
+            <h2 class="error-title">❌ Horario no permitido</h2>
+            <p>{{ mensaje_error }}</p>
         </div>
+    </div>
     {% endif %}
 </main>
 
 <script>
 function cerrarModal(elemento = null) {
     if (elemento) {
-        elemento.closest('.modal-custom').style.display = 'none';
+        const modal = elemento.closest('.modal-premium');
+        if (modal) modal.remove();
     } else {
-        document.querySelectorAll('.modal-custom').forEach(modal => modal.style.display = 'none');
+        document.querySelectorAll('.modal-premium').forEach(modal => modal.remove());
     }
 }
 
 document.addEventListener("DOMContentLoaded", function() {
-    document.querySelectorAll('.modal-custom').forEach(modal => {
-        setTimeout(() => { cerrarModal(); }, 15000);
+    document.querySelectorAll('.modal-premium').forEach(modal => {
+        setTimeout(() => { modal.remove(); }, 15000);
     });
 });
 </script>
+
 {% endblock %}

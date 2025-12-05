@@ -2,39 +2,162 @@
 {% load static %}
 
 {% block content %}
-<main class="contenido">
+
+<div class="registro-card-premium">
 
     {% if mensaje %}
-    <div style="
-        background-color: #e0f7fa;
-        color: #00695c;
-        border: 1px solid #b2dfdb;
-        padding: 10px;
-        margin-bottom: 15px;
-        border-radius: 5px;
-    ">
+    <div class="alert-premium success">
         {{ mensaje }}
     </div>
     {% endif %}
 
-    <div class="form-container">
-        <form class="formulario" method="POST">
-            {% csrf_token %}
-            <h2>Registro Pase Diario</h2>
+    <form class="form-premium" method="POST">
+        {% csrf_token %}
 
-            {% for field in form %}
-            <div class="mb-3 form-group">
-                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}:</label>
-                {{ field }}
-                {% for error in field.errors %}
-                <p class="error" style="color:red;">{{ error }}</p>
-                {% endfor %}
-            </div>
+        <h2 class="titulo-premium-form">🎟 Registro Pase Diario</h2>
+        <p class="sub-premium-text">Registra el ingreso de usuarios que utilizan pase diario.</p>
+
+        {% for field in form %}
+        <div class="form-group-premium">
+            <label class="label-premium" for="{{ field.id_for_label }}">{{ field.label }}:</label>
+            {{ field }}
+
+            {% for error in field.errors %}
+            <p class="error-premium">{{ error }}</p>
             {% endfor %}
+        </div>
+        {% endfor %}
 
-            <button type="submit" class="btn-global" style="margin-top: 15px;">✅ Registrar Pase Diario</button>
-            <a href="{% url 'index' %}" class="btn-global" style="margin-top: 15px;">🔙 Volver</a>
-        </form>
-    </div>
-</main>
+        <div class="acciones-form">
+            <button type="submit" class="btn-premium-form">✔ Registrar Pase</button>
+            <a href="{% url 'index' %}" class="btn-premium-secundario">⟵ Volver</a>
+        </div>
+    </form>
+</div>
+
+<style>
+
+
+.registro-card-premium {
+    background: #fff;
+    max-width: 550px;
+    margin: 40px auto;
+    padding: 35px;
+    border-radius: 14px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+    border: 1px solid #ededed;
+}
+
+
+.titulo-premium-form {
+    font-size: 26px;
+    font-weight: 700;
+    margin-bottom: 5px;
+    color: #222;
+}
+
+.sub-premium-text {
+    font-size: 14px;
+    color: #777;
+    margin-bottom: 25px;
+}
+
+.form-premium {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.form-group-premium {
+    display: flex;
+    flex-direction: column;
+}
+
+.label-premium {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 6px;
+}
+
+
+.form-group-premium input,
+.form-group-premium select,
+.form-group-premium textarea {
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 15px;
+    transition: all .2s;
+}
+
+.form-group-premium input:focus,
+.form-group-premium select:focus,
+.form-group-premium textarea:focus {
+    border-color: #111;
+    outline: none;
+}
+
+
+.acciones-form {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.btn-premium-form {
+    background: #111;
+    color: white;
+    padding: 12px 18px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+    flex: 1;
+    transition: 0.25s;
+}
+
+.btn-premium-form:hover {
+    transform: translateY(-2px);
+    background: #000;
+}
+
+.btn-premium-secundario {
+    background: #f4f4f4;
+    color: #333;
+    padding: 12px 18px;
+    border-radius: 8px;
+    text-align: center;
+    flex: 1;
+    font-weight: 500;
+    transition: 0.25s;
+}
+
+.btn-premium-secundario:hover {
+    background: #ddd;
+}
+
+
+.error-premium {
+    color: #d9534f;
+    font-size: 13px;
+    margin-top: 3px;
+}
+
+
+.alert-premium {
+    padding: 14px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-weight: 500;
+    text-align: center;
+}
+
+.alert-premium.success {
+    background: #e8f9f1;
+    color: #0a7a43;
+    border: 1px solid #b9e8d1;
+}
+
+</style>
+
 {% endblock %}

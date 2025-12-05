@@ -10,64 +10,78 @@
     <link rel="stylesheet" type="text/css" href="{% static 'core/css/styles.css' %}">
 </head>
 <body>
-<header class="header">
-    <img src="{% static 'core/img/BunkerIMG.jpg' %}" alt="Logo Bunker Gym" class="logo">
+<header class="header-premium">
+
+    <div class="header-left">
+    
+    </div>
 
     {% if request.session.admin_id %}
-    <div class="header-right">
+    <div class="header-right-premium">
 
-        {# MENSAJE DE BIENVENIDA SOLO EN INDEX #}
-        {% if request.resolver_match.view_name == 'index' %}
-            <span class="welcome-message">
-                Bienvenido, {{ username }}!
-            </span>
+    
+
+        {% if request.session.admin_profesion == 'Administrador' %}
+            {% if request.resolver_match.view_name != 'index' and request.resolver_match.view_name != 'home' %}
+            <button class="btn-top" onclick="location.href='{% url 'index' %}'">
+                ⬅ Volver
+            </button>
+            {% endif %}
         {% endif %}
 
-        <div class="header-buttons">
-
-            {# BOTÓN VOLVER SOLO PARA ADMIN EN TODAS LAS VISTAS MENOS INDEX Y HOME #}
-            {% if request.session.admin_profesion == 'Administrador' %}
-                {% if request.resolver_match.view_name != 'index' and request.resolver_match.view_name != 'home' %}
-                    <button class="btn-global" onclick="location.href='{% url 'index' %}'">
-                        <img src="{% static 'core/img/volver.png' %}" class="icon"> Volver
-                    </button>
-                {% endif %}
-            {% endif %}
-
-            {# BOTÓN CERRAR SESIÓN #}
-            <button class="btn-global" onclick="location.href='{% url 'logout' %}'">
-                <img src="{% static 'core/img/logout.png' %}" class="icon"> Cerrar Sesión
-            </button>
-
-        </div>
+        <button class="btn-top logout" onclick="location.href='{% url 'logout' %}'">
+            🔒 Cerrar sesión
+        </button>
     </div>
     {% endif %}
+
 </header>
 
 
 
 
 
+
 {% if not request.session.admin_id %}
-<main class="form-container">
-    <form method="post" class='formulario' id="login-form">
-        {% csrf_token %}
-        <h2>Inicio Sesión</h2>
-        <input type="text" id="rut" name="rut" placeholder="RUT (sin puntos ni guion)" maxlength="12">
-        <input type="password" name="password" placeholder="Contraseña">
-        <button type="submit" class="btn-global" style="margin-top: 15px;">🔐 Ingresar</button>
-        
-        {% if error %}
-        <div class="alerta-error">
-            ⚠️ {{ error }}
-        </div>
-        {% endif %}
-        <div id="rut-error" style="color:red; font-size: 14px; margin-top: 5px; display:none;">
-            ❌ RUT inválido
-        </div>
-    </form>
+<main class="login-wrapper">
+
+    <div class="login-card">
+        <img src="{% static 'core/img/BunkerIMG.jpg' %}" class="login-logo" alt="Logo">
+
+        <h2>Ingreso al Sistema</h2>
+        <p class="login-sub">Panel administrativo Bunker Gym</p>
+
+        <form method="post" id="login-form">
+            {% csrf_token %}
+
+            <!-- RUT -->
+            <div class="input-group">
+                <span class="input-icon">🆔</span>
+                <input type="text" id="rut" name="rut" placeholder="RUT (sin puntos ni guion)">
+            </div>
+            <div id="rut-error" class="error-msg" style="display:none;">
+                ❌ RUT inválido
+            </div>
+
+            <!-- PASSWORD -->
+            <div class="input-group">
+                <span class="input-icon">🔒</span>
+                <input type="password" name="password" placeholder="Contraseña">
+            </div>
+
+            {% if error %}
+            <div class="alerta-error fade-in">
+                ⚠️ {{ error }}
+            </div>
+            {% endif %}
+
+            <button type="submit" class="btn-login">Ingresar</button>
+        </form>
+    </div>
+
 </main>
 {% endif %}
+
 
 {% block content %}{% endblock %}
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

@@ -2,85 +2,80 @@
 {% load static %}
 
 {% block content %}
-<main class="contenido">
+<main class="registro-wrapper">
 
     {% if mensaje %}
-    <div id="mensaje-exito-registro" style="
-        background-color: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
-        padding: 10px;
-        margin-bottom: 15px;
-        border-radius: 5px;
-    ">
+    <div class="alert-success fade-in">
         {{ mensaje }}
     </div>
     <script>
-    setTimeout(function() {
-        var mensajeDiv = document.getElementById('mensaje-exito-registro');
-        if (mensajeDiv) {
-            mensajeDiv.style.display = 'none';
-        }
-    }, 5000);
+        setTimeout(() => {
+            const msg = document.querySelector(".alert-success");
+            if (msg) msg.style.opacity = "0";
+        }, 4000);
     </script>
     {% endif %}
 
-    <div class="form-container">
+    <div class="registro-card">
+        <h2>Registrar Nuevo Cliente</h2>
+        <p class="sub">Complete la información requerida</p>
 
-        <form class="formulario" method="POST" onsubmit="return validarFormulario()" novalidate>
+        <form method="POST" class="registro-form" onsubmit="return validarFormulario()">
             {% csrf_token %}
-            <h2>Creación De Cliente</h2>
-      {% for field in form %}
-    {% if field.name == 'sub_plan' or field.name == 'coach_asignado' %}
-        {{ field }}
-    {% else %}
-        <div class="mb-3 form-group">
-            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}:</label>
-            {{ field }}
-            <div class="error-text" style="color: red; font-size: 0.9em;"></div>
-            {% for error in field.errors %}
-                <p class="error alerta-grande">{{ error }}</p>
+
+            {% for field in form %}
+                {% if field.name == "sub_plan" or field.name == "coach_asignado" %}
+                    {{ field }}
+                {% else %}
+                <div class="input-group-registro">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">📌</span>
+                        {{ field }}
+                    </div>
+
+                    {% for error in field.errors %}
+                        <p class="error-msg">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
             {% endfor %}
-        </div>
-    {% endif %}
-{% endfor %}
 
-
-            <button type="submit" class="btn-global" style="margin-top: 15px;">✅ Crear Cliente</button>
-            <a href="{% url 'index' %}" class="btn-global" style="margin-top: 15px;">🔙 Volver</a>
+            <button class="btn-premium-registro">Crear Cliente</button>
+            <a href="{% url 'index' %}"  class="btn-premium-secundario">⟵ Volver</a>
         </form>
     </div>
 
-    <!-- Modal para seleccionar Sub Plan -->
-    <div id="modalSubPlan" class="modal-custom" style="display:none;">
-        <div class="modal-content-custom">
-            <label><input type="radio" name="subPlanOption" value="Bronce"> 🥉 Bronce (4 Accesos)</label><br>
-            <label><input type="radio" name="subPlanOption" value="Hierro"> 🪙 Hierro (8 Accesos)</label><br>
-            <label><input type="radio" name="subPlanOption" value="Acero"> 🛡 Acero (12 Accesos)</label><br>
-            <label><input type="radio" name="subPlanOption" value="Titanio"> ⚔ Titanio (Acceso Libre)</label><br>
-            <div style="margin-top: 15px;">
-                <button type="button" onclick="guardarSubPlan()" class="btn-global modal-content-customv2">Aceptar</button>
-            </div>
-        </div>
-    </div>
+</main>
 
-     <!-- Modal para seleccionar Coach-->
-    <div id="modalCoach" class="modal-custom" style="display:none;">
-    <div class="modal-content-custom">
-        <h3>Selecciona un Coach</h3>
-        <select id="coachSelect" class="form-control">
-        <option value="">-- Selecciona un coach --</option>
-        {% for coach in coaches %}
+<!-- MODAL SUBPLAN -->
+<div id="modalSubPlan" class="modal-premium" style="display:none;">
+    <div class="modal-content-premium">
+        <h3>Seleccione un SubPlan</h3>
+        <label><input type="radio" name="subPlanOption" value="Bronce"> 🥉 Bronce (4 Accesos)</label><br>
+        <label><input type="radio" name="subPlanOption" value="Hierro"> 🪙 Hierro (8 Accesos)</label><br>
+        <label><input type="radio" name="subPlanOption" value="Acero"> 🛡 Acero (12 Accesos)</label><br>
+        <label><input type="radio" name="subPlanOption" value="Titanio"> ⚔ Titanio (Acceso Libre)</label>
+
+        <button onclick="guardarSubPlan()" class="btn-premium-registro modal-btn">Aceptar</button>
+    </div>
+</div>
+
+<!-- MODAL COACH -->
+<div id="modalCoach" class="modal-premium" style="display:none;">
+    <div class="modal-content-premium">
+        <h3>Seleccione un Coach</h3>
+
+        <select id="coachSelect" class="select-premium">
+            <option value="">-- Selecciona un Coach --</option>
+            {% for coach in coaches %}
             <option value="{{ coach.id }}">{{ coach.nombre }} {{ coach.apellido }} ({{ coach.profesion }})</option>
-        {% endfor %}
+            {% endfor %}
         </select>
 
-        <div style="margin-top: 15px;">
-        <button type="button" onclick="guardarCoach()" class="btn-global modal-content-customv2">Aceptar</button>
-        </div>
+        <button onclick="guardarCoach()" class="btn-premium-registro modal-btn">Aceptar</button>
     </div>
-    </div>
-</main>
+</div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />

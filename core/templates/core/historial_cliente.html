@@ -1,29 +1,40 @@
 {% extends 'core/home.html' %}
-{% block content %}
 {% load myfilters %}
-<main class="contenido historia-cliente">
+{% block content %}
 
-<div class="form-container-historial"> 
-    <form method="POST" class="formulario" id="form-rut">
-        {% csrf_token %}
+<main class="historial-wrapper">
+
+    <!-- FORMULARIO PREMIUM -->
+    <div class="historial-card">
         <h2>Historial del Cliente</h2>
-        <label for="rut">Ingrese RUT</label>
-        <input type="text" name="rut" id="rut" value="">
-        <button type="submit" class="btn-global" style="margin-top: 15px;">Buscar</button>
-    </form>
-</div>
+        <p class="sub">Ingrese el RUT para ver su historial de asistencias y sesiones</p>
 
-<div id="cliente-container"></div>
-<div id="calendario-container"></div>
+        <form method="POST" class="historial-form" id="form-rut">
+            {% csrf_token %}
 
-<!-- Modal de error -->
-<div id="modal-error" class="modal-custom modal-error-custom" style="display: none;">
-    <div class="modal-content-custom">
-        <h2>❌ Error</h2>
-        <p>El RUT ingresado no fue encontrado.</p>
-        <p>Por favor, verifica e intenta nuevamente.</p>
+            <div class="input-group-historial">
+                <span class="input-icon">🆔</span>
+                <input type="text" name="rut" id="rut" placeholder="Ej: 12345678-9">
+            </div>
+
+            <button type="submit" class="btn-historial">Buscar</button>
+        </form>
     </div>
-</div>
+
+    <!-- Contenedores dinámicos -->
+    <div id="cliente-container" class="cliente-premium"></div>
+    <div id="calendario-container" class="calendario-premium"></div>
+
+    <!-- MODAL DE ERROR PREMIUM -->
+    <div id="modal-error" class="modal-premium" style="display:none;">
+        <div class="modal-content-premium modal-error-border">
+            <span class="close-modal" onclick="cerrarModal(this)">&times;</span>
+            <h2 class="error-title">❌ RUT no encontrado</h2>
+            <p>Por favor verifique el RUT ingresado.</p>
+        </div>
+    </div>
+
+</main>
 
 <script>
 (function() {
@@ -33,41 +44,36 @@
     let asistencias = {};
     let sesiones = {};
 
-    
     function agregarEventos() {
-        const detallesHoras = document.getElementById('detalles-horas');
+        const detalles = document.getElementById('detalles-horas');
         document.querySelectorAll('.calendar-day.has-assistance, .calendar-day.has-session, .calendar-day.has-both')
             .forEach(div => {
                 div.onclick = () => {
-                    const dia = div.getAttribute('data-day');
-                    const diasAsistencias = asistencias[dia] || [];
-                    const diasSesiones = sesiones[dia] || [];
+                    const dia = div.dataset.day;
                     let html = `<strong>Detalles del día ${dia}:</strong><br>`;
-                    if (diasAsistencias.length) diasAsistencias.forEach(h => html += `• Ingresó al gimnasio a las ${h}<br>`);
-                    if (diasSesiones.length) diasSesiones.forEach(s => html += `• Sesión: ${s}<br>`);
-                    if (!diasAsistencias.length && !diasSesiones.length) html += 'No hay registros.';
-                    detallesHoras.innerHTML = html;
+                    (asistencias[dia] || []).forEach(h => html += `• Ingreso: ${h}<br>`);
+                    (sesiones[dia] || []).forEach(s => html += `• Sesión: ${s}<br>`);
+                    if (!asistencias[dia]?.length && !sesiones[dia]?.length) html += 'No hay registros.';
+                    detalles.innerHTML = html;
                 };
             });
     }
 
     function showModalError() {
         const modal = document.getElementById("modal-error");
-        if (!modal) return;
         modal.style.display = "flex";
-        if (modal.closeTimeout) clearTimeout(modal.closeTimeout);
-        modal.closeTimeout = setTimeout(() => {
-            modal.style.animation = "fadeOut 0.8s ease forwards";
-            setTimeout(() => {
-                modal.style.display = "none";
-                modal.style.animation = "";
-            }, 800);
-        }, 5000);
+        modal.style.opacity = "1";
+
+        setTimeout(() => {
+            modal.style.opacity = "0";
+            setTimeout(() => { modal.style.display = "none"; }, 300);
+        }, 4000);
     }
 
     function cargarCalendario() {
         const rut = document.getElementById('rut').value.trim();
-        if (!rut) return alert('Ingrese un RUT para consultar.');
+        if (!rut) return alert('Ingrese un RUT');
+
         fetch(`${window.location.pathname}?rut=${rut}&month=${month}&year=${year}`, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
@@ -75,18 +81,15 @@
         .then(data => {
             document.getElementById('cliente-container').innerHTML = data.cliente;
             document.getElementById('calendario-container').innerHTML = data.calendario;
+
             asistencias = data.asistencias;
             sesiones = data.sesiones;
-            if (data.rut_invalido) {
-                setTimeout(showModalError, 50);
-            } else {
-                agregarEventos();
-            }
-        })
-        .catch(() => alert('Error cargando el calendario'));
+
+            if (data.rut_invalido) showModalError();
+            else agregarEventos();
+        });
     }
 
-  
     form.onsubmit = function(e) {
         e.preventDefault();
         year = new Date().getFullYear();

@@ -2,51 +2,156 @@
 {% load static %}
 
 {% block content %}
-<main class="contenido">
+
+<style>
+/* CONTENEDOR GENERAL */
+.registro-externo-wrapper {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 25px;
+}
+
+/* ALERTA */
+.alerta-registro {
+    padding: 14px;
+    border-radius: 10px;
+    font-weight: 600;
+    margin-bottom: 18px;
+}
+
+.alert-success {
+    background: #d6f5dd;
+    color: #146c2e;
+    border: 1px solid #b7ebc3;
+}
+
+.alert-error {
+    background: #fde2e2;
+    color: #b02a37;
+    border: 1px solid #f5c2c7;
+}
+
+/* TARJETA */
+.registro-card {
+    background: white;
+    padding: 35px 30px;
+    border-radius: 14px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+/* TÍTULO */
+.registro-title {
+    font-size: 26px;
+    font-weight: 700;
+    margin-bottom: 15px;
+}
+
+/* INPUTS */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-label {
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: block;
+}
+
+.input-estilizado {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #d5d5d5;
+    font-size: 15px;
+    background: #fafafa;
+    transition: 0.25s;
+}
+
+.input-estilizado:focus {
+    border-color: #000;
+    background: white;
+    outline: none;
+    box-shadow: 0 0 4px rgba(0,0,0,0.15);
+}
+
+/* BOTONES */
+.btn-submit {
+    width: 100%;
+    padding: 12px;
+    margin-top: 15px;
+    font-size: 16px;
+    background: #000;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.btn-back {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    font-size: 16px;
+    background: #eeeeee;
+    color: #222;
+    border-radius: 10px;
+    font-weight: 600;
+    text-align: center;
+    display: block;
+    text-decoration: none;
+}
+</style>
+
+<div class="registro-externo-wrapper">
 
     {% if messages %}
-    {% for message in messages %}
-    <div id="mensaje-exito-registro" style="
-        background-color: {% if message.tags == 'success' %}#d4edda{% else %}#f8d7da{% endif %};
-        color: {% if message.tags == 'success' %}#155724{% else %}#721c24{% endif %};
-        border: 1px solid {% if message.tags == 'success' %}#c3e6cb{% else %}#f5c6cb{% endif %};
-        padding: 10px;
-        margin-bottom: 15px;
-        border-radius: 5px;
-    ">
-        {{ message }}
-    </div>
-    <script>
-    setTimeout(function() {
-        var mensajeDiv = document.getElementById('mensaje-exito-registro');
-        if (mensajeDiv) {
-            mensajeDiv.style.display = 'none';
-        }
-    }, 5000);
-    </script>
-    {% endfor %}
+        {% for message in messages %}
+        <div class="alerta-registro {% if message.tags == 'success' %}alert-success{% else %}alert-error{% endif %}">
+            {{ message }}
+        </div>
+        <script>
+        setTimeout(() => {
+            document.querySelector('.alerta-registro').style.display = 'none';
+        }, 4000);
+        </script>
+        {% endfor %}
     {% endif %}
 
-    <div class="form-container">
-        <form class="formulario" method="POST" novalidate>
+    <div class="registro-card">
+        <h2 class="registro-title">🧾 Registrar Cliente Externo</h2>
+
+        <form method="POST" novalidate>
             {% csrf_token %}
-            <h2>🧾 Registro de Cliente Externo</h2>
 
             {% for field in form %}
-                <div class="mb-3 form-group">
-                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}:</label>
-                    {{ field }}
-                    <div class="error-text" style="color: red; font-size: 0.9em;"></div>
-                    {% for error in field.errors %}
-                    <p class="error alerta-grande">{{ error }}</p>
-                    {% endfor %}
-                </div>
+            <div class="form-group">
+
+                <label class="form-label">{{ field.label }}</label>
+
+                <!-- INPUT RENDERIZADO Y LUEGO MODIFICADO VIA JS -->
+                {{ field }}
+
+                {% for error in field.errors %}
+                <p class="error-text" style="color:#b02a37;">{{ error }}</p>
+                {% endfor %}
+            </div>
             {% endfor %}
 
-            <button type="submit" class="btn-global" style="margin-top: 15px;">✅ Registrar Cliente</button>
-            <a href="{% url 'asistencia_kine_nutri' %}" class="btn-global" style="margin-top: 15px;">🔙 Volver</a>
+            <button type="submit" class="btn-submit">✅ Registrar Cliente</button>
+            <br>
+                <br>
+            <a href="{% url 'asistencia_kine_nutri' %}"  class="btn-premium-secundario">⟵ Volver</a>
+
         </form>
     </div>
 
-</main>
+</div>
+
+<script>
+/* Agregar clases a todos los inputs automáticamente */
+document.querySelectorAll("input, textarea, select").forEach(el => {
+    el.classList.add("input-estilizado");
+});
+</script>
+
 {% endblock %}

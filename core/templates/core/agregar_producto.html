@@ -3,32 +3,35 @@
 
 {% block content %}
 
+<div class="agregar-wrapper">
 
+    <div class="card-premium-v2 form-card">
 
-<div class="form-container">
-    <form method="POST" class="formulario" novalidate>
-        {% csrf_token %}
-        <h2>Agregar Producto</h2>
+        <h2 class="titulo-form">Agregar Producto</h2>
+        <p class="sub-text">Complete los campos para registrar un nuevo producto</p>
 
-        {% for field in form %}
-            <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
-            {{ field }}
-            {% for error in field.errors %}
-                <p class="error">{{ error }}</p>
+        <form method="POST" class="form-premium" novalidate>
+            {% csrf_token %}
+
+            {% for field in form %}
+            <div class="form-group-premium">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+
+                {% if field.errors %}
+                    <p class="error-premium">{{ field.errors.0 }}</p>
+                {% endif %}
+            </div>
             {% endfor %}
-        {% endfor %}
 
-        <button type="submit" class="btn-global" style=" margin-top: 15px; ">💾 Agregar</button>
-        <a href="{% url 'productos' %}" class="btn-global">⬅️ Volver</a>
-    </form>
+            <button type="submit" class="btn-premium-full">💾 Agregar Producto</button>
+            <br>
+             <br>
+            <a href="{% url 'productos' %}"  class="btn-premium-secundario">⟵ Volver</a>
+        </form>
+
+    </div>
+
 </div>
-<style>
-    .error {
-        color: red;
-        font-size: 0.9em;
-        margin-top: 3px;
-        margin-bottom: 8px;
-    }
-</style>
-{% endblock %}
 
+{% endblock %}

@@ -25,6 +25,7 @@ from django.http import HttpResponse, HttpResponseRedirect, HttpResponseServerEr
 from django.http import JsonResponse
 from django.contrib import messages
 import calendar
+from django.urls import reverse
 from collections import defaultdict
 from django.template.loader import render_to_string
 import locale
@@ -622,14 +623,17 @@ def listaCliente_json(request):
 
     return JsonResponse({'datos_clientes': datos_clientes})
 
+
+
 @role_required(['Administrador'])
 @never_cache
 def renovarCliente(request):
-    rut_buscado = request.POST.get('rut') or request.GET.get('rut', '')
-    cliente_renovado = None
     hoy = timezone.localdate()
 
-  
+    rut_buscado = request.POST.get('rut') or request.GET.get('rut', '')
+    filtro_tipo = request.GET.get("filtro_tipo", "")
+    cliente_renovado = None
+
     if request.method == "POST" and request.POST.get("accion") == "cambiar_tipo_plan":
         rut_cliente = request.POST.get("rut_cliente")
         nuevo_tipo_id = request.POST.get("nuevo_tipo_plan")
@@ -637,21 +641,20 @@ def renovarCliente(request):
         cliente = Cliente.objects.filter(rut=rut_cliente).first()
         if not cliente:
             messages.error(request, "Cliente no encontrado.")
-            return redirect("renovarCliente")
+            return redirect(f"{reverse('renovarCliente')}?rut={rut_buscado}")
 
         if not nuevo_tipo_id:
             messages.warning(request, "Debe seleccionar un tipo de plan válido.")
-            return redirect("renovarCliente")
+            return redirect(f"{reverse('renovarCliente')}?rut={rut_cliente}")
 
         try:
             nuevo_plan = Mensualidad.objects.get(id=nuevo_tipo_id)
         except Mensualidad.DoesNotExist:
             messages.error(request, "El tipo de plan seleccionado no existe.")
-            return redirect("renovarCliente")
+            return redirect(f"{reverse('renovarCliente')}?rut={rut_cliente}")
 
         plan_anterior = cliente.mensualidad.tipo if cliente.mensualidad else "Sin plan"
 
-        # Asignar el nuevo tipo de plan
         cliente.mensualidad = nuevo_plan
         cliente.tipo_publico = nuevo_plan.tipo
         cliente.save()
@@ -669,9 +672,9 @@ def renovarCliente(request):
             f"✅ Se cambió correctamente el tipo de plan del cliente {cliente.nombre} {cliente.apellido}."
         )
 
-        return redirect("renovarCliente")
+        return redirect(f"{reverse('renovarCliente')}?rut={rut_cliente}")
 
-
+  
     if request.method == 'POST' and 'renovar_rut' in request.POST:
         rut_renovar = request.POST.get('renovar_rut')
         metodo_pago = request.POST.get('metodo_pago')
@@ -681,18 +684,17 @@ def renovarCliente(request):
         cliente_renovado = Cliente.objects.filter(rut=rut_renovar).first()
         if not cliente_renovado:
             messages.error(request, "Cliente no encontrado.")
-            return redirect("renovarCliente")
+            return redirect(f"{reverse('renovarCliente')}?rut={rut_buscado}")
 
         cliente_renovado.metodo_pago = metodo_pago
-        plan_anterior = cliente_renovado.mensualidad_id
 
-        # Asignar nuevo plan si hay
+        # Cambiar plan si hay nuevo
         if nuevo_plan_id:
             mensualidad_obj = Mensualidad.objects.get(pk=nuevo_plan_id)
             cliente_renovado.mensualidad = mensualidad_obj
             cliente_renovado.tipo_publico = mensualidad_obj.tipo
 
-        # Asignar subplan solo si el nuevo plan no es Pase Diario
+        # Subplan
         if nuevo_sub_plan and (not cliente_renovado.mensualidad or cliente_renovado.mensualidad.tipo.lower() != "pase diario"):
             cliente_renovado.sub_plan = nuevo_sub_plan
         else:
@@ -720,25 +722,21 @@ def renovarCliente(request):
 
             messages.success(
                 request,
-                f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ha renovado su Pase Diario por 1 día."
+                f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ha renovado su Pase Diario."
             )
-        else:
-         
-            dias_extra = 0
-            if cliente_renovado.fecha_fin_plan:
-                dias_extra = max((cliente_renovado.fecha_fin_plan - hoy).days, 0)
 
+        else:
             tipo_accion = cliente_renovado.activar_plan(forzar=False)
             cliente_renovado.save()
             cliente_renovado.asignar_precio()
 
             registrar_historial(
-            request.user_obj,
-            "renovar",
-            "Cliente",
-            cliente_renovado.id,
-            f"{'Extendió' if tipo_accion == 'extensión' else 'Reinició'} plan {cliente_renovado.sub_plan} para {cliente_renovado.nombre} {cliente_renovado.apellido}"
-        )
+                request.user_obj,
+                "renovar",
+                "Cliente",
+                cliente_renovado.id,
+                f"{'Extendió' if tipo_accion == 'extensión' else 'Reinició'} plan {cliente_renovado.sub_plan} para {cliente_renovado.nombre} {cliente_renovado.apellido}"
+            )
 
             enviar_contrato_correo(cliente_renovado)
 
@@ -747,10 +745,9 @@ def renovarCliente(request):
                 f"El Cliente {cliente_renovado.nombre} {cliente_renovado.apellido} ha renovado su plan correctamente."
             )
 
-        rut_buscado = rut_renovar
+        # Mantener el filtro del RUT después de renovar
+        return redirect(f"{reverse('renovarCliente')}?rut={rut_renovar}")
 
-
-    filtro_tipo = request.GET.get("filtro_tipo", "")
 
     if rut_buscado:
         clientes = Cliente.objects.filter(
@@ -764,7 +761,7 @@ def renovarCliente(request):
             Q(fecha_fin_plan__isnull=True)
         ).prefetch_related("planes_personalizados", "mensualidad")
 
-   
+    # Filtro adicional
     if filtro_tipo == "gratis":
         clientes = clientes.filter(mensualidad__tipo="Gratis")
     elif filtro_tipo == "pase_diario":
@@ -781,7 +778,6 @@ def renovarCliente(request):
     paginator = Paginator(clientes, 20)
     page_number = request.GET.get("page")
     clientes_page = paginator.get_page(page_number)
-
 
     return render(request, 'core/renovarCliente.html', {
         'clientes': clientes_page,
@@ -1448,16 +1444,20 @@ def dashboard(request):
     total_clientes = clientes_filtrados.count()
 
     # Clientes activos este mes
+    fecha_limite = hoy - timedelta(days=5)
+
     clientes_activos_mes = (
-            Asistencia.objects
-            .filter(
-                fecha__gte=inicio_mes,
-                cliente__in=clientes_filtrados
-            )
-            .values('cliente')
-            .distinct()
-            .count()
+        Asistencia.objects
+        .filter(
+            fecha__gte=inicio_mes,
+            cliente__in=clientes_filtrados,
+    
+            cliente__fecha_fin_plan__gte=fecha_limite
         )
+        .values('cliente')
+        .distinct()
+        .count()
+    )
 
     # Clientes nuevos este mes
     clientes_nuevos_mes = clientes_filtrados.filter(

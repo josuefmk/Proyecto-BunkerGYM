@@ -2,55 +2,172 @@
 {% load static %}
 
 {% block content %}
+
+<!-- MENSAJES -->
 {% if messages %}
-  <div class="mi-mensaje-contenedor">
+<div class="msg-container">
     {% for message in messages %}
-      <div class="mi-mensaje mi-mensaje-{{ message.tags }}">{{ message }}</div>
+        <div class="msg-item msg-{{ message.tags }}">{{ message }}</div>
     {% endfor %}
-  </div>
+</div>
+<script>
+setTimeout(() => {
+    document.querySelector(".msg-container")?.remove();
+}, 5000);
+</script>
 {% endif %}
 
-<div class="form-container">
-    <form method="POST" class="formulario">
+<!-- FORMULARIO PREMIUM -->
+<div class="card-form-premium">
+    <form method="POST" class="form-premium">
         {% csrf_token %}
+        <h2 class="titulo-premium">Modificar Cliente</h2>
 
-        <label>Nombre:</label>
-        {{ form.nombre }}
+        <div class="grid-premium">
 
-        <label>Apellido:</label>
-        {{ form.apellido }}
+            <div class="group">
+                <label>Nombre</label>
+                {{ form.nombre }}
+            </div>
 
-        <label>RUT:</label>
-        {{ form.rut }}
+            <div class="group">
+                <label>Apellido</label>
+                {{ form.apellido }}
+            </div>
 
-        <label>Correo:</label>
-        {{ form.correo }}
+            <div class="group">
+                <label>RUT</label>
+                {{ form.rut }}
+            </div>
 
-        <label>Teléfono:</label>
-        {{ form.telefono }}
+            <div class="group">
+                <label>Correo</label>
+                {{ form.correo }}
+            </div>
 
-        <button type="submit" class="btn-global" style="margin-top: 15px; margin-bottom: 10px;">💾 Guardar Cambios</button>
-        <a href="{% url 'renovarCliente' %}" class="btn-global">🔙 Volver</a>
+            <div class="group">
+                <label>Teléfono</label>
+                {{ form.telefono }}
+            </div>
+
+        </div>
+
+        <div class="acciones-form">
+            <button type="submit" class="btn-premium-guardar">💾 Guardar Cambios</button>
+            <a href="{% url 'renovarCliente' %}" class="btn-premium-secundario">⟵ Volver</a>
+        </div>
     </form>
 </div>
 
+<!-- ESTILOS PREMIUM -->
 <style>
-.mi-mensaje-contenedor {
-    margin-bottom: 15px;
+/* Contenedor general */
+.card-form-premium {
+    max-width: 650px;
+    margin: 40px auto;
+    padding: 35px;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+    border: 1px solid #eee;
 }
-.mi-mensaje {
+
+/* Título */
+.titulo-premium {
+    font-size: 26px;
+    margin-bottom: 25px;
+    font-weight: 700;
+    text-align: center;
+    color: #1b1b1b;
+}
+
+/* Grid campos */
+.grid-premium {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+/* Grupo de input */
+.group label {
+    font-weight: 600;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.group input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background: #fafafa;
+}
+
+/* Acciones */
+.acciones-form {
+    margin-top: 25px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+/* Botón guardar */
+.btn-premium-guardar {
+    background: #111;
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: .25s;
+}
+
+.btn-premium-guardar:hover {
+    background: #222;
+    transform: translateY(-2px);
+}
+
+/* Botón volver */
+.btn-premium-volver {
+    background: #f4f4f4;
+    color: #111;
+    padding: 12px 18px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    text-decoration: none;
+    display: inline-block;
+    transition: .25s;
+}
+
+.btn-premium-volver:hover {
+    background: #e8e8e8;
+    transform: translateY(-2px);
+}
+
+/* Mensajes */
+.msg-container {
+    max-width: 650px;
+    margin: 20px auto;
+}
+
+.msg-item {
     padding: 12px;
-    border-radius: 6px;
+    border-radius: 8px;
+    margin-bottom: 10px;
     font-weight: 500;
-    margin-bottom: 12px;
+    text-align: center;
 }
-.mi-mensaje-success {
-    background-color: #d4edda;
+
+.msg-success {
+    background: #d4edda;
     color: #155724;
 }
-.mi-mensaje-error {
-    background-color: #f8d7da;
+
+.msg-error {
+    background: #f8d7da;
     color: #721c24;
 }
 </style>
+
 {% endblock %}

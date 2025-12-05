@@ -2,21 +2,186 @@
 {% load static %}
 
 {% block content %}
-<main class="contenido asistencia-page">
-    <div class="asistencia-contenedor-central">
-        <h1 class="asistencia-titulo-pagina">🩺 Asistencia Kinesiología y Nutrición</h1>
 
-        <div style="margin-bottom: 20px;">
-            <a href="{% url 'registrar_cliente_externo' %}" class="btn-global">➕ Registrar Cliente Externo</a>
-        </div>
+<style>
+/* ===========================
+   LAYOUT GENERAL
+=========================== */
+.asistencia-layout {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 25px 10px;
+}
 
-        <!-- Buscador -->
-        <input type="text" id="asistencia-busqueda" class="asistencia-buscador" placeholder="Buscar cliente por nombre o RUT...">
+.asistencia-title {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
 
-        <!-- Tabla de clientes -->
-        <div class="asistencia-tabla-wrapper">
-            <table class="asistencia-table table table-hover table-striped" id="asistencia-tablaClientes">
-                <thead class="table-dark">
+.asistencia-sub {
+    color: #666;
+    margin-bottom: 20px;
+}
+
+/* ===========================
+   BOTÓN REGISTRO EXTERNO
+=========================== */
+.asistencia-btn-external {
+    background: #000;
+    color: white;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+}
+.asistencia-btn-external:hover { background: #222; }
+
+/* ===========================
+   BUSCADOR
+=========================== */
+.asistencia-search {
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #cfcfcf;
+    margin-bottom: 20px;
+    font-size: 15px;
+}
+
+/* ===========================
+   TABLA CONTENEDOR
+=========================== */
+.asistencia-table-box {
+    background: white;
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.07);
+    overflow: hidden;
+    margin-bottom: 35px;
+}
+
+.asistencia-scroll {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.asistencia-scroll::-webkit-scrollbar { width: 8px; }
+.asistencia-scroll::-webkit-scrollbar-thumb {
+    background: #bfbfbf;
+    border-radius: 8px;
+}
+
+/* ===========================
+   TABLA CLIENTES
+=========================== */
+.asistencia-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.asistencia-table th {
+    background: #000;
+    color: white;
+    padding: 14px;
+    text-align: left;
+    font-size: 14px;
+}
+
+.asistencia-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #efefef;
+}
+
+.asis-type {
+    font-size: 12px;
+    padding: 3px 7px;
+    border-radius: 6px;
+    background: #ececec;
+    display: inline-block;
+    margin-top: 4px;
+}
+
+/* ===========================
+   BOTONES DE ACCIÓN
+=========================== */
+.asis-btn {
+    width: 120px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+}
+.btn-nutri { background: #d4f7d2; color: #1c7d12; }
+.btn-kine  { background: #d8e6ff; color: #164a9c; }
+.btn-masa  { background: #ffe5d1; color: #a14b05; }
+.asis-btn:hover { transform: scale(1.05); }
+
+/* ===========================
+   MODAL
+=========================== */
+.asistencia-modal {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+}
+
+.asistencia-modal-content {
+    background: white;
+    padding: 25px;
+    width: 380px;
+    border-radius: 14px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.20);
+}
+
+.modal-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 18px;
+}
+
+.modal-btn-confirm {
+    background: #2ecc71;
+    padding: 10px 16px;
+    color: white;
+    border-radius: 8px;
+}
+.modal-btn-cancel {
+    background: #bbb;
+    padding: 10px 16px;
+    border-radius: 8px;
+}
+</style>
+
+
+
+<div class="asistencia-layout">
+
+    <h1 class="asistencia-title">🩺 Asistencia Profesionales</h1>
+    <p class="asistencia-sub">Registra sesiones de Nutrición, Kinesiología o Masajes.</p>
+
+    <a href="{% url 'registrar_cliente_externo' %}" class="asistencia-btn-external">
+        ➕ Registrar Cliente Externo
+    </a>
+
+    <input id="asistencia-busqueda" class="asistencia-search" placeholder="🔍 Buscar cliente por nombre o RUT...">
+
+    
+    <!-- ===========================
+         TABLA DE CLIENTES
+    ============================ -->
+    <div class="asistencia-table-box">
+        <div class="asistencia-scroll">
+            <table class="asistencia-table">
+                <thead>
                     <tr>
                         <th>Cliente</th>
                         <th>Nutrición</th>
@@ -24,94 +189,106 @@
                         <th>Masajista</th>
                     </tr>
                 </thead>
+
                 <tbody>
                     {% for cliente in clientes %}
                     <tr>
                         <td>
-                            <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong>
-                            <small style="color:#555;">({{ cliente.tipo_objeto|capfirst }})</small><br>
-                            <small class="text-muted">{{ cliente.rut }}</small>
+                            <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong><br>
+                            <span class="asis-type">{{ cliente.tipo_objeto|capfirst }}</span><br>
+                            <small style="color:#666;">{{ cliente.rut }}</small>
                         </td>
-                        <td>
-                            <button class="asistencia-btn asistencia-btn-nutri registrar"
-                                data-id="{{ cliente.id }}"
-                                data-nombre="{{ cliente.nombre }} {{ cliente.apellido }}"
-                                data-tipo="nutricional"
-                                data-tipo-objeto="{{ cliente.tipo_objeto }}">🥗 Nutrición</button>
-                        </td>
-                        <td>
-                            <button class="asistencia-btn asistencia-btn-kine registrar"
-                                data-id="{{ cliente.id }}"
-                                data-nombre="{{ cliente.nombre }} {{ cliente.apellido }}"
-                                data-tipo="kinesiologia"
-                                data-tipo-objeto="{{ cliente.tipo_objeto }}">🏃‍♂️ Kinesiología</button>
-                        </td>                 
-                        <td>
-                            <button class="asistencia-btn asistencia-btn-masaje registrar"
-                                data-id="{{ cliente.id }}"
-                                data-nombre="{{ cliente.nombre }} {{ cliente.apellido }}"
-                                data-tipo="masajista" 
-                                data-tipo-objeto="{{ cliente.tipo_objeto }}">💆 Masajista</button>
-                        </td>
+
+                        <td><button class="asis-btn btn-nutri registrar"
+                            data-id="{{ cliente.id }}"
+                            data-nombre="{{ cliente.nombre }} {{ cliente.apellido }}"
+                            data-tipo="nutricional"
+                            data-tipo-objeto="{{ cliente.tipo_objeto }}">🥗 Nutrición</button></td>
+
+                        <td><button class="asis-btn btn-kine registrar"
+                            data-id="{{ cliente.id }}"
+                            data-nombre="{{ cliente.nombre }} {{ cliente.apellido }}"
+                            data-tipo="kinesiologia"
+                            data-tipo-objeto="{{ cliente.tipo_objeto }}">🏃‍♂️ Kinesiología</button></td>
+
+                        <td><button class="asis-btn btn-masa registrar"
+                            data-id="{{ cliente.id }}"
+                            data-nombre="{{ cliente.nombre }} {{ cliente.apellido }}"
+                            data-tipo="masajista"
+                            data-tipo-objeto="{{ cliente.tipo_objeto }}">💆 Masajista</button></td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-
-        <hr>
-
-        <!-- Historial -->
-        <h2>📋 Últimas asistencias</h2>
-        <table class="table table-sm table-striped">
-            <thead>
-                <tr>
-                    <th>Cliente</th>
-                    <th>Tipo</th>
-                    <th>Profesional</th>
-                    <th>Fecha</th>
-                </tr>
-            </thead>
-            <tbody id="asistencia-historial">
-                {% for sesion in sesiones %}
-                <tr>
-                  <td>
-                    {% if sesion.cliente %}
-                        {{ sesion.cliente.nombre }} {{ sesion.cliente.apellido }}
-                    {% elif sesion.cliente_externo %}
-                        {{ sesion.cliente_externo.nombre }} {{ sesion.cliente_externo.apellido }}
-                    {% else %}
-                        <em>Sin cliente</em>
-                    {% endif %}
-                </td>
-                                    <td>{{ sesion.get_tipo_sesion_display }}</td>
-                    <td>{{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</td>
-                    <td>{{ sesion.fecha|date:"d/m/Y" }}</td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="4">No hay asistencias registradas</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
     </div>
-</main>
 
-<!-- Modal -->
+
+    <!-- ===========================
+         HISTORIAL
+    ============================ -->
+    <h2 style="font-size:24px; font-weight:700; margin-bottom:10px;">📋 Últimas Asistencias</h2>
+
+    <div class="asistencia-table-box">
+        <div class="asistencia-scroll" style="max-height:300px;">
+            <table class="asistencia-table">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Tipo</th>
+                        <th>Profesional</th>
+                        <th>Fecha</th>
+                    </tr>
+                </thead>
+
+                <tbody id="asistencia-historial">
+                    {% for sesion in sesiones %}
+                    <tr>
+                        <td>
+                            {% if sesion.cliente %}
+                                {{ sesion.cliente.nombre }} {{ sesion.cliente.apellido }}
+                            {% elif sesion.cliente_externo %}
+                                {{ sesion.cliente_externo.nombre }} {{ sesion.cliente_externo.apellido }}
+                            {% else %}
+                                <em>Sin cliente</em>
+                            {% endif %}
+                        </td>
+
+                        <td>{{ sesion.get_tipo_sesion_display }}</td>
+
+                        <td>{{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</td>
+
+                        <td>{{ sesion.fecha|date:"d/m/Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align:center; padding:15px;">No hay asistencias registradas.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+
+<!-- ===========================
+     MODAL
+=========================== -->
 <div id="asistencia-modal" class="asistencia-modal">
     <div class="asistencia-modal-content">
-        <span id="asistencia-close" class="asistencia-modal-close">&times;</span>
-        <p id="asistencia-modal-text">¿Confirmar asistencia?</p>
 
-        <div id="profesional-select-container" style="display:none; margin-bottom:15px;">
-            <label for="profesional-select">Seleccionar profesional:</label>
-            <select id="profesional-select" class="form-select">
-                <option value="">Seleccione un profesional...</option>
-            </select>
-        </div>
+        <p id="modal-text" style="font-weight:600;"></p>
 
-        <div class="asistencia-modal-buttons">
-            <button id="asistencia-confirm" class="asistencia-btn asistencia-btn-confirm" disabled>Confirmar</button>
-            <button id="asistencia-cancel" class="asistencia-btn asistencia-btn-cancel">Cancelar</button>
+        <label>Seleccione Profesional:</label>
+        <select id="profesional-select" class="form-control">
+            <option value="">Seleccione...</option>
+        </select>
+
+        <div class="modal-buttons">
+            <button id="modal-confirm" class="modal-btn-confirm" disabled>Confirmar</button>
+            <button id="modal-cancel" class="modal-btn-cancel">Cancelar</button>
         </div>
     </div>
 </div>
@@ -120,108 +297,109 @@
 {{ kinesiologos|json_script:"kinesiologos-data" }}
 {{ masajistas|json_script:"masajistas-data" }}
 
+
+
 <script>
-const csrfToken = "{{ csrf_token }}";
-const nutricionistas = JSON.parse(document.getElementById('nutricionistas-data').textContent);
-const kinesiologos = JSON.parse(document.getElementById('kinesiologos-data').textContent);
-const masajistas = JSON.parse(document.getElementById('masajistas-data').textContent);
-
-const modal = document.getElementById('asistencia-modal');
-const modalText = document.getElementById('asistencia-modal-text');
-const profesionalSelectContainer = document.getElementById('profesional-select-container');
-const profesionalSelect = document.getElementById('profesional-select');
-const btnClose = document.getElementById('asistencia-close');
-const btnCancel = document.getElementById('asistencia-cancel');
-const btnConfirm = document.getElementById('asistencia-confirm');
-
-let clienteIdGlobal, tipoSesionGlobal, profesionalIdGlobal, tipoObjetoGlobal;
-
-
-document.getElementById('asistencia-busqueda').addEventListener('input', function() {
-    const filtro = this.value.trim().toLowerCase();
-    document.querySelectorAll('#asistencia-tablaClientes tbody tr').forEach(fila => {
-        const texto = fila.textContent.toLowerCase();
-        fila.style.display = texto.includes(filtro) ? '' : 'none';
+/* ===========================
+   BUSCADOR
+=========================== */
+document.getElementById("asistencia-busqueda").addEventListener("input", function() {
+    const f = this.value.toLowerCase();
+    document.querySelectorAll("tbody tr").forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(f) ? "" : "none";
     });
 });
 
-document.querySelectorAll('.registrar').forEach(btn => {
-    btn.addEventListener('click', function() {
-        clienteIdGlobal = this.dataset.id;
-        tipoSesionGlobal = this.dataset.tipo;
-        tipoObjetoGlobal = this.dataset.tipoObjeto;
-        const nombreCliente = this.dataset.nombre;
 
-  
-        let tipoTexto = "";
-        if (tipoSesionGlobal === "nutricional") tipoTexto = "Nutrición";
-        else if (tipoSesionGlobal === "kinesiologia") tipoTexto = "Kinesiología";
-        else if (tipoSesionGlobal === "masajista") tipoTexto = "Masajista";
+/* ===========================
+   MODAL LÓGICA
+=========================== */
 
-        modalText.textContent = `¿Confirmar asistencia de ${nombreCliente} a ${tipoTexto}?`;
+let selectedCliente, selectedTipo, selectedObjeto;
 
-      
-        profesionalSelect.innerHTML = '<option value="">Seleccione un profesional...</option>';
+const modal = document.getElementById("asistencia-modal");
+const modalText = document.getElementById("modal-text");
+const profesionalSelect = document.getElementById("profesional-select");
+const confirmBtn = document.getElementById("modal-confirm");
+
+document.querySelectorAll(".registrar").forEach(btn => {
+    btn.addEventListener("click", function() {
+
+        selectedCliente = this.dataset.id;
+        selectedTipo = this.dataset.tipo;
+        selectedObjeto = this.dataset.tipoObjeto;
+
+        modalText.textContent = `¿Registrar asistencia de ${this.dataset.nombre}?`;
+
+        profesionalSelect.innerHTML = `<option value="">Seleccione...</option>`;
         let lista = [];
-        if (tipoSesionGlobal === "nutricional") lista = nutricionistas;
-        else if (tipoSesionGlobal === "kinesiologia") lista = kinesiologos;
-        else if (tipoSesionGlobal === "masajista") lista = masajistas;
-        lista.forEach(p => profesionalSelect.innerHTML += `<option value="${p.id}">${p.nombre} ${p.apellido}</option>`);
 
-        profesionalSelectContainer.style.display = 'block';
-        btnConfirm.disabled = true;
-        modal.style.display = 'block';
+        if (selectedTipo === "nutricional")
+            lista = JSON.parse(document.getElementById("nutricionistas-data").textContent);
+
+        if (selectedTipo === "kinesiologia")
+            lista = JSON.parse(document.getElementById("kinesiologos-data").textContent);
+
+        if (selectedTipo === "masajista")
+            lista = JSON.parse(document.getElementById("masajistas-data").textContent);
+
+        lista.forEach(p => {
+            profesionalSelect.innerHTML += `<option value="${p.id}">${p.nombre} ${p.apellido}</option>`;
+        });
+
+        confirmBtn.disabled = true;
+        modal.style.display = "flex";
     });
 });
-profesionalSelect.addEventListener('change', () => {
-    profesionalIdGlobal = profesionalSelect.value;
-    btnConfirm.disabled = !profesionalIdGlobal;
+
+profesionalSelect.addEventListener("change", () => {
+    confirmBtn.disabled = !profesionalSelect.value;
 });
 
+document.getElementById("modal-cancel").onclick = () => modal.style.display = "none";
+window.onclick = e => { if (e.target === modal) modal.style.display = "none"; };
 
-btnClose.onclick = () => modal.style.display = 'none';
-btnCancel.onclick = () => modal.style.display = 'none';
-window.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
 
-btnConfirm.onclick = () => {
-    if (!profesionalIdGlobal) return;
-
-    const originalText = btnConfirm.textContent;
-    btnConfirm.textContent = "Ingresando...";
-    btnConfirm.disabled = true;
+/* ===========================
+   ENVÍO DE ASISTENCIA
+=========================== */
+confirmBtn.addEventListener("click", () => {
+    const profesionalId = profesionalSelect.value;
 
     fetch("{% url 'asistencia_kine_nutri' %}", {
         method: "POST",
         headers: {
-            "X-CSRFToken": csrfToken,
+            "X-CSRFToken": "{{ csrf_token }}",
             "Content-Type": "application/x-www-form-urlencoded",
             "X-Requested-With": "XMLHttpRequest"
         },
-        body: `cliente_id=${encodeURIComponent(clienteIdGlobal)}&tipo_sesion=${encodeURIComponent(tipoSesionGlobal)}&profesional_id=${encodeURIComponent(profesionalIdGlobal)}&tipo_objeto=${encodeURIComponent(tipoObjetoGlobal)}`
+        body: `cliente_id=${selectedCliente}&tipo_sesion=${selectedTipo}&profesional_id=${profesionalId}&tipo_objeto=${selectedObjeto}`
     })
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            const fila = `<tr>
-                <td>${data.cliente}</td>
-                <td>${data.tipo}</td>
-                <td>${data.profesional}</td>
-                <td>${data.fecha}</td>
-            </tr>`;
-            document.querySelector('#asistencia-historial').insertAdjacentHTML('afterbegin', fila);
-            modal.style.display = 'none';
+            agregarFilaHistorial(data);
+            modal.style.display = "none";
         } else {
-            alert("⚠️ Error: " + (data.error || "No se pudo registrar la asistencia."));
+            alert("Error: " + (data.error || "No se pudo registrar la asistencia."));
         }
-    })
-    .catch(err => {
-        console.error("Error al registrar asistencia:", err);
-        alert("❌ Error al registrar la asistencia.");
-    })
-    .finally(() => {
-        btnConfirm.textContent = originalText;
-        btnConfirm.disabled = false;
     });
-};
+});
+
+
+/* ===========================
+   AGREGAR FILA NUEVA AL HISTORIAL
+=========================== */
+function agregarFilaHistorial(data) {
+    const fila = `
+        <tr>
+            <td>${data.cliente}</td>
+            <td>${data.tipo}</td>
+            <td>${data.profesional}</td>
+            <td>${data.fecha}</td>
+        </tr>`;
+    document.getElementById("asistencia-historial").insertAdjacentHTML("afterbegin", fila);
+}
 </script>
+
 {% endblock %}

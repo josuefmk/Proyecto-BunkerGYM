@@ -2,21 +2,35 @@
 {% load static %}
 
 {% block content %}
-<div class="card-tabla">
-    <h2 class="titulo-tabla">Lista de Clientes</h2>
 
-    <div class="tabla-wrapper">
+<div class="card-premium-lista">
+
+    <div class="lista-header">
+        <div>
+            <h2 class="titulo-premium">
+                👥 Lista de Clientes (Hoy)
+            </h2>
+            <p class="sub-premium">
+                Registro de todos los clientes que ingresaron durante el día.
+            </p>
+        </div>
+    </div>
+
+    <!-- TABLA -->
+    <div class="tabla-premium-wrapper">
+
         {% if datos_clientes %}
-        <table class="tabla-clientes">
+        <table class="tabla-premium">
             <thead>
                 <tr>
                     <th>Nombre Completo</th>
                     <th>RUT</th>
                     <th>Hora de Ingreso</th>
                     <th>Tipo de Plan</th>
-                    <th>Vencimiento De Plan</th>
+                    <th>Vencimiento</th>
                 </tr>
             </thead>
+
             <tbody>
                 {% for item in datos_clientes %}
                 <tr>
@@ -29,34 +43,126 @@
                 {% endfor %}
             </tbody>
         </table>
+
         {% else %}
-        <p style="text-align:center; color: gray;">Ningún cliente ha ingresado hoy.</p>
+        <p class="no-datos">Ningún cliente ha ingresado hoy.</p>
         {% endif %}
     </div>
 </div>
+
+<!-- AUTO REFRESCO -->
 <script>
 function actualizarTabla() {
     fetch("{% url 'listaCliente_json' %}")
         .then(response => response.json())
         .then(data => {
-            const tbody = document.querySelector('.tabla-clientes tbody');
+            const tbody = document.querySelector('.tabla-premium tbody');
+            if (!tbody) return;
+
             tbody.innerHTML = '';
             data.datos_clientes.forEach(item => {
-                const fila = `
+                tbody.innerHTML += `
                     <tr>
                         <td>${item.nombre}</td>
                         <td>${item.rut}</td>
                         <td>${item.hora_ingreso}</td>
                         <td>${item.tipo_plan}</td>
                         <td>${item.vencimiento_plan}</td>
-                    </tr>`;
-                tbody.innerHTML += fila;
+                    </tr>
+                `;
             });
         });
 }
 
-// 3min
+// Actualiza cada 3 minutos
 setInterval(actualizarTabla, 180000);
 </script>
+
+<style>
+
+
+.card-premium-lista {
+    background: #fff;
+    max-width: 950px;
+    margin: 40px auto;
+    padding: 28px;
+    border-radius: 14px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.07);
+    border: 1px solid #eee;
+}
+
+
+.lista-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.titulo-premium {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 0;
+}
+
+.sub-premium {
+    font-size: 14px;
+    color: #777;
+}
+
+.tabla-premium-wrapper {
+    max-height: 420px;
+    overflow-y: auto;
+    border-radius: 10px;
+    border: 1px solid #eee;
+}
+
+
+.tabla-premium-wrapper::-webkit-scrollbar {
+    width: 6px;
+}
+.tabla-premium-wrapper::-webkit-scrollbar-thumb {
+    background: #bbb;
+    border-radius: 10px;
+}
+
+
+.tabla-premium {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tabla-premium thead {
+    background: #f7f7f7;
+}
+
+.tabla-premium th {
+    text-align: left;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.tabla-premium td {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+}
+
+
+.tabla-premium tbody tr:nth-child(even) {
+    background: #fafafa;
+}
+
+
+.no-datos {
+    text-align: center;
+    color: gray;
+    padding: 25px 0;
+    font-size: 15px;
+}
+
+</style>
 
 {% endblock %}

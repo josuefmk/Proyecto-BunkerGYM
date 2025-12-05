@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block content %}
+
 {% if messages %}
   <div class="mi-mensaje-contenedor">
     {% for message in messages %}
@@ -10,57 +11,52 @@
   </div>
 {% endif %}
 
+<div class="editar-wrapper">
 
-<div class="form-container">
-    <form method="POST" class="formulario">
-        {% csrf_token %}
+    <div class="card-premium-v2 form-card">
 
-        <label>Nombre:</label>
-        <input type="text" name="nombre" value="{{ producto.nombre }}" >
+        <h2 class="titulo-form">Editar Producto</h2>
+        <p class="sub-text">Modifique los campos y guarde los cambios</p>
 
-        <label>Descripción:</label>
-        <textarea name="descripcion">{{ producto.descripcion }}</textarea>
+        <form method="POST" class="form-premium" novalidate>
+            {% csrf_token %}
 
-        <label>Precio Compra:</label>
-        <input type="number" name="precio_compra" step="0.01" value="{{ producto.precio_compra }}" >
+            <div class="form-group-premium">
+                <label>Nombre:</label>
+                <input type="text" name="nombre" value="{{ producto.nombre }}">
+            </div>
 
-        <label>Precio Venta:</label>
-        <input type="number" name="precio_venta" step="0.01" value="{{ producto.precio_venta }}" >
+            <div class="form-group-premium">
+                <label>Descripción:</label>
+                <textarea name="descripcion">{{ producto.descripcion }}</textarea>
+            </div>
 
-        <label for="stock_inicial">Stock Inicial:</label>
-        <input type="number"
-              id="stock_inicial"
-              name="stock_inicial"
-              value="{{ producto.stock_inicial }}"
-              class="input-bonito"
-              readonly
-              style="background:#e9ecef; cursor:not-allowed;">
+            <div class="form-group-premium">
+                <label>Precio Compra:</label>
+                <input type="number" step="0.01" name="precio_compra" value="{{ producto.precio_compra }}">
+            </div>
 
-        <label>Stock Actual:</label>
-        <input type="number" name="stock" value="{{ producto.stock }}" >
+            <div class="form-group-premium">
+                <label>Precio Venta:</label>
+                <input type="number" step="0.01" name="precio_venta" value="{{ producto.precio_venta }}">
+            </div>
 
-     <button type="submit" class="btn-global" style=" margin-top: 15px;  margin-bottom: 10px;">💾 Guardar Cambios</button>
-<a href="{% url 'productos' %}" class="btn-global">🔙 Volver</a>
+            <div class="form-group-premium">
+                <label>Stock Inicial:</label>
+                <input type="number" value="{{ producto.stock_inicial }}" readonly style="background:#ececec; cursor:not-allowed;">
+            </div>
 
-    </form>
+            <div class="form-group-premium">
+                <label>Stock Actual:</label>
+                <input type="number" name="stock" value="{{ producto.stock }}">
+            </div>
+
+            <button type="submit" class="btn-premium-full">💾 Guardar Cambios</button>
+            <a href="{% url 'productos' %}"  class="btn-premium-secundario">⟵ Volver</a>
+        </form>
+
+    </div>
+
 </div>
-<style>
-.mi-mensaje-contenedor {
-    margin-bottom: 15px;
-}
-.mi-mensaje {
-    padding: 12px;
-    border-radius: 6px;
-    font-weight: 500;
-    margin-bottom: 12px;
-}
-.mi-mensaje-success {
-    background-color: #d4edda;
-    color: #155724;
-}
-.mi-mensaje-error {
-    background-color: #f8d7da;
-    color: #721c24;
-}
-</style>
+
 {% endblock %}

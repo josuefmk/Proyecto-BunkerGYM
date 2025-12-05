@@ -3,164 +3,171 @@
 {% load humanize %}
 
 {% block content %}
-<div class="contenido">
 
-{% if messages %}
-  <div id="mi-mensaje-contenedor" class="mi-mensaje-contenedor">
-    {% for message in messages %}
-      <div class="mi-mensaje mi-mensaje-{{ message.tags }}">{{ message }}</div>
-    {% endfor %}
-  </div>
-  <script>
-    setTimeout(function() {
-      const mensaje = document.getElementById("mi-mensaje-contenedor");
-      if (mensaje) {
-        mensaje.style.transition = "opacity 1s ease";
-        mensaje.style.opacity = 0;
-        setTimeout(() => mensaje.remove(), 8000);
-      }
-    }, 8000);
-  </script>
-{% endif %}
+<div class="productos-wrapper">
 
-<div class="card-tabla">
-  <div style="display: flex; justify-content: space-between; align-items: center;">
-    <h2 class="titulo-tabla" style=" margin-top: 10px; margin-bottom: 25px;">Registrar Venta</h2>
-  </div>
-
-  <form method="POST" action="{% url 'registrar_venta' %}" id="form-venta">
-    {% csrf_token %}
-    <label for="producto">Producto:</label>
-    <select name="producto_id" class="select-bonito" required>
-      <option value="" disabled {% if not producto_seleccionado %}selected{% endif %}>
-        -- Seleccione Un Producto --
-      </option>
-      {% for producto in productos %}
-      <option value="{{ producto.id }}"
-        {% if producto.id == producto_seleccionado %}selected{% endif %}>
-        {{ producto.nombre }} — Stock: {{ producto.stock }} —
-        ${{ producto.precio_venta|floatformat:0|intcomma }} CLP
-      </option>
-      {% endfor %}
-    </select>
-    <div class="campo-cantidad">
-      <label for="cantidad" class="etiqueta-cantidad">Cantidad a vender:</label>
-      <input type="number" name="cantidad" id="cantidad" min="1" class="input-bonito" required>
+  
+    {% if messages %}
+    <div id="mensaje-bunker" class="mensaje-bunker">
+        {% for message in messages %}
+        <div class="msg msg-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
     </div>
-      <div class="campo-metodo">
-      <label for="metodo_pago">Método de Pago:</label>
-      <select name="metodo_pago" id="metodo_pago" class="select-bonito" required>
-      <option value="" disabled selected>-- Seleccione un método --</option>
-      <option value="Efectivo">Efectivo</option>
-      <option value="Debito">Débito</option>
-      <option value="Credito">Crédito</option>
-      <option value="Transferencia">Transferencia</option>
-      </select>
-      </div>
 
-    <br>
-    <button type="submit" class="btn-global" id="btn-venta">💰 Registrar Venta</button>
-  </form>
-</div>
+    <script>
+        setTimeout(() => {
+            const box = document.getElementById("mensaje-bunker");
+            if (box) {
+                box.style.opacity = "0";
+                setTimeout(() => box.remove(), 800);
+            }
+        }, 4000);
+    </script>
+    {% endif %}
 
-<div class="card-tabla">
- <div style="display: flex; justify-content: space-between; align-items: center;">
-  <h2 class="titulo-tabla" style="margin: 0;">Productos Disponibles</h2>
-  <div style="display: flex; gap: 10px;">
-    <a href="{% url 'agregar_producto' %}" class="btn-global">➕ Agregar Producto</a>
-    <a href="{% url 'agregar_stock' %}" class="btn-global">📦 Agregar Stock</a>
-    <a href="{% url 'historial_ventas' %}" class="btn-global">📜 Historial de Ventas</a>
-  </div>
-</div>
+    <!-- CARD REGISTRAR VENTA -->
+    <div class="card-premium-v2">
 
+        <div class="card-header">
+            <h2>Registrar Venta</h2>
+        </div>
 
-  <div class="tabla-wrapper" style="margin-top: 15px;">
- <table class="tabla-clientes">
-  <thead>
-    <tr>
-      <th>Producto</th>
-      <th>Descripción</th>
-      <th>Compra</th>
-      <th>Venta</th>
-       {% if request.user_obj.rut == "18449809K" or request.user_obj.rut == "178569554" %}
-      <th>Stock Inicial</th>
-      <th>Vendidos</th>
-      {% endif %}
-      <th>Stock Actual</th>
-      <th>Valor Base</th>
-      <th>Ganancia Estimada</th>
-      <th>Ganancia Real</th>
-      <th>Acciones</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for producto in productos %}
-    <tr {% if producto.id == producto_seleccionado %}style="background: #f0f8ff;"{% endif %}>
-      <td>{{ producto.nombre }}</td>
-      <td>{{ producto.descripcion }}</td>
-      <td>CLP ${{ producto.precio_compra|floatformat:0|intcomma }}</td>
-      <td>CLP ${{ producto.precio_venta|floatformat:0|intcomma }}</td>
-     {% if request.user_obj.rut == "18449809K" or request.user_obj.rut == "178569554" %}
-    <td>{{ producto.stock_inicial }}</td>
-    <td>{{ producto.cantidad_vendida }}</td>
-{% endif %}
-      <td>{{ producto.stock }}</td>
-      <td>CLP ${{ producto.valor_total_stock|floatformat:0|intcomma }}</td>
-      <td>CLP ${{ producto.estimado_ganancia|floatformat:0|intcomma }}</td>
-      <td>CLP ${{ producto.ganancia_real|floatformat:0|intcomma }}</td>
-      <td>
-        <a href="{% url 'editar_producto' producto.id %}" class="btn-accion editar">✏️</a>
-        <button type="button" class="btn-accion eliminar"
-                onclick="mostrarModal({{ producto.id }}, '{{ producto.nombre }}')">🗑️</button>
-      </td>
-    </tr>
-    {% empty %}
-    <tr><td colspan="11" class="mensaje-centrado">No hay productos registrados.</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
-  </div>
-</div>
+        <form method="POST" action="{% url 'registrar_venta' %}" id="form-venta">
+            {% csrf_token %}
 
-<div id="modalEliminar" class="modal modal-error" style="display: none;">
-  <div class="modal-producto-content">
-    <button type="button" class="modal-close" onclick="cerrarModal()">&times;</button>
-    <h2>Eliminar producto</h2>
-    <p id="mensaje-modal"></p>
-    <form id="formEliminar" method="POST">
-      {% csrf_token %}
-      <div class="modal-producto-actions">
-        <button type="submit" class="btn-producto-eliminar">Sí, eliminar</button>
-        <button type="button" onclick="cerrarModal()" class="btn-producto-cancelar">Cancelar</button>
-      </div>
-    </form>
-  </div>
+            <label>Producto:</label>
+            <select name="producto_id" class="select-premium" required>
+                <option value="" disabled selected>— Seleccione un Producto —</option>
+                {% for producto in productos %}
+                <option value="{{ producto.id }}"
+                        {% if producto.id == producto_seleccionado %}selected{% endif %}>
+                    {{ producto.nombre }} — Stock: {{ producto.stock }} — 
+                    ${{ producto.precio_venta|floatformat:0|intcomma }} CLP
+                </option>
+                {% endfor %}
+            </select>
+
+            <label>Cantidad:</label>
+            <input type="number" name="cantidad" min="1" class="input-premium" required>
+
+            <label>Método de pago:</label>
+            <select name="metodo_pago" class="select-premium" required>
+                <option value="" disabled selected>— Seleccione un método —</option>
+                <option value="Efectivo">Efectivo</option>
+                <option value="Debito">Débito</option>
+                <option value="Credito">Crédito</option>
+                <option value="Transferencia">Transferencia</option>
+            </select>
+
+            <button class="btn-premium-full">💰 Registrar Venta</button>
+        </form>
+    </div>
+
+    <!-- TABLA DE PRODUCTOS -->
+    <div class="card-premium-v2">
+
+        <div class="card-header-flex">
+            <h2>Productos Disponibles</h2>
+
+            <div class="btn-group-flex">
+                <a href="{% url 'agregar_producto' %}" class="btn-premium">➕ Agregar</a>
+                <a href="{% url 'agregar_stock' %}" class="btn-premium">📦 Stock</a>
+                <a href="{% url 'historial_ventas' %}" class="btn-premium">📜 Ventas</a>
+            </div>
+          
+        </div>
+   <br>
+        <div class="tabla-scroll">
+        <table class="tabla-premium">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Descripción</th>
+                    <th>Compra</th>
+                    <th>Venta</th>
+                    {% if request.user_obj.rut == "18449809K" or request.user_obj.rut == "178569554" %}
+                    <th>Stock Inicial</th>
+                    <th>Vendidos</th>
+                    {% endif %}
+                    <th>Stock</th>
+                    <th>Valor Base</th>
+                    <th>Ganancia Estimada</th>
+                    <th>Ganancia Real</th>
+                    <th class="acciones-col">Acciones</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for producto in productos %}
+                <tr {% if producto.id == producto_seleccionado %}class="fila-activa"{% endif %}>
+                    <td>{{ producto.nombre }}</td>
+                    <td>{{ producto.descripcion }}</td>
+                    <td>${{ producto.precio_compra|floatformat:0|intcomma }}</td>
+                    <td>${{ producto.precio_venta|floatformat:0|intcomma }}</td>
+
+                    {% if request.user_obj.rut == "18449809K" or request.user_obj.rut == "178569554" %}
+                    <td>{{ producto.stock_inicial }}</td>
+                    <td>{{ producto.cantidad_vendida }}</td>
+                    {% endif %}
+
+                    <td>{{ producto.stock }}</td>
+                    <td>${{ producto.valor_total_stock|floatformat:0|intcomma }}</td>
+                    <td>${{ producto.estimado_ganancia|floatformat:0|intcomma }}</td>
+                    <td>${{ producto.ganancia_real|floatformat:0|intcomma }}</td>
+
+                    <td class="acciones">
+                        <a href="{% url 'editar_producto' producto.id %}" class="btn-mini editar">✏️</a>
+                        <button onclick="mostrarModal({{ producto.id }}, '{{ producto.nombre }}')" 
+                                class="btn-mini eliminar">🗑️</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="11" class="no-data">No hay productos registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <!-- MODAL ELIMINAR -->
+    <div id="modalEliminar" class="modal-premium" style="display:none;">
+        <div class="modal-content-premium modal-error-border">
+            <span class="close-modal" onclick="cerrarModal()">&times;</span>
+
+            <h2>Eliminar Producto</h2>
+            <p id="mensaje-modal"></p>
+
+            <form id="formEliminar" method="POST">
+                {% csrf_token %}
+                <button class="btn-modal-danger">Sí, eliminar</button>
+                <button type="button" onclick="cerrarModal()" class="btn-modal-cancel">Cancelar</button>
+            </form>
+        </div>
+    </div>
+
 </div>
 
 <script>
-  // Bloqueo de doble submit en registrar venta
-  const formVenta = document.getElementById('form-venta');
-  const btnVenta = document.getElementById('btn-venta');
-
-  formVenta.addEventListener('submit', function() {
-    btnVenta.disabled = true;
-  });
-
-  // Modal de eliminar producto
-  function mostrarModal(productoId, productoNombre) {
+function mostrarModal(id, nombre) {
     const modal = document.getElementById("modalEliminar");
-    const mensaje = document.getElementById("mensaje-modal");
-    const form = document.getElementById("formEliminar");
-
-    mensaje.innerHTML = `¿Estás seguro de que deseas eliminar el producto <strong>"${productoNombre}"</strong>?`;
-    form.action = "{% url 'eliminar_producto' 0 %}".replace('0', productoId);
     modal.style.display = "flex";
-  }
 
-  function cerrarModal() {
+    document.getElementById("mensaje-modal").innerHTML =
+        `¿Eliminar <strong>${nombre}</strong>?`;
+
+    document.getElementById("formEliminar").action =
+        "{% url 'eliminar_producto' 0 %}".replace("0", id);
+}
+
+function cerrarModal() {
     document.getElementById("modalEliminar").style.display = "none";
-  }
+}
+
+document.getElementById("form-venta")?.addEventListener("submit", () => {
+    document.querySelector(".btn-premium-full").disabled = true;
+});
 </script>
 
-</div>
 {% endblock %}

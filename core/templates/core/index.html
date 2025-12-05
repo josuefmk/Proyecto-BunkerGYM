@@ -2,66 +2,85 @@
 {% load static %}
 
 {% block content %}
-<main class="contenido">
-<div class="contenedor-central">
-    <div class="fila-botones">
-        <a href="{% url 'registro_cliente' %}">
-            <button class="btn-index">➕ Registrar Nuevo Cliente</button>
-        </a>
 
-        <a href="{% url 'registro_pase_diario' %}">
-                <button class="btn-index">⚡ Registro Rápido (Pase Diario)</button>
-            </a>
-  <a href="{% url 'renovarCliente' %}">
-        <button class="btn-index">🔁 Renovar Cliente</button>
- </a>
-        <a href="{% url 'asistencia_cliente' %}">
-            <button class="btn-index">✔️ Asistencia Clientes</button>
-        </a>
-            <a href="{% url 'asistencia_kine_nutri' %}">
-        <button class="btn-index">🩺 Asistencia Con Profesionales</button>
-             
-        <a href="{% url 'listaCliente' %}">
-        <button class="btn-index">
-            📆 Ingresos del Día — {% now "l" as dia %}{{ dia|capfirst }}
-        </button>
-    </a>
-    </a>
-    </div>
+<div class="layout-premium">
 
-    <div class="fila-botones">
+    <!-- SIDEBAR -->
+    <aside class="sidebar-premium">
+        <div class="sidebar-logo">
+            <img src="{% static 'core/img/BunkerIMG.jpg' %}" alt="Logo Bunker Gym">
+            <h2>Bunker Gym</h2>
+        </div>
 
-    </a>
-    <a href="{% url 'historial_cliente' %}">
-            <button class="btn-index">📜 Historial Cliente</button>
-        </a>
+        <nav class="sidebar-nav">
+            <a href="{% url 'registro_cliente' %}">➕ Registrar Cliente</a>
+            <a href="{% url 'registro_pase_diario' %}">⚡ Pase Diario</a>
+            <a href="{% url 'renovarCliente' %}">🔁 Renovar</a>
+            <a href="{% url 'asistencia_cliente' %}">✔ Asistencia</a>
+            <a href="{% url 'listaCliente' %}">📅 Ingresos del Día</a>
 
-       <a href="{% url 'productos' %}">
-            <button class="btn-index">📦 Inventario</button>
-        </a>
+            <div class="sidebar-separator"></div>
 
-        <a href="{% url 'panel_precios' %}">
-            <button class="btn-index">💲 Panel Precios y Descuentos</button>
-        </a>
+            <a href="{% url 'historial_cliente' %}">📜 Historial Cliente</a>
+            <a href="{% url 'productos' %}">📦 Inventario</a>
+            <a href="{% url 'panel_precios' %}">💲 Precios & Descuentos</a>
+            <a href="{% url 'dashboard' %}">📊 Dashboard</a>
 
-        <a href="{% url 'dashboard' %}">
-            <button class="btn-index">📊 Dashboard</button>
-        </a>
-    {% if request.session.admin_profesion == 'Administrador' %}
-        <a href="{% url 'agendar_hora_box' %}">
-            <button class="btn-index">🕒 Agenda Kinesiologos & Nutricionistas</button>
-        </a>
-    {% endif %}
-    
-        {% if request.session.admin_profesion == 'Administrador' %}
-    <a href="{% url 'agenda_pf' %}">
-        <button class="btn-index">🏋️‍♂️ Agenda Coaches</button>
-    </a>
-        {% endif %}
+            <div class="sidebar-separator"></div>
 
-    </div>
+            <a href="{% url 'asistencia_kine_nutri' %}">🩺 Asistencia Profesionales</a>
+
+            {% if request.session.admin_profesion == 'Administrador' %}
+                <a href="{% url 'agendar_hora_box' %}">🕒 Agenda Kinesiología</a>
+                <a href="{% url 'agenda_pf' %}">🏋️ Coaches</a>
+            {% endif %}
+        </nav>
+    </aside>
+
+    <!-- PANEL PRINCIPAL -->
+    <main class="panel-premium">
+
+        <h1 class="titulo-premium">Hola {{ username }} 👋</h1>
+        <p class="subtitulo-premium">Bienvenido al panel administrativo de Bunker Gym</p>
+
+        <!-- ACCESOS RÁPIDOS -->
+        <section class="dashboard-section">
+            <h2 class="section-title">Accesos Rápidos</h2>
+
+            <div class="quick-grid">
+                <a class="quick-card" href="{% url 'registro_cliente' %}">➕ Registrar Cliente</a>
+                <a class="quick-card" href="{% url 'renovarCliente' %}">🔁 Renovar Cliente</a>
+                <a class="quick-card" href="{% url 'asistencia_cliente' %}">✔ Asistencia</a>
+            </div>
+        </section>
+
+        <!-- GESTIÓN -->
+        <section class="dashboard-section">
+            <h2 class="section-title">Gestión del Gimnasio</h2>
+
+            <div class="quick-grid">
+                <a class="quick-card" href="{% url 'historial_cliente' %}">📜 Historial de Clientes</a>
+                <a class="quick-card" href="{% url 'productos' %}">📦 Inventario</a>
+                <a class="quick-card" href="{% url 'dashboard' %}">📊 Dashboard</a>
+            </div>
+        </section>
+
+        <!-- PROFESIONALES -->
+        <section class="dashboard-section">
+            <h2 class="section-title">Profesionales</h2>
+
+            <div class="quick-grid">
+                <a class="quick-card" href="{% url 'asistencia_kine_nutri' %}">🩺 Asistencia Profesionales</a>
+
+                {% if request.session.admin_profesion == 'Administrador' %}
+                    <a class="quick-card" href="{% url 'agendar_hora_box' %}">🕒 Agenda Kinesiología</a>
+                    <a class="quick-card" href="{% url 'agenda_pf' %}">🏋️ Coaches</a>
+                {% endif %}
+            </div>
+        </section>
+
+    </main>
+
 </div>
 
-
-</main>
 {% endblock %}
