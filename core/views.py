@@ -1718,6 +1718,7 @@ def registrar_cliente_externo(request):
             messages.success(request, '✅ Cliente externo registrado correctamente.')
             form = ClienteExternoForm()  
         else:
+        
             messages.error(request, '❌ Por favor corrige los errores del formulario.')
     else:
         form = ClienteExternoForm()

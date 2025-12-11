@@ -31,7 +31,7 @@
             <a href="{% url 'asistencia_kine_nutri' %}">🩺 Asistencia Profesionales</a>
 
             {% if request.session.admin_profesion == 'Administrador' %}
-                <a href="{% url 'agendar_hora_box' %}">🕒 Agenda Kinesiología</a>
+                <a href="{% url 'agendar_hora_box' %}">🕒 Agenda Profesionales</a>
                 <a href="{% url 'agenda_pf' %}">🏋️ Coaches</a>
             {% endif %}
         </nav>
@@ -73,7 +73,7 @@
                 <a class="quick-card" href="{% url 'asistencia_kine_nutri' %}">🩺 Asistencia Profesionales</a>
 
                 {% if request.session.admin_profesion == 'Administrador' %}
-                    <a class="quick-card" href="{% url 'agendar_hora_box' %}">🕒 Agenda Kinesiología</a>
+                    <a class="quick-card" href="{% url 'agendar_hora_box' %}">🕒 Agenda Profesionales</a>
                     <a class="quick-card" href="{% url 'agenda_pf' %}">🏋️ Coaches</a>
                 {% endif %}
             </div>

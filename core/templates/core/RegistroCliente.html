@@ -2,21 +2,26 @@
 {% load static %}
 
 {% block content %}
+
+
+
 <main class="registro-wrapper">
 
-    {% if mensaje %}
-    <div class="alert-success fade-in">
-        {{ mensaje }}
-    </div>
-    <script>
-        setTimeout(() => {
-            const msg = document.querySelector(".alert-success");
-            if (msg) msg.style.opacity = "0";
-        }, 4000);
-    </script>
-    {% endif %}
-
     <div class="registro-card">
+
+        {% if mensaje %}
+        <div class="alert-success fade-in">
+            ✓ {{ mensaje }}
+        </div>
+
+        <script>
+            setTimeout(() => {
+                const msg = document.querySelector(".alert-success");
+                if (msg) msg.style.opacity = "0";
+            }, 4000);
+        </script>
+        {% endif %}
+
         <h2>Registrar Nuevo Cliente</h2>
         <p class="sub">Complete la información requerida</p>
 
@@ -42,29 +47,29 @@
             {% endfor %}
 
             <button class="btn-premium-registro">Crear Cliente</button>
-            <br>
-             <br>
-            <a href="{% url 'index' %}"  class="btn-premium-secundario">⟵ Volver</a>
+            <br><br>
+            <a href="{% url 'index' %}" class="btn-premium-secundario">⟵ Volver</a>
         </form>
     </div>
 
 </main>
 
-<!-- MODAL SUBPLAN -->
-<div id="modalSubPlan" class="modal-premium" style="display:none;">
+
+<!-- ============== MODAL SUB PLAN ============== -->
+<div id="modalSubPlan" class="modal-premium">
     <div class="modal-content-premium">
         <h3>Seleccione un SubPlan</h3>
-        <label><input type="radio" name="subPlanOption" value="Bronce"> 🥉 Bronce (4 Accesos)</label><br>
-        <label><input type="radio" name="subPlanOption" value="Hierro"> 🪙 Hierro (8 Accesos)</label><br>
-        <label><input type="radio" name="subPlanOption" value="Acero"> 🛡 Acero (12 Accesos)</label><br>
+        <label><input type="radio" name="subPlanOption" value="Bronce"> 🥉 Bronce (4 Accesos)</label>
+        <label><input type="radio" name="subPlanOption" value="Hierro"> 🪙 Hierro (8 Accesos)</label>
+        <label><input type="radio" name="subPlanOption" value="Acero"> 🛡 Acero (12 Accesos)</label>
         <label><input type="radio" name="subPlanOption" value="Titanio"> ⚔ Titanio (Acceso Libre)</label>
 
-        <button onclick="guardarSubPlan()" class="btn-premium-registro modal-btn">Aceptar</button>
+        <button onclick="guardarSubPlan()" class="modal-btn">Aceptar</button>
     </div>
 </div>
 
-<!-- MODAL COACH -->
-<div id="modalCoach" class="modal-premium" style="display:none;">
+<!-- ============== MODAL COACH ============== -->
+<div id="modalCoach" class="modal-premium">
     <div class="modal-content-premium">
         <h3>Seleccione un Coach</h3>
 
@@ -75,19 +80,21 @@
             {% endfor %}
         </select>
 
-        <button onclick="guardarCoach()" class="btn-premium-registro modal-btn">Aceptar</button>
+        <button onclick="guardarCoach()" class="modal-btn">Aceptar</button>
     </div>
 </div>
 
+
+<!-- SELECT2 -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 
-
 <script>
 $(document).ready(function() {
-    // Inicializa Select2
+
+    // Inicializar Select2
     $('#id_planes_personalizados').select2({
         placeholder: "Selecciona hasta 2 planes personalizados",
         maximumSelectionLength: 2,
@@ -95,46 +102,50 @@ $(document).ready(function() {
         width: '100%'
     });
 
-    // Variable para controlar si ya mostramos modal coach
+
     let modalCoachMostrado = false;
 
-    // Función para mostrar u ocultar modal coach según selección
     function toggleModalCoach() {
         const seleccionados = $('#id_planes_personalizados').val();
         if (seleccionados && seleccionados.length > 0 && !modalCoachMostrado) {
-            $("#modalCoach").css("display", "flex");
+            $("#modalCoach").fadeIn().css("display", "flex");
             modalCoachMostrado = true;
         } else if (!seleccionados || seleccionados.length === 0) {
-            $("#modalCoach").css("display", "none");
+            $("#modalCoach").fadeOut();
             modalCoachMostrado = false;
         }
     }
 
-    // Verificar estado inicial del select personalizado al cargar página
     toggleModalCoach();
 
-    // Escuchar cambios en planes personalizados
-    $('#id_planes_personalizados').on('change', function() {
-        toggleModalCoach();
-    });
+    $('#id_planes_personalizados').on('change', () => toggleModalCoach());
 
-    // Modal Sub Plan
+    window.guardarCoach = function() {
+        const coach = document.getElementById('coachSelect').value;
+        if (!coach) {
+            alert("Selecciona un coach");
+            return;
+        }
+        document.getElementById("id_coach_asignado").value = coach;
+        $("#modalCoach").fadeOut();
+    };
+
+
     const selectPlan = document.getElementById("id_mensualidad");
+
     if (selectPlan) {
         selectPlan.addEventListener("change", function() {
-            const selectedText = this.options[this.selectedIndex].text.trim().toLowerCase();
+            const texto = this.options[this.selectedIndex].text.toLowerCase();
             const excepciones = ["pase diario", "plan diario", "pase diario + plan diario"];
 
-            if (excepciones.includes(selectedText)) {
-                document.getElementById("id_sub_plan").value = "";
-                document.getElementById("modalSubPlan").style.display = "none";
-            } else if (this.value) {
-                document.getElementById("modalSubPlan").style.display = "flex";
+            if (!excepciones.includes(texto) && this.value) {
+                $("#modalSubPlan").fadeIn().css("display", "flex");
+            } else {
+                $("#modalSubPlan").fadeOut();
             }
         });
     }
 
-    // Función guardar Sub Plan
     window.guardarSubPlan = function() {
         const elegido = document.querySelector('input[name="subPlanOption"]:checked');
         if (!elegido) {
@@ -142,88 +153,24 @@ $(document).ready(function() {
             return;
         }
         document.getElementById("id_sub_plan").value = elegido.value;
-        document.getElementById("modalSubPlan").style.display = "none";
-    }
+        $("#modalSubPlan").fadeOut();
+    };
 
-    // Función guardar Coach
-    window.guardarCoach = function() {
-        const elegido = document.getElementById('coachSelect').value;
-        if (!elegido) {
-            alert("Selecciona un coach antes de continuar");
-            return;
+    /* Cerrar modales al hacer clic fuera */
+    window.onclick = function(e) {
+        if (e.target.classList.contains("modal-premium")) {
+            e.target.style.display = "none";
         }
-        document.getElementById('id_coach_asignado').value = elegido;
-        document.getElementById("modalCoach").style.display = "none";
-    }
+    };
 
-    // Cierre de modales al hacer clic fuera
-    window.onclick = function(event) {
-        const modalSubPlan = document.getElementById("modalSubPlan");
-        const modalCoach = document.getElementById("modalCoach");
-
-        if (event.target === modalSubPlan) {
-            modalSubPlan.style.display = "none";
+    /* Cerrar con ESC */
+    document.addEventListener("keydown", function(e) {
+        if (e.key === "Escape") {
+            $("#modalSubPlan").fadeOut();
+            $("#modalCoach").fadeOut();
         }
-        if (event.target === modalCoach) {
-            modalCoach.style.display = "none";
-        }
-    }
-
-    // Validación formulario
-    window.validarFormulario = function() {
-        document.querySelectorAll('.form-group').forEach(div => {
-            div.querySelector('.error-text').textContent = '';
-            const input = div.querySelector('input, select, textarea');
-            if (input) input.style.borderColor = '';
-        });
-
-        let valido = true;
-
-        const camposObligatorios = [
-            {id: "id_nombre", label: "Nombres"},
-            {id: "id_apellido", label: "Apellidos"},
-            {id: "id_correo", label: "Email"},
-            {id: "id_telefono", label: "Teléfono"},
-            {id: "id_rut", label: "RUT"},
-            {id: "id_mensualidad", label: "Plan"},
-            {id: "id_metodo_pago", label: "Método de pago"}
-        ];
-
-        camposObligatorios.forEach(campoInfo => {
-            const campo = document.getElementById(campoInfo.id);
-            if (campo && !campo.value.trim()) {
-                const group = campo.closest('.form-group');
-                if (group) {
-                    const errorDiv = group.querySelector('.error-text');
-                    errorDiv.textContent = `El campo "${campoInfo.label}" es obligatorio.`;
-                    campo.style.borderColor = 'red';
-                }
-                valido = false;
-            }
-        });
-
-        const mensualidad = document.getElementById("id_mensualidad");
-        const subPlan = document.getElementById("id_sub_plan");
-
-        if (mensualidad && mensualidad.value) {
-            const selectedText = mensualidad.options[mensualidad.selectedIndex].text.trim().toLowerCase();
-            const excepciones = ["pase diario", "plan diario", "pase diario + plan diario"];
-            if (!excepciones.includes(selectedText) && (!subPlan || !subPlan.value)) {
-                const group = mensualidad.closest('.form-group');
-                if (group) {
-                    const errorDiv = group.querySelector('.error-text');
-                    errorDiv.textContent = "Debes seleccionar un sub plan.";
-                    mensualidad.style.borderColor = 'red';
-                }
-                valido = false;
-            }
-        }
-
-        return valido;
-    }
+    });
 });
-
 </script>
-
 
 {% endblock %}

@@ -87,72 +87,73 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-const inputRut = document.getElementById("rut");
-const rutError = document.getElementById("rut-error");
-const form = document.getElementById("login-form");
+if (document.getElementById("login-form")) {
+    const inputRut = document.getElementById("rut");
+    const rutError = document.getElementById("rut-error");
+    const form = document.getElementById("login-form");
 
+    function validarRut(rut) {
+        rut = rut.replace(/[^0-9kK]/gi, "").toUpperCase();
+        if (rut.length < 2) return false;
 
-function validarRut(rut) {
-    rut = rut.replace(/[^0-9kK]/gi, "").toUpperCase();
-    if (rut.length < 2) return false;
+        let cuerpo = rut.slice(0, -1);
+        let dv = rut.slice(-1);
 
-    let cuerpo = rut.slice(0, -1);
-    let dv = rut.slice(-1);
+        let suma = 0;
+        let multiplo = 2;
+        for (let i = cuerpo.length - 1; i >= 0; i--) {
+            suma += parseInt(cuerpo[i]) * multiplo;
+            multiplo = multiplo < 7 ? multiplo + 1 : 2;
+        }
 
-    let suma = 0;
-    let multiplo = 2;
-    for (let i = cuerpo.length - 1; i >= 0; i--) {
-        suma += parseInt(cuerpo[i]) * multiplo;
-        multiplo = multiplo < 7 ? multiplo + 1 : 2;
+        let dvEsperado = 11 - (suma % 11);
+        let dvFinal = dvEsperado === 11 ? "0" : dvEsperado === 10 ? "K" : dvEsperado.toString();
+
+        return dvFinal === dv;
     }
 
-    let dvEsperado = 11 - (suma % 11);
-    let dvFinal = dvEsperado === 11 ? "0" : dvEsperado === 10 ? "K" : dvEsperado.toString();
+    function formatearRut(valor) {
+        valor = valor.replace(/[^0-9kK]/gi, "").toUpperCase();
+        if (valor.length < 2) return valor;
 
-    return dvFinal === dv;
+        let cuerpo = valor.slice(0, -1);
+        let dv = valor.slice(-1);
+
+        let cuerpoFormateado = "";
+        let contador = 0;
+        for (let i = cuerpo.length - 1; i >= 0; i--) {
+            cuerpoFormateado = cuerpo[i] + cuerpoFormateado;
+            contador++;
+            if (contador === 3 && i !== 0) {
+                cuerpoFormateado = "." + cuerpoFormateado;
+                contador = 0;
+            }
+        }
+        return cuerpoFormateado + "-" + dv;
+    }
+
+    inputRut.addEventListener("blur", function() {
+        if (inputRut.value && !validarRut(inputRut.value)) {
+            rutError.style.display = "block";
+            inputRut.style.border = "2px solid red";
+        } else {
+            rutError.style.display = "none";
+            if (inputRut.value) {
+                inputRut.value = formatearRut(inputRut.value);
+            }
+            inputRut.style.border = "";
+        }
+    });
+
+    form.addEventListener("submit", function(e) {
+        if (!validarRut(inputRut.value)) {
+            e.preventDefault();
+            rutError.style.display = "block";
+            inputRut.style.border = "2px solid red";
+        }
+    });
 }
 
-function formatearRut(valor) {
-    valor = valor.replace(/[^0-9kK]/gi, "").toUpperCase();
-    if (valor.length < 2) return valor;
-
-    let cuerpo = valor.slice(0, -1);
-    let dv = valor.slice(-1);
-
-    let cuerpoFormateado = "";
-    let contador = 0;
-    for (let i = cuerpo.length - 1; i >= 0; i--) {
-        cuerpoFormateado = cuerpo[i] + cuerpoFormateado;
-        contador++;
-        if (contador === 3 && i !== 0) {
-            cuerpoFormateado = "." + cuerpoFormateado;
-            contador = 0;
-        }
-    }
-    return cuerpoFormateado + "-" + dv;
-}
-
-inputRut.addEventListener("blur", function() {
-    if (inputRut.value && !validarRut(inputRut.value)) {
-        rutError.style.display = "block";
-        inputRut.style.border = "2px solid red";
-    } else {
-        rutError.style.display = "none";
-        if (inputRut.value) {
-            inputRut.value = formatearRut(inputRut.value);
-        }
-        inputRut.style.border = "";
-    }
-});
-
-
-form.addEventListener("submit", function(e) {
-    if (!validarRut(inputRut.value)) {
-        e.preventDefault();
-        rutError.style.display = "block";
-        inputRut.style.border = "2px solid red";
-    }
-});
 </script>
 </body>
 </html>
