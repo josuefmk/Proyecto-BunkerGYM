@@ -11,7 +11,7 @@
             {% csrf_token %}
 
             <div class="input-group-asistencia">
-                <span class="input-icon">🆔</span>
+
                 <input type="text" id="rut" name="rut" placeholder="Ej: 12345678-9" required>
             </div>
 
@@ -151,11 +151,18 @@ function cerrarModal(elemento = null) {
     }
 }
 
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", function () {
+
+    const modal = document.querySelector(".modal-premium");
+    if (modal) {
+        modal.style.display = "flex";
+    }
+
     document.querySelectorAll('.modal-premium').forEach(modal => {
         setTimeout(() => { modal.remove(); }, 15000);
     });
 });
 </script>
+
 
 {% endblock %}
