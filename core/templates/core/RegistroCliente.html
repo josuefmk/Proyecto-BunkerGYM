@@ -63,6 +63,10 @@
         <label><input type="radio" name="subPlanOption" value="Hierro"> 🪙 Hierro (8 Accesos)</label>
         <label><input type="radio" name="subPlanOption" value="Acero"> 🛡 Acero (12 Accesos)</label>
         <label><input type="radio" name="subPlanOption" value="Titanio"> ⚔ Titanio (Acceso Libre)</label>
+        <label class="subplan-calistenia" style="display:none;">    <input type="radio" name="subPlanOption" value="Calistenia">
+        🤸 Calistenia (Clases del Mes)
+        </label>
+
 
         <button onclick="guardarSubPlan()" class="modal-btn">Aceptar</button>
     </div>
@@ -136,15 +140,31 @@ $(document).ready(function() {
     if (selectPlan) {
         selectPlan.addEventListener("change", function() {
             const texto = this.options[this.selectedIndex].text.toLowerCase();
+
+            document.querySelectorAll('input[name="subPlanOption"]').forEach(r => r.checked = false);
+
             const excepciones = ["pase diario", "plan diario", "pase diario + plan diario"];
 
             if (!excepciones.includes(texto) && this.value) {
                 $("#modalSubPlan").fadeIn().css("display", "flex");
+
+        
+                if (texto.includes("calistenia")) {
+                    document.querySelectorAll(".subplan-normal").forEach(el => el.style.display = "none");
+                    document.querySelectorAll(".subplan-calistenia").forEach(el => el.style.display = "block");
+                } 
+           
+                else {
+                    document.querySelectorAll(".subplan-normal").forEach(el => el.style.display = "block");
+                    document.querySelectorAll(".subplan-calistenia").forEach(el => el.style.display = "none");
+                }
+
             } else {
                 $("#modalSubPlan").fadeOut();
             }
         });
     }
+
 
     window.guardarSubPlan = function() {
         const elegido = document.querySelector('input[name="subPlanOption"]:checked');

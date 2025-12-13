@@ -36,6 +36,7 @@ from django.core.paginator import Paginator
 from django.views.decorators.cache import never_cache
 from .models import HistorialAccion
 
+
 def registrar_historial(admin, accion, modelo, objeto_id=None, descripcion=""):
     HistorialAccion.objects.create(
         admin=admin,

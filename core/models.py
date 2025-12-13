@@ -6,11 +6,17 @@ from datetime import timedelta,datetime, time
 from django.utils import timezone
 from django.db.models import Sum
 from django.db.models import Q, UniqueConstraint
+import calendar
+
+def contar_lunes_del_mes(fecha):
+    cal = calendar.monthcalendar(fecha.year, fecha.month)
+    return sum(1 for semana in cal if semana[calendar.MONDAY] != 0)
 SUB_PLANES = [
         ('Bronce', 'Bronce (4 Accesos)'),
         ('Hierro', 'Hierro (8 Accesos)'),
         ('Acero', 'Acero (12 Accesos)'),
         ('Titanio', 'Titanio (Acceso Libre)'),
+        ('Calistenia', 'Calistenia (Clases del Mes)'),
     ]
 
 
@@ -170,6 +176,7 @@ class Cliente(models.Model):
         ('Debito', 'Débito'),
         ('Credito', 'Crédito'),
         ('Transferencia', 'Transferencia'),
+        ('No Paga', 'No Paga'),
     ]
 
     SUB_PLANES = [
@@ -177,6 +184,7 @@ class Cliente(models.Model):
         ('Hierro', 'Hierro (8 Accesos)'),
         ('Acero', 'Acero (12 Accesos)'),
         ('Titanio', 'Titanio (Acceso Libre)'),
+        ('Calistenia', 'Calistenia (Clases del Mes)'),
     ]
 
     ESTADOS_PLAN = [
@@ -288,72 +296,84 @@ class Cliente(models.Model):
         hoy = timezone.localdate()
         tolerancia_vencido = 1
 
-        # Duración base del plan
-        dias_total = 30
+        # Duración base
         if self.mensualidad:
             key = self.mensualidad.duracion.strip().lower()
             if self.mensualidad.tipo.lower() == "pase diario":
                 dias_total = 1
             else:
                 dias_total = self.duraciones_a_dias.get(key, 30)
+        else:
+            dias_total = 30
 
-        # === Determinar si se extiende o reinicia ===
+        # Extender o reiniciar
         if (
             self.fecha_fin_plan
             and (self.fecha_fin_plan + timedelta(days=tolerancia_vencido)) >= hoy
             and not forzar
         ):
-            #  Extiende plan activo (no vencido)
             self.fecha_inicio_plan = self.fecha_inicio_plan or hoy
-            self.fecha_fin_plan = self.fecha_fin_plan + timedelta(days=dias_total + dias_extra)
+            self.fecha_fin_plan += timedelta(days=dias_total + dias_extra)
             tipo_accion = "extensión"
         else:
-            #  Reinicia plan vencido o forzado
             fecha_activacion = fecha_activacion or hoy
             self.fecha_inicio_plan = fecha_activacion
             self.fecha_fin_plan = fecha_activacion + timedelta(days=dias_total + dias_extra)
             tipo_accion = "reinicio"
 
-        # === Asignar accesos según subplan o plan personalizado ===
-        if self.sub_plan:
-            accesos_dict = {"Bronce": 4, "Hierro": 8, "Acero": 12, "Titanio": 0}
-            nuevos_accesos = accesos_dict.get(self.sub_plan, 0)
+    
+        if (
+            self.mensualidad
+            and self.mensualidad.tipo == "Calistenia"
+            and self.mensualidad.duracion == "Mensual"
+            and self.sub_plan == "Calistenia"
+        ):
+            #  Accesos = cantidad de lunes del mes
+            fecha_base = self.fecha_inicio_plan or hoy
+            self.accesos_subplan_restantes = contar_lunes_del_mes(fecha_base)
+            self.accesos_personalizados_restantes = 0
+
+        elif self.sub_plan:
+            accesos_dict = {
+                "Bronce": 4,
+                "Hierro": 8,
+                "Acero": 12,
+                "Titanio": float("inf"),
+            }
 
             if self.sub_plan == "Titanio":
-                # Titanio tiene acceso ilimitado
                 self.accesos_subplan_restantes = float("inf")
             else:
+                nuevos_accesos = accesos_dict.get(self.sub_plan, 0)
                 if tipo_accion == "extensión" and not forzar:
-                    #  Sumar accesos (acumulación)
                     self.accesos_subplan_restantes = (self.accesos_subplan_restantes or 0) + nuevos_accesos
                 else:
-                    #  Reinicio: nuevo ciclo con accesos frescos
                     self.accesos_subplan_restantes = nuevos_accesos
 
-            # Reiniciar personalizados
             self.accesos_personalizados_restantes = 0
 
         elif self.plan_personalizado_activo:
-            # Plan personalizado
             self.accesos_personalizados_restantes = self.plan_personalizado_activo.accesos_por_mes
             self.accesos_subplan_restantes = 0
 
-        # === Actualizar campo general de accesos ===
-        self.accesos_restantes = max(self.accesos_subplan_restantes or 0, self.accesos_personalizados_restantes or 0)
+        # Total accesos
+        self.accesos_restantes = max(
+            self.accesos_subplan_restantes or 0,
+            self.accesos_personalizados_restantes or 0
+        )
 
-        # === Asignar precio actualizado ===
+        # Precio
         self.asignar_precio()
 
-        # === Guardar cambios ===
+        # Guardar 
         super().save()
-
         return tipo_accion
 
     class Meta:
         ordering = ["nombre", "apellido"]
 
     def __str__(self):
-        return f"{self.nombre} {self.apellido} - {self.rut}" 
+        return f"{self.nombre} {self.apellido} - {self.rut}"
     
 class Asistencia(models.Model):
     TIPO_ASISTENCIA_CHOICES = [
