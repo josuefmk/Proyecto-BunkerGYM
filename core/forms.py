@@ -54,7 +54,7 @@ class ClienteForm(forms.ModelForm):
             'apellido': forms.TextInput(attrs={'class': 'form-control'}),
             'correo': forms.EmailInput(attrs={'class': 'form-control'}),
             'telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 9 12345678'}),
-            'rut': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 12345678-9 o EX-111111111-1'}),
+            'rut': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 12345678-9 o Pasaporte: AA123456'}),
             'mensualidad': forms.Select(attrs={'class': 'form-control'}),
             'planes_personalizados': forms.SelectMultiple(attrs={'class': 'form-control select2', 'style': 'width: 100%;'}),
             'metodo_pago': forms.Select(attrs={'class': 'form-control'}),
@@ -81,25 +81,30 @@ class ClienteForm(forms.ModelForm):
 
     def clean_rut(self):
         rut = self.cleaned_data.get('rut', '').strip().upper()
+
         if not rut:
             raise forms.ValidationError("Este campo es obligatorio.")
 
-        # RUT extranjero: EX-<número>-<DV>
-        if rut.startswith("EX-"):
-            if not re.match(r'^EX-\d{1,9}-[\dK]$', rut):
-                raise forms.ValidationError("RUT extranjero inválido. Use EX- seguido de números y dígito verificador.")
-        else:
-            # Validación RUT chileno
-            if not re.match(r'^\d{7,9}-[\dK]$', rut):
-                raise forms.ValidationError("Formato inválido. Use 12345678-9")
+        # === RUT chileno ===
+        if re.match(r'^\d{7,8}-[\dK]$', rut):
             if not validar_rut(rut):
                 raise forms.ValidationError("RUT inválido. Dígito verificador incorrecto.")
 
-        # Verifica duplicados
+        # === Pasaporte extranjero ===
+        elif re.match(r'^[A-Z0-9]{5,15}$', rut):
+            pass  
+
+        else:
+            raise forms.ValidationError(
+                "Documento inválido. Use RUT (12345678-9) o Pasaporte (AA123456)."
+            )
+
+        # === Evitar duplicados ===
         if Cliente.objects.filter(rut=rut).exclude(pk=self.instance.pk).exists():
-            raise forms.ValidationError("⚠️ Este RUT ya está registrado.")
+            raise forms.ValidationError("⚠️ Este documento ya está registrado.")
 
         return rut
+
 
     def clean_telefono(self):
         telefono = self.cleaned_data.get('telefono', '').strip()
