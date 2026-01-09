@@ -2,9 +2,16 @@ body {
     margin: 0;
     font-family: Arial, sans-serif;
     background-color: #f3f3f3;
+    
+}
+.page-scroll-x {
+    width: 100%;
+    overflow-x: auto;
 }
 
+
 .header-premium {
+    width: 100%;
     height: 60px;
     padding: 0 30px;
     background: #0d0d0d;

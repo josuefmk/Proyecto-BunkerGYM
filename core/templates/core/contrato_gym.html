@@ -28,6 +28,36 @@
         <h3>Datos del Plan Contratado</h3>
         <p><span>Nombre del plan contratado:</span> {{ cliente.mensualidad}}</p>
         <p><span>Tipo de plan:</span> {{ cliente.sub_plan }}</p>
+        <div class="seccion">
+        <h3>Plan de Entrenamiento Personalizado</h3>
+
+        {% if cliente.planes_personalizados.exists %}
+            <p>
+                El alumno <strong>SÍ</strong> ha contratado un Plan de Entrenamiento Personalizado,
+                el cual contempla sesiones y/o accesos definidos según el plan asignado.
+            </p>
+
+            <p>
+                <span>Plan(es) personalizado(s) contratado(s):</span>
+                {% for plan in cliente.planes_personalizados.all %}
+                    {{ plan.nombre_plan }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </p>
+
+            {% if cliente.coach_asignado %}
+            <p>
+                <span>Coach asignado:</span> {{ cliente.coach_asignado.nombre }} {{ cliente.coach_asignado.apellido }}
+            </p>
+            {% endif %}
+
+        {% else %}
+            <p>
+                El alumno <strong>NO</strong> ha contratado un Plan de Entrenamiento Personalizado.
+                Su acceso corresponde únicamente al plan general del gimnasio.
+            </p>
+        {% endif %}
+    </div>
+
         <p><span>Fecha de inicio:</span> {{ cliente.fecha_inicio_plan }}</p>
         <p><span>Fecha de cobro mensualidad:</span> {{ cliente.fecha_fin_plan }}</p>
     </div>

@@ -215,6 +215,15 @@ class Cliente(models.Model):
         related_name="clientes_asignados"
     )
 
+    grupo_plan = models.ForeignKey(
+        'GrupoPlan',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="clientes"
+    )
+
+
     metodo_pago = models.CharField(max_length=20, choices=METODOS_PAGO, null=True, blank=True)
     fecha_inicio_plan = models.DateField(null=True, blank=True)
     fecha_fin_plan = models.DateField(null=True, blank=True)
@@ -354,7 +363,21 @@ class Cliente(models.Model):
 
     def __str__(self):
         return f"{self.nombre} {self.apellido} - {self.rut}" 
-    
+
+
+
+class GrupoPlan(models.Model):
+    TIPO_PROMO = [
+        ('2x1', 'Promo 2x1'),
+    ]
+
+    tipo = models.CharField(max_length=10, choices=TIPO_PROMO, default='2x1')
+    creado = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Grupo 2x1 #{self.id}"
+
+
 class Asistencia(models.Model):
     TIPO_ASISTENCIA_CHOICES = [
         ("subplan", "Subplan"),

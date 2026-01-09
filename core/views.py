@@ -7,7 +7,7 @@ from django.shortcuts import render, redirect
 from django.utils import timezone
 from psycopg import logger
 from pyparsing import wraps
-from .models import AgendaProfesional, Cliente, Asistencia, Admin, Mensualidad, NombresProfesionales, PlanPersonalizado, Precios,Producto, Sesion, Venta, ClienteExterno
+from .models import AgendaProfesional, Cliente, Asistencia, Admin, GrupoPlan, Mensualidad, NombresProfesionales, PlanPersonalizado, Precios,Producto, Sesion, Venta, ClienteExterno
 from .forms import ClienteExternoForm, ClienteForm, ClientePaseDiarioForm, DescuentoUpdateForm, PrecioUpdateForm,ProductoForm
 from datetime import date, datetime, time,timedelta
 from dateutil.relativedelta import relativedelta
@@ -221,6 +221,100 @@ def registro_cliente(request):
         'cliente': cliente_creado,
         'coaches': coaches 
     })
+
+
+@role_required(['Administrador'])
+@never_cache
+def asociar_2x1(request):
+    if request.method != "POST":
+        return redirect("renovarCliente")
+
+    rut_1 = request.POST.get("rut_1")
+    rut_2 = request.POST.get("rut_2")
+
+    if not rut_1 or not rut_2:
+        messages.error(request, "Debes ingresar ambos RUT.")
+        return redirect("renovarCliente")
+
+    if rut_1 == rut_2:
+        messages.error(request, "No puedes asociar un cliente consigo mismo.")
+        return redirect("renovarCliente")
+
+    cliente1 = Cliente.objects.filter(rut=rut_1).first()
+    cliente2 = Cliente.objects.filter(rut=rut_2).first()
+
+    if not cliente1 or not cliente2:
+        messages.error(request, "Uno de los clientes no existe.")
+        return redirect(f"{reverse('renovarCliente')}?rut={rut_1}")
+
+    # Validaciones de seguridad
+    if cliente1.grupo_plan:
+        messages.error(request, f"{cliente1.nombre} ya pertenece a un 2x1.")
+        return redirect(f"{reverse('renovarCliente')}?rut={rut_1}")
+
+    if cliente2.grupo_plan:
+        messages.error(request, f"{cliente2.nombre} ya pertenece a un 2x1.")
+        return redirect(f"{reverse('renovarCliente')}?rut={rut_1}")
+
+    # Crear grupo y asociar
+    grupo = GrupoPlan.objects.create()
+
+    cliente1.grupo_plan = grupo
+    cliente2.grupo_plan = grupo
+
+    cliente1.save(update_fields=["grupo_plan"])
+    cliente2.save(update_fields=["grupo_plan"])
+
+    registrar_historial(
+        request.user_obj,
+        "asociar",
+        "Cliente",
+        cliente1.id,
+        f"Asoció Promo 2x1 entre {cliente1.rut} y {cliente2.rut}"
+    )
+
+    messages.success(
+        request,
+        f"🤝 Promo 2x1 asociada entre {cliente1.nombre} y {cliente2.nombre}"
+    )
+
+    return redirect(f"{reverse('renovarCliente')}?rut={rut_1}")
+
+@role_required(['Administrador'])
+@never_cache
+def desasociar_2x1(request):
+    if request.method != "POST":
+        return redirect("renovarCliente")
+
+    rut = request.POST.get("rut")
+
+    cliente = Cliente.objects.filter(rut=rut).first()
+    if not cliente or not cliente.grupo_plan:
+        messages.error(request, "El cliente no tiene promo 2x1.")
+        return redirect("renovarCliente")
+
+    grupo = cliente.grupo_plan
+    clientes_grupo = grupo.clientes.all()
+
+    for c in clientes_grupo:
+        c.grupo_plan = None
+        c.save(update_fields=["grupo_plan"])
+
+    grupo.delete()
+
+    registrar_historial(
+        request.user_obj,
+        "desasociar",
+        "Cliente",
+        cliente.id,
+        f"Eliminó Promo 2x1 del grupo #{grupo.id}"
+    )
+
+    messages.success(request, "❌ Promo 2x1 eliminada correctamente.")
+
+    return redirect(f"{reverse('renovarCliente')}?rut={rut}")
+
+
 
 @role_required(['Administrador'])
 @never_cache

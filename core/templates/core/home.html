@@ -10,16 +10,15 @@
     <link rel="stylesheet" type="text/css" href="{% static 'core/css/styles.css' %}">
 </head>
 <body>
+
 <header class="header-premium">
 
     <div class="header-left">
-    
+        <!-- aunque sea algo mínimo -->
     </div>
 
     {% if request.session.admin_id %}
     <div class="header-right-premium">
-
-    
 
         {% if request.session.admin_profesion == 'Administrador' %}
             {% if request.resolver_match.view_name != 'index' and request.resolver_match.view_name != 'home' %}
@@ -32,15 +31,11 @@
         <button class="btn-top logout" onclick="location.href='{% url 'logout' %}'">
             🔒 Cerrar sesión
         </button>
+
     </div>
     {% endif %}
 
 </header>
-
-
-
-
-
 
 {% if not request.session.admin_id %}
 <main class="login-wrapper">
@@ -54,7 +49,6 @@
         <form method="post" id="login-form">
             {% csrf_token %}
 
-            <!-- RUT -->
             <div class="input-group">
                 <span class="input-icon">🆔</span>
                 <input type="text" id="rut" name="rut" placeholder="RUT (sin puntos ni guion)">
@@ -63,7 +57,6 @@
                 ❌ RUT inválido
             </div>
 
-            <!-- PASSWORD -->
             <div class="input-group">
                 <span class="input-icon">🔒</span>
                 <input type="password" name="password" placeholder="Contraseña">
@@ -82,15 +75,17 @@
 </main>
 {% endif %}
 
+<!-- 👇 CONTENEDOR SCROLL HORIZONTAL -->
+<div class="page-scroll-x">
+    {% block content %}{% endblock %}
+</div>
 
-{% block content %}{% endblock %}
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
 const inputRut = document.getElementById("rut");
 const rutError = document.getElementById("rut-error");
 const form = document.getElementById("login-form");
-
 
 function validarRut(rut) {
     rut = rut.replace(/[^0-9kK]/gi, "").toUpperCase();
@@ -145,7 +140,6 @@ inputRut.addEventListener("blur", function() {
     }
 });
 
-
 form.addEventListener("submit", function(e) {
     if (!validarRut(inputRut.value)) {
         e.preventDefault();
@@ -154,5 +148,6 @@ form.addEventListener("submit", function(e) {
     }
 });
 </script>
+
 </body>
 </html>

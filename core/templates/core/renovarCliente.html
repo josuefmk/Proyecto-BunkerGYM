@@ -70,6 +70,7 @@
                 <th>Renovar</th>
                 <th>Modificar Cliente</th>
                 <th>Eliminar Cliente</th>
+                <th>Promo 2x1</th>
             </tr>
         </thead>
         <tbody>
@@ -198,8 +199,56 @@
                     Eliminar
                 </button>
             </td>
+
+
+  <!-- Promo 2x1 -->
+
+<td style="min-width: 220px;">
+    {% if cliente.grupo_plan %}
+        {% for c in cliente.grupo_plan.clientes.all %}
+            {% if c.id != cliente.id %}
+                <div style="font-size: 13px;">
+                    🤝 Con:<br>
+                    <b>{{ c.nombre }} {{ c.apellido }}</b><br>
+                    <small>{{ c.rut }}</small>
+                </div>
+
+                <!-- BOTÓN DESASOCIAR -->
+                <form method="POST"
+                      action="{% url 'desasociar_2x1' %}"
+                      style="margin-top:6px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="rut" value="{{ cliente.rut }}">
+                    <button class="btn-global" type="submit">
+                        ❌ Quitar 2x1
+                    </button>
+                </form>
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <!-- FORM ASOCIAR -->
+        <form method="POST"
+              action="{% url 'asociar_2x1' %}">
+            {% csrf_token %}
+            <input type="hidden" name="rut_1" value="{{ cliente.rut }}">
+            <input type="text"
+                   name="rut_2"
+                   placeholder="Ingresa RUT de compañero"
+                   style="width: 100%; font-size: 12px; margin-bottom:4px;"
+                   required>
+
+            <button class="btn-global" type="submit">
+                🤝 Asociar 2x1
+            </button>
+        </form>
+    {% endif %}
+</td>
+
+
         </tr>
         {% endfor %}
+            <!-- Promo 2x1 -->
+
         </tbody>
     </table>
 </div>
