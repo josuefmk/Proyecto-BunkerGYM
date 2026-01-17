@@ -77,20 +77,33 @@ WSGI_APPLICATION = 'ProyectoBunker.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'django.db.backends.postgresql',
+#        'NAME': 'BunkerGymBDP',
+#        'USER': 'postgres',
+#        'PASSWORD': 'xbk817rZWAKkMy1tJQTH',
+#        'HOST': 'bunkergymprod.ctq80iqq0jb3.us-east-2.rds.amazonaws.com',
+#        'PORT': '5432',
+#        'OPTIONS': {
+#            'sslmode': 'require',
+#        },
+#    }
+#}
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'BunkerGymBDP',
         'USER': 'postgres',
-        'PASSWORD': 'xbk817rZWAKkMy1tJQTH',
-        'HOST': 'bunkergymprod.ctq80iqq0jb3.us-east-2.rds.amazonaws.com',
+        'PASSWORD': 'Bunker_123!',
+        'HOST': '127.0.0.1',
         'PORT': '5432',
         'OPTIONS': {
             'sslmode': 'require',
         },
     }
 }
-
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
